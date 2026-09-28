@@ -4,6 +4,16 @@
 
 > ⚠️ **免责声明**：本工具仅用于已获授权的安全测试与教学研究。使用本工具对未授权目标进行探测所产生的一切后果由使用者自行承担，与作者无关。
 
+## 界面预览
+
+| 注入检测（浅色） | 数据管理（浅色） |
+| --- | --- |
+| ![注入检测](doc/screenshots/01-inject-detect.png) | ![数据管理](doc/screenshots/02-data-manager.png) |
+
+| 防护绕过 · 动态规则（浅色） | 注入检测（暗色主题） |
+| --- | --- |
+| ![动态规则](doc/screenshots/03-dynamic-rules.png) | ![暗色主题](doc/screenshots/04-dark-theme.png) |
+
 ## 功能特性
 
 ### 注入检测
