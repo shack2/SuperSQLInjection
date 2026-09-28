@@ -1,0 +1,66 @@
+# SuperSQLInjectionV2 桌面端（Avalonia GUI）三平台 Native AOT 编译打包
+# 手动触发：Actions → desktop-aot → Run workflow；产物在 Artifacts
+# 也被 release.yml 以 workflow_call 复用（打 tag 发布时自动构建）
+# 注：Native AOT 不支持跨 OS 交叉编译，三平台分别用对应 runner 本机编译
+name: desktop-aot
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  VERSION: 2.0.0
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, rid: win-x64 }
+          - { os: ubuntu-latest,  rid: linux-x64 }
+          - { os: macos-14,       rid: osx-arm64 }   # Apple Silicon；Intel Mac 需 macos-13 + osx-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 安装 Linux Native AOT 编译依赖
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: 编译桌面端 Native AOT（${{ matrix.rid }}）
+        run: dotnet publish SuperSQLInjectionV2.Desktop/SuperSQLInjectionV2.Desktop.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:PublishTrimmed=true --self-contained
+
+      - name: 清理调试符号
+        shell: bash
+        run: |
+          PUBDIR="SuperSQLInjectionV2.Desktop/bin/Release/net10.0/${{ matrix.rid }}/publish"
+          rm -f "$PUBDIR"/*.pdb "$PUBDIR"/*.dbg "$PUBDIR"/*.dwarf 2>/dev/null || true
+          ls -la "$PUBDIR"
+
+      - name: 打包 zip（Windows）
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $pub = "SuperSQLInjectionV2.Desktop/bin/Release/net10.0/${{ matrix.rid }}/publish"
+          Compress-Archive -Path "$pub/*" -DestinationPath "dist/SuperSQLInjectionV2-$env:VERSION-desktop-${{ matrix.rid }}.zip" -Force
+
+      - name: 打包 tar.gz（Linux/macOS）
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p dist
+          PUBDIR="SuperSQLInjectionV2.Desktop/bin/Release/net10.0/${{ matrix.rid }}/publish"
+          tar -czf "dist/SuperSQLInjectionV2-$VERSION-desktop-${{ matrix.rid }}.tar.gz" -C "$PUBDIR" .
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.rid }}
+          path: dist/
+          retention-days: 30

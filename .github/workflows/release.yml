@@ -1,0 +1,42 @@
+# SuperSQLInjectionV2 GitHub Release 发布流水线
+# 触发：推送 v* 标签（如 git tag v2.0.0 && git push origin v2.0.0）
+# 流程：复用 desktop-aot / cli-aot 两个 workflow 构建 6 个平台包 → 汇总创建 GitHub Release
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  # 桌面端三平台（复用 desktop-aot.yml）
+  desktop:
+    uses: ./.github/workflows/desktop-aot.yml
+
+  # 命令行三平台（复用 cli-aot.yml）
+  cli:
+    uses: ./.github/workflows/cli-aot.yml
+
+  # 汇总产物并创建 Release
+  publish:
+    needs: [desktop, cli]
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载全部构建产物
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*'
+          path: dist
+          merge-multiple: true
+
+      - name: 产物清单
+        run: ls -la dist/
+
+      - name: 创建 GitHub Release 并附加安装包
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
