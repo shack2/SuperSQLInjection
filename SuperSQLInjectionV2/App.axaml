@@ -2,7 +2,6 @@
     x:Class="SuperSQLInjectionV2.App"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:semi="https://irihi.tech/semi"
     xmlns:u-semi="https://irihi.tech/ursa/themes/semi"
     xmlns:u="https://irihi.tech/ursa"
     xmlns:iri="https://irihi.tech/shared">
@@ -21,40 +20,7 @@
             <Setter Property="TextElement.FontFamily" Value="Inter,Segoe UI,PingFang SC,Hiragino Sans GB,Microsoft YaHei,sans-serif" />
         </Style>
 
-        <!-- semi datagrid style-->
-         <semi:DataGridSemiTheme />
-
-        <!--  ======== DataGrid 全局美化（对齐设计稿：表头灰底半粗、行悬浮、选中主色淡染、细分隔线） ========  -->
-        <Style Selector="DataGrid">
-            <Setter Property="Background" Value="{DynamicResource DsgCard}" />
-            <Setter Property="GridLinesVisibility" Value="Horizontal" />
-            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource DsgBorder}" />
-            <Setter Property="RowBackground" Value="Transparent" />
-            <Setter Property="RowHeight" Value="32" />
-            <Setter Property="FontSize" Value="12" />
-        </Style>
-        <Style Selector="DataGridColumnHeader">
-            <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
-            <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="MinHeight" Value="34" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="BorderThickness" Value="0,0,0,1" />
-            <Setter Property="BorderBrush" Value="{DynamicResource DsgLineStrong}" />
-        </Style>
-        <Style Selector="DataGridColumnHeader:pointerover">
-            <Setter Property="Background" Value="{DynamicResource DsgSurface3}" />
-        </Style>
-        <Style Selector="DataGridRow:pointerover">
-            <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
-        </Style>
-        <Style Selector="DataGridRow:selected">
-            <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
-            <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
-        </Style>
-
-        <!--  ======== TableView 全局美化（对齐 DataGrid 观感：紧凑行高、表头灰底半粗、行悬浮、选中主色淡染） ========  -->
+        <!--  ======== TableView 全局美化（紧凑行高、表头灰底半粗、行悬浮、选中主色淡染） ========  -->
         <Style Selector="TableView">
             <Setter Property="Background" Value="{DynamicResource DsgCard}" />
             <Setter Property="FontSize" Value="12" />
@@ -216,9 +182,6 @@
         <Style Selector="ToggleSwitch.se:disabled /template/ Border#PART_Track">
             <Setter Property="Opacity" Value="0.45" />
         </Style>
-          <!-- ava datagrid style
-        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
-        -->
 
         <!--This style is created to demonstrate Dialog StyleClass feature. This style is applied to Dialog Window-->
         <Style Selector="u|StandardDialogWindow.Custom">

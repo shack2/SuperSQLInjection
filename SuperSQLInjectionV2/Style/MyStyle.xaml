@@ -1,7 +1,6 @@
 <Styles
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:dg="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
     xmlns:iri="https://irihi.tech/shared"
     xmlns:semi="https://irihi.tech/semi">
 
@@ -20,14 +19,6 @@
         <!--  全局 ComboBox 统一带边框样式  -->
     <Style Selector="ComboBox">
         <Setter Property="iri:ClassHelper.Classes" Value="Bordered" />
-    </Style>
-
-    <!--  DataGrid 斑马纹与行高质感  -->
-    <Style Selector="dg|DataGrid">
-        <Setter Property="RowBackground" Value="Transparent" />
-    </Style>
-    <Style Selector="dg|DataGridRow:nth-child(2n)">
-        <Setter Property="Background" Value="{DynamicResource SemiColorFill0}" />
     </Style>
 
 </Styles>
