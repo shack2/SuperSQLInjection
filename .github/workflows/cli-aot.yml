@@ -33,6 +33,17 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
+      # macOS 默认 Xcode 太旧会缺 swift_Builtin_float 等新版 Swift 运行时库，
+      # 导致 Native AOT 链接报 Undefined symbols __swift_FORCE_LOAD_$_swift_*，这里切到 runner 上最新 Xcode
+      - name: 切换到最新 Xcode（仅 macOS）
+        if: runner.os == 'macOS'
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | tail -1)
+          [ -z "$XCODE" ] && XCODE="/Applications/Xcode.app"
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
       - name: 编译命令行 Native AOT（${{ matrix.rid }}）
         run: dotnet publish SuperSQLInjectionV2.Cmd/SuperSQLInjectionV2.Cmd.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:PublishTrimmed=true --self-contained
 
