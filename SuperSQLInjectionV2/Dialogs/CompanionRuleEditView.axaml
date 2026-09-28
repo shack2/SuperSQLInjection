@@ -89,8 +89,7 @@
                 <TextBlock Text="执行脚本：" VerticalAlignment="Center" />
                 <ComboBox Width="240" VerticalAlignment="Center"
                           ItemsSource="{Binding ScriptItems}"
-                          SelectedValue="{Binding Rule.ScriptName}"
-                          SelectedValueBinding="{ReflectionBinding Name}"
+                          SelectedItem="{Binding SelectedScript}"
                           PlaceholderText="选择脚本（默认取第一个启用脚本）"
                           ToolTip.Tip="脚本提取：输入为抓取响应报文；脚本生成：输入为主请求报文，输出即为动态值（API签名等场景）">
                     <ComboBox.ItemTemplate>

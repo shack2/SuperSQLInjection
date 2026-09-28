@@ -75,6 +75,23 @@ public partial class CompanionRuleEditViewModel : ObservableObject, IDialogConte
         }
     }
 
+    /// <summary>
+    /// 脚本下拉选中项（SelectedItem 编译绑定，与 Rule.ScriptName 按名称双向映射；替代 SelectedValueBinding 反射绑定）。
+    /// setter 忽略 null：ItemsSource 刷新（来源切换）时 ComboBox 会先回写 null，不能因此误清用户已选脚本
+    /// </summary>
+    public ScriptTamperModel? SelectedScript
+    {
+        get => ScriptItems.FirstOrDefault(s => s.Name == Rule.ScriptName);
+        set
+        {
+            if (value != null && Rule.ScriptName != value.Name)
+            {
+                Rule.ScriptName = value.Name;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     private void Rule_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(CompanionRequestConfig.Kind))
@@ -90,6 +107,7 @@ public partial class CompanionRuleEditViewModel : ObservableObject, IDialogConte
         if (e.PropertyName == nameof(CompanionRequestConfig.SourceMode))
         {
             OnPropertyChanged(nameof(ScriptItems));
+            OnPropertyChanged(nameof(SelectedScript));
         }
     }
 
@@ -120,6 +138,7 @@ public partial class CompanionRuleEditViewModel : ObservableObject, IDialogConte
             _config.TokenScripts.Add(item);
             OnPropertyChanged(nameof(ScriptItems));
             Rule.ScriptName = item.Name;
+            OnPropertyChanged(nameof(SelectedScript));
         }
     }
 

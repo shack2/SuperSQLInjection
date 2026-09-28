@@ -3455,7 +3455,7 @@
                                                                      Watermark="请求包">
                                                     <AvaloniaEditor:TextEditor.ContextFlyout>
                                                         <MenuFlyout>
-                                                            <MenuItem Header="Copy" InputGesture="ctrl+C" Command="{ReflectionBinding CopyMouseCommand}" CommandParameter="{Binding #RequestLogBox.TextArea}" >
+                                                            <MenuItem Header="Copy" InputGesture="ctrl+C" Command="{Binding CopyMouseCommand}" CommandParameter="{Binding #RequestLogBox.TextArea}" >
                                                                 <MenuItem.Icon>
                                                                     <PathIcon Data="{StaticResource SemiIconCopy}" />
                                                                 </MenuItem.Icon>
