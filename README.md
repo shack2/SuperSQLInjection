@@ -1,6 +1,6 @@
 # SuperSQLInjectionV2（超级 SQL 注入工具 V2）
 
-跨平台 SQL 注入检测与利用工具，是 [SuperSQLInjectionV1](https://github.com/shack2/SuperSQLInjection) 的全面重构升级：从 Windows WinForms 迁移到 **Avalonia 12 跨平台桌面端**，并新增 **Native AOT 命令行版本**，支持 Windows / Linux / macOS。
+跨平台 SQL 注入检测与利用工具，是 [SuperSQLInjectionV1](https://github.com/shack2/SuperSQLInjectionV1) 的全面重构升级：从 Windows WinForms 迁移到 **Avalonia 12 跨平台桌面端**，并新增 **Native AOT 命令行版本**，支持 Windows / Linux / macOS。
 
 > ⚠️ **免责声明**：本工具仅用于已获授权的安全测试与教学研究。使用本工具对未授权目标进行探测所产生的一切后果由使用者自行承担，与作者无关。
 
