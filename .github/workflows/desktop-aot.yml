@@ -122,7 +122,9 @@ jobs:
             sips -z $((s*2)) $((s*2)) build/AppIcon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
           done
           iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
-          codesign --force --deep --sign - "$APP"
+          # ad-hoc 签名：逐个签 dylib/主程序（不能用 --deep，config/udf 下的数据库UDF二进制目录会被误判为嵌套Bundle导致签名失败）
+          find "$APP/Contents/MacOS" -maxdepth 1 \( -name "*.dylib" -o -type f -perm +111 \) -exec codesign --force --sign - {} \;
+          codesign --force --sign - "$APP"
           hdiutil create -volname "SuperSQLInjectionV2" -srcfolder "$APP" -ov -format UDZO "dist/SuperSQLInjectionV2-$VERSION-desktop-${{ matrix.rid }}.dmg"
           rm -rf "$APP" "$ICONSET"
           ls -la dist/
