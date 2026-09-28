@@ -67,13 +67,65 @@ jobs:
           $pub = "SuperSQLInjectionV2.Desktop/bin/Release/net10.0/${{ matrix.rid }}/publish"
           Compress-Archive -Path "$pub/*" -DestinationPath "dist/SuperSQLInjectionV2-$env:VERSION-desktop-${{ matrix.rid }}.zip" -Force
 
-      - name: 打包 tar.gz（Linux/macOS）
-        if: runner.os != 'Windows'
+      - name: 打包 tar.gz（Linux）
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           mkdir -p dist
           PUBDIR="SuperSQLInjectionV2.Desktop/bin/Release/net10.0/${{ matrix.rid }}/publish"
           tar -czf "dist/SuperSQLInjectionV2-$VERSION-desktop-${{ matrix.rid }}.tar.gz" -C "$PUBDIR" .
+
+      # macOS 桌面端按平台惯例打 .app Bundle 再封装 .dmg：
+      # publish 产物整体进 Contents/MacOS/，Info.plist 声明可执行名/版本/最低系统，
+      # iconutil 由 build/AppIcon.png 生成 icns，codesign 做 ad-hoc 签名（Apple Silicon 要求所有代码至少 ad-hoc 签名）
+      - name: 打包 .app + .dmg（macOS）
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -e
+          PUBDIR="SuperSQLInjectionV2.Desktop/bin/Release/net10.0/${{ matrix.rid }}/publish"
+          APP="dist/SuperSQLInjectionV2.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp -R "$PUBDIR"/. "$APP/Contents/MacOS/"
+          cat > "$APP/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleName</key>
+              <string>SuperSQLInjectionV2</string>
+              <key>CFBundleDisplayName</key>
+              <string>超级SQL注入工具V2</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.shack2.supersqlinjectionv2</string>
+              <key>CFBundleVersion</key>
+              <string>$VERSION</string>
+              <key>CFBundleShortVersionString</key>
+              <string>$VERSION</string>
+              <key>CFBundleExecutable</key>
+              <string>SuperSQLInjectionV2.Desktop</string>
+              <key>CFBundleIconFile</key>
+              <string>AppIcon</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>13.0</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          ICONSET="dist/AppIcon.iconset"
+          mkdir -p "$ICONSET"
+          for s in 16 32 128 256 512; do
+            sips -z $s $s build/AppIcon.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
+            sips -z $((s*2)) $((s*2)) build/AppIcon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+          done
+          iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+          codesign --force --deep --sign - "$APP"
+          hdiutil create -volname "SuperSQLInjectionV2" -srcfolder "$APP" -ov -format UDZO "dist/SuperSQLInjectionV2-$VERSION-desktop-${{ matrix.rid }}.dmg"
+          rm -rf "$APP" "$ICONSET"
+          ls -la dist/
 
       - name: 上传产物
         uses: actions/upload-artifact@v4

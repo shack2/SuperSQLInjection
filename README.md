@@ -95,9 +95,12 @@ dotnet build SuperSQLInjectionV2.Desktop/SuperSQLInjectionV2.Desktop.csproj
 
 | Workflow | 触发 | 说明 |
 | --- | --- | --- |
-| `desktop-aot` | 手动 | 桌面端 win-x64 / linux-x64 / osx-arm64 三平台 AOT 打包 |
-| `cli-aot` | 手动 | 命令行三平台 AOT 打包（含 `--version` 冒烟验证） |
+| `desktop-aot` | 手动 | 桌面端 win-x64(zip) / linux-x64(tar.gz) / osx-arm64(dmg，含 .app) 三平台 AOT 打包 |
+| `cli-aot` | 手动 | 命令行三平台 AOT 打包（含 `--version` / `--selftest` 冒烟验证） |
 | `release` | 推送 `v*` 标签 | 全量构建 6 个平台包并自动创建 GitHub Release |
+
+> macOS 说明：桌面端为 `.dmg`（内含 `SuperSQLInjectionV2.app`，要求 macOS 13+，Apple Silicon）。
+> 未做开发者签名/公证，首次打开前需解除隔离：`xattr -dr com.apple.quarantine /Applications/SuperSQLInjectionV2.app`
 
 发布正式版本：
 
