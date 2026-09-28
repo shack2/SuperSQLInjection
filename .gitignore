@@ -479,3 +479,6 @@ TestHarness/resp.html
 # TestWebApp 运行期数据库文件
 TestWebApp/java/*.trace.db
 TestWebApp/java/*.mv.db
+
+# 开发调试目录（测试工程/靶场/设计稿/过程文档，不同步 GitHub）
+dev/

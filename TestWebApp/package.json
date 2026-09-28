@@ -1,5 +1,0 @@
-{
-  "scripts": {
-    "dev": "dotnet run"
-  }
-}
