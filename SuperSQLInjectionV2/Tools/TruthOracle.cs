@@ -1,0 +1,326 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using SuperSQLInjectionV2.Models;
+using SuperSQLInjectionV2.Tools.Http;
+
+namespace SuperSQLInjectionV2.Tools
+{
+    /// <summary>从 MyTools 拆分出的TruthOracle内聚簇</summary>
+    public partial class TruthOracle
+    {
+        /// <summary>非空白字符判定（原逐循环new Regex的每次重建，源生成静态复用）</summary>
+        [GeneratedRegex("[\\S]+")]
+        private static partial Regex NonSpaceRegex();
+
+        /// <summary>
+        /// 判断页面注入true或false
+        /// </summary>
+        /// <param name="server">服务器响应对象ServerInfo</param>
+        /// <param name="isUseCode">是否使用状态码判断</param>
+        /// <param name="key">关键字</param>
+        /// <returns></returns>
+        public static bool IsTrue(HttpResponse response,string key,bool reverKey,BoolInjectType keyType)
+        {
+            switch (keyType) {
+               
+                case BoolInjectType.KeyWord:
+
+                    //用关键字判断
+                    if (!string.IsNullOrEmpty(response.BodyTxt) && response.BodyTxt.Contains(key, StringComparison.Ordinal))
+                    {
+                        if (reverKey)
+                        {
+                            return false;
+                        }
+                        else {
+                            return true;
+                        }
+                       
+                    }
+                    else
+                    {
+                        if (reverKey)
+                        {
+                            return true;
+                        }
+                        return false;
+                    }
+
+                case BoolInjectType.RegexWord:
+
+                    //用正则判断
+                    if (!string.IsNullOrEmpty(response.BodyTxt) && Regex.IsMatch(response.BodyTxt, key))
+                    {
+                        if (reverKey)
+                        {
+                            return false;
+                        }
+                        return true;
+                    }
+                    else
+                    {
+                        if (reverKey)
+                        {
+                            return true;
+                        }
+                        return false;
+                    }
+                case BoolInjectType.Code:
+                    //用状态码判断
+                    if (response.StatusCode> 0 && key.Equals(response.StatusCode + "", StringComparison.Ordinal))
+                    {
+                        if (reverKey)
+                        {
+                            return false;
+                        }
+                        return true;
+                    }
+                    else
+                    {
+                        if (reverKey)
+                        {
+                            return true;
+                        }
+                        return false;
+                    }
+                
+
+                case BoolInjectType.Time:
+                    //由于计数器有误差（可能客户端计数小于服务端，如果页面正常响应时间非常快，可能导致返回时间可能提前，所以考虑设置一个误差值）
+                    int time = MyTools.ConvertToInt(key);
+                    if (response.RunTime > (time*1000-(time*MyTools.deviation)))
+                    {
+                        if (reverKey)
+                        {
+                            return false;
+                        }
+                        return true;
+                    }
+                    else
+                    {
+                        if (reverKey)
+                        {
+                            return true;
+                        }
+                        return false;
+                    }
+
+                case BoolInjectType.BodyLength:
+                    //用长度判断
+                    if (key.Equals(response.JudgeLength.ToString(), StringComparison.Ordinal))
+                    {
+                        if (reverKey)
+                        {
+                            return false;
+                        }
+                        return true;
+                    }
+                    else
+                    {
+                        if (reverKey)
+                        {
+                            return true;
+                        }
+                        return false;
+                    }
+
+                case BoolInjectType.MaxLength:
+                    //用长度判断
+                    if (response.JudgeLength > MyTools.ConvertToInt(key))
+                    {
+                        if (reverKey)
+                        {
+                            return false;
+                        }
+                        return true;
+                    }
+                    else
+                    {
+                        if (reverKey)
+                        {
+                            return true;
+                        }
+                        return false;
+                    }
+                case BoolInjectType.MinLength:
+                    //用长度判断
+                    if (response.JudgeLength < MyTools.ConvertToInt(key))
+                    {
+                        if (reverKey)
+                        {
+                            return false;
+                        }
+                        return true;
+                    }
+                    else
+                    {
+                        if (reverKey)
+                        {
+                            return true;
+                        }
+                        return false;
+                    }
+
+            }
+            return false;
+           
+        }
+
+        /// <summary>
+        /// 词集合相似度（对称Jaccard：|A∩B|/|A∪B|*100），
+        /// 旧实现为非对称 |A∩B|/|A|，页面只是多出一截时会误判为100%相同
+        /// </summary>
+        public static decimal GetLike(string body1, string body2)
+        {
+
+            String[] keys1 = Regex.Split(body1 ?? "", "[^\\u0080-\\uFFFF\\w\\-\\d]+");
+            String[] keys2 = Regex.Split(body2 ?? "", "[^\\u0080-\\uFFFF\\w\\-\\d]+");
+
+            HashSet<String> hash1 = new HashSet<String>();
+            HashSet<String> hash2 = new HashSet<String>();
+            foreach (string key in keys1)
+            {
+                if (key.Length > 0)
+                {
+                    hash1.Add(key);
+                }
+            }
+            foreach (string key in keys2)
+            {
+                if (key.Length > 0)
+                {
+                    hash2.Add(key);
+                }
+            }
+            if (hash1.Count == 0 && hash2.Count == 0)
+            {
+                return 100;
+            }
+            int count = 0;
+            foreach (string key in hash2)
+            {
+                if (hash1.Contains(key))
+                {
+                    count++;
+                }
+            }
+            int union = hash1.Count + hash2.Count - count;
+            if (union <= 0)
+            {
+                return 100;
+            }
+            decimal p = decimal.Round((decimal)count * 100 / union, 2);
+            return p;
+        }
+
+        public static decimal GetLike2(string body1, string body2)
+        {
+
+            String[] keys1 = Regex.Split(body1, "[^\\u0080-\\uFFFF\\w\\-\\d]+");
+            String[] keys2 = Regex.Split(body2, "[^\\u0080-\\uFFFF\\w\\-\\d]+");
+
+            decimal p = 0;
+            if (keys1.Length > 0)
+            {
+                decimal cc = (decimal)((float)keys2.Length * 100 / keys1.Length);
+                p = decimal.Round(cc, 2);
+            }
+            return p;
+        }
+
+        public static string FindKeyByStr(string? trueString, string? falseString, string? oldString)
+        {
+            try
+            {   //以时间判断
+               if (trueString == null || falseString == null || oldString == null) { return ""; }
+                string key = "";
+
+               String[] Keys = Regex.Split(oldString, "[^\\u0080-\\uFFFF\\w\\d]+");
+             
+               foreach (string ckey in Keys) {
+                    if (!falseString.Contains(ckey, StringComparison.Ordinal) && trueString.Contains(ckey, StringComparison.Ordinal)) {
+                        return ckey;
+                    }
+               }
+                for (int length = 5; length >= 1; length--)
+                {
+                        for (int i = 0; i < trueString.Length - length; i++)
+                        {
+                            if (trueString.Length <= length && !trueString.Equals(falseString, StringComparison.Ordinal))
+                            {
+                                return trueString;
+                            }
+                            string tempKey = trueString.Substring(i, length);
+                            if (!falseString.Contains(tempKey, StringComparison.Ordinal) && oldString.Contains(key, StringComparison.Ordinal))
+                            {
+                                key = tempKey;
+                                //非制表符，返回结果，否则继续查看是否还有其他关键词
+                                if (NonSpaceRegex().IsMatch(key)) {
+                                    return key;
+                                }
+                            }
+
+                        }
+                    
+                }
+                return key;
+
+            }
+            catch (Exception e)
+            {
+
+                Log.SysLog("FindKeyByStr:" + e.Message);
+
+            }
+            return "";
+        }
+
+        public static int FindKeyByCode(int trueCode, int falseCode)
+        {
+            if (trueCode != falseCode) {
+                return trueCode;
+            }
+            return 0;
+
+        }
+
+        public static int FindKeyByTime(int trueTime, int falseTime,int maxTime)
+        {
+            if (trueTime > maxTime&&falseTime<maxTime) {
+                return maxTime;
+            }
+   
+                return 0;
+        }
+
+        public static int FindKeyCount(string str,string key)
+        {
+            int count = 0;
+            try
+            {
+                if (!String.IsNullOrEmpty(str))
+                {
+                    int index = 0;
+
+                    while (index != -1)
+                    {
+                        index = str.IndexOf(key, index + 1, StringComparison.Ordinal);
+                        if (index != -1)
+                        {
+                            count++;
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Log.SysLog("FindKeyCount:" + e.Message);
+            }
+            return count;
+
+        }
+    }
+}

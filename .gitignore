@@ -457,28 +457,14 @@ $RECYCLE.BIN/
 ## 本项目自定义
 ##
 
-# 本地交叉编译工具链（zig/upx，体积大，仅供 publish 脚本使用，不入库）
-tools/
+# 本地交叉编译工具链（zig/upx，体积大，仅供 dev/ 下 publish 脚本使用，不入库）
+# 注意：必须锚定根目录写成 /tools/；裸写 tools/ 会匹配任意深度的同名目录（曾误伤 SuperSQLInjectionV2/Tools 源码）
+/tools/
 
-# Kimi Work 技能打包产物与内置二进制（由 publish-cli-aot 脚本生成，可再生）
+# Kimi Work 技能打包产物与内置二进制（由 dev/publish-cli-aot 脚本生成，可再生）
 *.skill
 skills/*/assets/bin/
 
-# 测试截图等临时产物
-TestHarness/*.png
-TestHarness/*.log
-
-# TestHarness 调试/测试临时产物（安装包、截图、快照、日志、临时目录）
-TestHarness/installers/
-TestHarness/shots/
-TestHarness/snapshots/
-TestHarness/logs/
-TestHarness/tmp/
-TestHarness/resp.html
-
-# TestWebApp 运行期数据库文件
-TestWebApp/java/*.trace.db
-TestWebApp/java/*.mv.db
-
-# 开发调试目录（测试工程/靶场/设计稿/过程文档，不同步 GitHub）
-dev/
+# 开发调试目录（测试工程/靶场/设计稿/过程文档/构建发布脚本，不同步 GitHub）
+# 同样必须锚定根目录，避免误伤深层同名目录
+/dev/
