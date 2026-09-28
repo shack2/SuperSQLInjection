@@ -238,12 +238,30 @@ CLI 检出注入后自动复用注入点拼接对应数据库的取数 SQL，无
 
 ### 6.6 读取文件
 
-按数据库类型自动选择文件读取通道（MySQL `load_file`、SQLServer `OPENROWSET/BULK`、PostgreSQL `pg_read_file`、Oracle `UTL_FILE` 等），输入远程路径即可读取内容。操作方式通过下拉框选择通道，结果显示支持从首行展示、复制与导出。
+按数据库类型自动选择文件读取通道，输入远程路径即可读取内容。操作方式通过下拉框选择通道，结果显示支持从首行展示、复制与导出。
+
+| 数据库 | 读文件通道 |
+| --- | --- |
+| MySQL | `load_file` |
+| SQLServer | FileSystemObject（OLE Automation）、BULK INSERT |
+| PostgreSQL | COPY FROM（堆叠）、大对象 lo_import（Union/报错单语句） |
+| openGauss / Kingbase | COPY FROM（兼容 PG 语法） |
+| H2 | CSVREAD（char 链免引号） |
+| ClickHouse | `file()` 表函数（仅 user_files 目录） |
+| Oracle / 达梦 | GETXML + Java 存储过程（免堆叠，需 CREATE PROCEDURE 权限；达梦为实验性） |
 
 ### 6.7 写文件
 
-- 常规写文件：MySQL `INTO OUTFILE/DUMPFILE`、SQLServer `xp_cmdshell` 回写、PostgreSQL `COPY` 等；
-- **MySQL UDF 写库**：内置 lib_mysqludf_sys 二进制，通过 Union 写入 plugin 目录后 `CREATE FUNCTION sys_eval`，为命令执行铺路。
+| 数据库 | 写文件通道 |
+| --- | --- |
+| MySQL | Union `INTO DUMPFILE`、`general_log` 写 WebShell（堆叠）、UDF 写库（内置 lib_mysqludf_sys 二进制写 plugin 目录建 `sys_eval`，为命令执行铺路） |
+| SQLServer | FileSystemObject、sp_MakeWebTask、备份写 WebShell |
+| PostgreSQL | COPY TO（堆叠）、大对象 lo_from_bytea/lo_export（Union/报错单语句） |
+| openGauss / Kingbase | COPY TO（兼容 PG 语法） |
+| H2 | CSVWRITE（char 链免引号） |
+| SQLite | ATTACH DATABASE 写 WebShell（堆叠） |
+| ClickHouse | `INTO OUTFILE ... FORMAT RawBLOB`（Union 单语句，需非 readonly） |
+| Oracle / 达梦 | GETXML + Java 存储过程（内容 hex 传参，受 varchar2(4000) 限制约 2000 字节） |
 
 ### 6.8 命令执行
 
@@ -252,10 +270,12 @@ CLI 检出注入后自动复用注入点拼接对应数据库的取数 SQL，无
 | 数据库 | 通道 |
 | --- | --- |
 | MySQL | UDF（sys_eval / sys_exec，内置二进制自动写库建函数） |
-| SQLServer | xp_cmdshell（自动开启组件）、OLE、CLR 等 |
-| PostgreSQL | UDF（lib_postgresqludf_sys）、COPY FROM PROGRAM 等 |
-| Oracle | Java 存储过程 / DBMS_SCHEDULER 等 |
-| 达梦 | 兼容 Oracle 通道 |
+| SQLServer | xp_cmdshell（自动开启组件）、sp_OACreate(wscript.shell) 兜底（xp 被删时用，输出经 BULK INSERT 回读） |
+| PostgreSQL | COPY FROM PROGRAM（9.3+）、UDF（lib_postgresqludf_sys，8.2~9.4） |
+| Kingbase | COPY FROM PROGRAM（复用 PG 通道） |
+| H2 | CREATE ALIAS Java 函数（需堆叠 + H2 1.x 且 JDK 编译器可用） |
+| Oracle | GETXML + Java 存储过程（`dbms_xmlquery.getxml` 在 SELECT 中执行匿名 PL/SQL 部署 Java，免堆叠） |
+| 达梦 | 复用 Oracle GETXML Java 通道（实验性，需实测验证） |
 
 输出逐字符实时回显；自动剥离通道产生的多余换行。
 

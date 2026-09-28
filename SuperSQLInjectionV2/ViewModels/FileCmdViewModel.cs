@@ -92,17 +92,20 @@ namespace SuperSQLInjectionV2.ViewModels
                 case DBType.MySQL:
                     FileMethods.Add("Load_File读文件");
                     FileMethods.Add("Union写文件");
+                    FileMethods.Add("日志写WebShell");
                     CmdMethods.Add("UDF sys_eval");
                     CmdMethodHint = "UDF sys_eval（需Union/堆叠注入，自动上传 lib_mysqludf_sys）";
-                    FileMethodHint = "";
+                    FileMethodHint = "日志写WebShell需堆叠注入（set global general_log 系列语句），Union写文件需Union注入";
                     break;
                 case DBType.PostgreSQL:
                     FileMethods.Add("Copy读文件");
                     FileMethods.Add("Copy写文件");
+                    FileMethods.Add("大对象读文件");
+                    FileMethods.Add("大对象写文件");
                     CmdMethods.Add("COPY FROM PROGRAM");
                     CmdMethods.Add("UDF sys_eval");
                     CmdMethodHint = "COPY FROM PROGRAM（9.3+，需superuser/pg_execute_server_program）；UDF sys_eval（8.2~9.4，需堆叠注入）";
-                    FileMethodHint = "";
+                    FileMethodHint = "Copy读写需堆叠注入；大对象读写为单语句表达式（Union/报错通道即可，需superuser或pg_read/write_server_files）";
                     break;
                 case DBType.SQLServer:
                     FileMethods.Add("FileSystemObject读文件");
@@ -111,7 +114,8 @@ namespace SuperSQLInjectionV2.ViewModels
                     FileMethods.Add("Sp_MakeWebTask写文件");
                     FileMethods.Add("备份写WebShell(有多余数据)");
                     CmdMethods.Add("xp_cmdshell");
-                    CmdMethodHint = "xp_cmdshell（自动 sp_configure 开启，仅 Windows 版 SQL Server）";
+                    CmdMethods.Add("sp_OACreate(xp被删时备用)");
+                    CmdMethodHint = "xp_cmdshell（自动 sp_configure 开启，仅 Windows 版 SQL Server）；sp_OACreate(wscript.shell) 需 sysadmin+堆叠，输出经BULK INSERT回读";
                     FileMethodHint = "";
                     break;
                 case DBType.OpenGauss:
@@ -121,11 +125,20 @@ namespace SuperSQLInjectionV2.ViewModels
                     CmdMethodHint = "openGauss 不支持 COPY FROM PROGRAM，命令执行不可用";
                     FileMethodHint = "";
                     break;
+                case DBType.Kingbase:
+                    //KingbaseES兼容PG协议与COPY语法，复用PG通道（UDF二进制为PG专用，不接）
+                    FileMethods.Add("Copy读文件");
+                    FileMethods.Add("Copy写文件");
+                    CmdMethods.Add("COPY FROM PROGRAM");
+                    CmdMethodHint = "KingbaseES 复用 PostgreSQL COPY FROM PROGRAM 通道（需superuser）";
+                    FileMethodHint = "Copy读写需堆叠注入+superuser（KingbaseES V8兼容PG语法）";
+                    break;
                 case DBType.H2:
                     //H2嵌入式：读写的是应用服务器本地文件；CSVREAD/CSVWRITE
                     FileMethods.Add("CSVREAD读文件");
                     FileMethods.Add("CSVWRITE写文件");
-                    CmdMethodHint = "H2 不支持命令执行";
+                    CmdMethods.Add("CREATE ALIAS命令执行");
+                    CmdMethodHint = "CREATE ALIAS（需堆叠注入+H2 1.x且JDK编译器可用，2.x移除此特性）；管道/重定向请自行加 /bin/sh -c 或 cmd /c";
                     FileMethodHint = "";
                     break;
                 case DBType.HSQLDB:
@@ -133,18 +146,44 @@ namespace SuperSQLInjectionV2.ViewModels
                     CmdMethodHint = "HSQLDB 不支持命令执行";
                     FileMethodHint = "HSQLDB 暂不支持文件操作（TEXT TABLE需多条DDL配合，单语句注入不可用）";
                     break;
+                case DBType.SQLite:
+                    //SQLite：ATTACH DATABASE 附加新库文件写shell（需堆叠）；readfile()默认不可用，load_extension默认禁用
+                    FileMethods.Add("ATTACH写WebShell");
+                    CmdMethodHint = "SQLite 不支持命令执行（load_extension 默认禁用）";
+                    FileMethodHint = "ATTACH写WebShell需堆叠注入（attach/create/insert三条语句）；不提供读文件（readfile()默认不可用）";
+                    break;
+                case DBType.ClickHouse:
+                    //ClickHouse：file()表函数读user_files目录；INTO OUTFILE写文件（Union注入单语句）
+                    FileMethods.Add("file()读文件");
+                    FileMethods.Add("INTO OUTFILE写文件");
+                    CmdMethodHint = "ClickHouse 不支持命令执行";
+                    FileMethodHint = "file()仅能读 user_files 目录内文件；INTO OUTFILE需Union注入且非readonly模式，路径相对服务进程工作目录";
+                    break;
                 case DBType.Oracle:
+                    //GETXML Java通道：dbms_xmlquery.getxml参数经EXECUTE IMMEDIATE执行，可传匿名PL/SQL块执行DDL，
+                    //借此免堆叠部署Java存储过程（CREATE JAVA SOURCE+映射函数），Union/盲注均可触发
+                    FileMethods.Add("Java读文件");
+                    FileMethods.Add("Java写文件");
+                    CmdMethods.Add("Java命令执行(GETXML)");
+                    CmdMethodHint = "GETXML+Java存储过程：需 CREATE PROCEDURE 等高权限（DBMS_JAVA可用），返回值限4000字符";
+                    FileMethodHint = "Java通道读写文件，免堆叠（Union/盲注均可触发）；写文件内容限约2000字节（hex后受varchar2(4000)限制）";
+                    break;
                 case DBType.DM:
-                    //实测结论（2026-09）：Oracle经ODP.NET不支持分号堆叠（ORA-00933），UTL_FILE需DBA预建DIRECTORY，
-                    //XEE file://被ACL拦截（ORA-31001）；DM的DmProvider堆叠批内禁DDL（"不支持的语句类型"），
-                    //UTL_FILE包存在但无预置目录对象，XEE需SP_INIT_XML加载XML库。两侧命令执行均需Java存储过程（CREATE JAVA属DDL）。
-                    //以上前提在纯Web注入场景默认不成立，与业界同类工具能力边界一致，故不提供文件/命令操作。
-                    CmdMethodHint = "Oracle/DM 命令执行需 Java 存储过程（CREATE JAVA 属 DDL，注入场景不可用）";
-                    FileMethodHint = "Oracle/DM 文件读写需 DBA 预建 DIRECTORY 后 UTL_FILE（堆叠禁DDL/驱动不支持堆叠），不可用";
+                    //实验性：DM高度兼容Oracle语法，复用同一GETXML Java通道，需实测验证
+                    FileMethods.Add("Java读文件");
+                    FileMethods.Add("Java写文件");
+                    CmdMethods.Add("Java命令执行(GETXML)");
+                    CmdMethodHint = "实验性：复用Oracle GETXML+Java通道（DM兼容Oracle语法，需实测验证）";
+                    FileMethodHint = "实验性：复用Oracle Java通道读写文件，需实测验证";
+                    break;
+                case DBType.DB2:
+                    //DB2命令执行需CREATE EXTERNAL PROCEDURE（C/Java外部例程DDL），客户端驱动不支持堆叠，纯注入不可达
+                    CmdMethodHint = "DB2 不支持命令执行（需CREATE EXTERNAL PROCEDURE外部例程DDL，纯注入不可达）";
+                    FileMethodHint = "DB2 暂不支持文件操作（无单语句可用的读写通道，驱动不支持堆叠）";
                     break;
                 default:
                     CmdMethodHint = "当前数据库暂不支持命令执行";
-                    FileMethodHint = "当前数据库暂不支持文件操作（支持 MySQL / PostgreSQL / SQLServer）";
+                    FileMethodHint = "当前数据库暂不支持文件操作（支持 MySQL / PostgreSQL / SQLServer / openGauss / Kingbase / H2 / SQLite / ClickHouse / Oracle / DM）";
                     break;
             }
             if (FileMethods.Count > 0)
@@ -165,13 +204,19 @@ namespace SuperSQLInjectionV2.ViewModels
         [RelayCommand]
         private void StartFileOperate()
         {
-            if (AppConfig.DataConfig.SelectedDBType != DBType.MySQL
-                && AppConfig.DataConfig.SelectedDBType != DBType.PostgreSQL
-                && AppConfig.DataConfig.SelectedDBType != DBType.SQLServer
-                && AppConfig.DataConfig.SelectedDBType != DBType.OpenGauss
-                && AppConfig.DataConfig.SelectedDBType != DBType.H2)
+            DBType dbType = AppConfig.DataConfig.SelectedDBType;
+            if (dbType != DBType.MySQL
+                && dbType != DBType.PostgreSQL
+                && dbType != DBType.SQLServer
+                && dbType != DBType.OpenGauss
+                && dbType != DBType.Kingbase
+                && dbType != DBType.H2
+                && dbType != DBType.SQLite
+                && dbType != DBType.ClickHouse
+                && dbType != DBType.Oracle
+                && dbType != DBType.DM)
             {
-                Log.Warning("当前数据库类型不支持文件操作，目前支持MySQL、PostgreSQL、SQLServer、openGauss（COPY）、H2（CSVREAD/CSVWRITE）！");
+                Log.Warning("当前数据库类型不支持文件操作，支持：MySQL、PostgreSQL、SQLServer、openGauss、Kingbase、H2、SQLite（ATTACH写）、ClickHouse、Oracle/DM（Java通道）！");
                 return;
             }
             if (string.IsNullOrEmpty(FilePath))
@@ -211,11 +256,16 @@ namespace SuperSQLInjectionV2.ViewModels
         [RelayCommand]
         private void StartExecCmd()
         {
-            if (!AppConfig.DataConfig.SelectedDBType.Equals(DBType.SQLServer)
-                && !AppConfig.DataConfig.SelectedDBType.Equals(DBType.PostgreSQL)
-                && !AppConfig.DataConfig.SelectedDBType.Equals(DBType.MySQL))
+            DBType cmdDbType = AppConfig.DataConfig.SelectedDBType;
+            if (!cmdDbType.Equals(DBType.SQLServer)
+                && !cmdDbType.Equals(DBType.PostgreSQL)
+                && !cmdDbType.Equals(DBType.MySQL)
+                && !cmdDbType.Equals(DBType.Kingbase)
+                && !cmdDbType.Equals(DBType.H2)
+                && !cmdDbType.Equals(DBType.Oracle)
+                && !cmdDbType.Equals(DBType.DM))
             {
-                Log.Warning("目前命令执行支持SQLServer（xp_cmdshell）、PostgreSQL（COPY FROM PROGRAM / UDF sys_eval需堆叠）和MySQL（UDF sys_eval，需Union/堆叠注入）！Oracle等需Java存储过程，暂不支持！");
+                Log.Warning("目前命令执行支持：SQLServer（xp_cmdshell/sp_OACreate）、PostgreSQL（COPY FROM PROGRAM/UDF）、Kingbase（COPY FROM PROGRAM）、MySQL（UDF sys_eval）、H2（CREATE ALIAS）、Oracle/DM（GETXML+Java）！");
                 return;
             }
             if (string.IsNullOrEmpty(CmdText))
