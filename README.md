@@ -68,14 +68,14 @@ dotnet build SuperSQLInjectionV2.sln
 dotnet build SuperSQLInjectionV2.Desktop/SuperSQLInjectionV2.Desktop.csproj
 ```
 
-### Native AOT 发布（本机脚本）
+### Native AOT 发布（本机脚本，位于 `dev/` 目录）
 
 | 脚本 | 平台 | 产物 |
 | --- | --- | --- |
-| `publish-aot.cmd` | 桌面端 win-x64 | `SuperSQLInjectionV2.Desktop/bin/Release/net10.0/win-x64/publish` |
-| `publish-cli-aot.cmd` | CLI win-x64（含 UPX 压缩） | `SuperSQLInjectionV2.Cmd/bin/Release/net10.0/win-x64/publish` |
-| `publish-cli-aot-linux.sh` | CLI linux-x64（Linux/WSL 执行） | `release/2.0.0/cli-linux-x64` |
-| `publish-cli-aot-osx.sh` | CLI osx-arm64（macOS 执行） | `release/2.0.0/cli-osx-arm64` |
+| `dev/publish-aot.cmd` | 桌面端 win-x64 | `SuperSQLInjectionV2.Desktop/bin/Release/net10.0/win-x64/publish` |
+| `dev/publish-cli-aot.cmd` | CLI win-x64（含 UPX 压缩） | `SuperSQLInjectionV2.Cmd/bin/Release/net10.0/win-x64/publish` |
+| `dev/publish-cli-aot-linux.sh` | CLI linux-x64（Linux/WSL 执行） | `release/2.0.0/cli-linux-x64` |
+| `dev/publish-cli-aot-osx.sh` | CLI osx-arm64（macOS 执行） | `release/2.0.0/cli-osx-arm64` |
 
 > Native AOT 不支持跨操作系统交叉编译，各平台包需在对应系统上编译。
 

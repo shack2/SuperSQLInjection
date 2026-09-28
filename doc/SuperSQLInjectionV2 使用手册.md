@@ -62,7 +62,7 @@ GUI 与 CLI 共用同一套核心引擎与 `config/` 配置目录（取数模板
 ### 2.1 图形界面（Desktop）
 
 - **Windows**：运行 `SuperSQLInjectionV2.Desktop.exe`。
-- **macOS / Linux**：从源码发布或运行 `publish-release.sh` 产物；开发调试可在仓库根目录执行：
+- **macOS / Linux**：从源码发布或运行 `dev/publish-release.sh` 产物；开发调试可在仓库根目录执行：
 
 ```bash
 dotnet run --project SuperSQLInjectionV2.Desktop
@@ -73,13 +73,13 @@ dotnet run --project SuperSQLInjectionV2.Desktop
 
 ### 2.2 命令行（SuperSQLInjectionV2.Cmd）
 
-SuperSQLInjectionV2.Cmd 为 Native AOT 单文件，无需安装 .NET 运行时。仓库提供三平台发布脚本：
+SuperSQLInjectionV2.Cmd 为 Native AOT 单文件，无需安装 .NET 运行时。仓库 `dev/` 目录提供三平台发布脚本：
 
 | 平台 | 发布脚本 | 产物 |
 | --- | --- | --- |
-| Windows x64 | `publish-cli-aot.cmd` | `SuperSQLInjectionV2.Cmd.exe` |
-| Linux x64 | `publish-cli-aot-linux.sh` | `SuperSQLInjectionV2.Cmd`（需 `chmod +x`） |
-| macOS arm64 | `publish-cli-aot-osx.sh` | `SuperSQLInjectionV2.Cmd` |
+| Windows x64 | `dev/publish-cli-aot.cmd` | `SuperSQLInjectionV2.Cmd.exe` |
+| Linux x64 | `dev/publish-cli-aot-linux.sh` | `SuperSQLInjectionV2.Cmd`（需 `chmod +x`） |
+| macOS arm64 | `dev/publish-cli-aot-osx.sh` | `SuperSQLInjectionV2.Cmd` |
 
 运行要求：
 
