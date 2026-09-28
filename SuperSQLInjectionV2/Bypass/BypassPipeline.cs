@@ -428,7 +428,7 @@ namespace SuperSQLInjectionV2.Bypass
         private const int ChunkMaxSize = 50;
 
         /// <summary>chunked分块发包：POST体按Transfer-Encoding: chunked发送（绕过长body WAF检测）。
-        /// 随机大小多块（sqlmap风格：WAF需逐块重组才能检测，切点可落在SQL关键字中间，比单块绕过能力强一档）</summary>
+        /// 随机大小多块（WAF需逐块重组才能检测，切点可落在SQL关键字中间，比单块绕过能力强一档）</summary>
         private static void ApplyChunked(HttpRequest request, BypassPlan plan)
         {
             if (!plan.ChunkedEnabled)

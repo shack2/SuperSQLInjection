@@ -6,10 +6,10 @@
 
 ## 功能特性
 
-### 注入检测（对标 sqlmap）
+### 注入检测
 
 - 全类型检测 Payload：Union 联合查询、报错注入、Bool 盲注、时间盲注、DNS 外带、堆叠注入
-- level / risk 级别配置，payload 覆盖对标 sqlmap 检测算法
+- level / risk 级别配置，内置分级 Payload 库覆盖主流检测场景
 - 盲注网页相似度对比识别（页面差异 + 相似度双通道判定）
 - 智能模式、跳过参数、多注入点标记（GET / POST / Cookie / Header 等任意位置）
 - 检测到注入后自动标注注入点位置、注入类型、数据库类型，并生成结构化注入记录
@@ -29,7 +29,7 @@
 
 ### 防护绕过
 
-- Tamper 脚本（QuickJS 引擎，对标 sqlmap tamper 机制）
+- Tamper 脚本（内置 QuickJS 引擎，自定义 payload 绕过脚本）
 - 字符替换规则、编码处理（URL/Unicode/Base64/HEX 等链式编码标记）
 - 协议级绕过：HPP 参数污染、参数名大小写混淆、chunked 分块发包
 - 随机源 IP（XFF 等头部）、随机 UA 池、HTTP 代理、请求频率控制
