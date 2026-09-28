@@ -58,7 +58,9 @@ public sealed class CliOptions
     public string? FileRead;               // --file-read
     public string? FileWrite;              // --file-write 本地文件
     public string? FileDest;               // --file-dest 远端路径
+    public string? FileMethod;             // --file-method 文件操作方式（模糊匹配GUI下拉项，如"大对象读文件"/"日志写WebShell"）
     public string? OsCmd;                  // --os-cmd
+    public string? CmdMethod;              // --cmd-method 命令执行方式（模糊匹配GUI下拉项，如"sp_OACreate"）
     public string? OsShell;                // 占位：--os-shell 交互（v1 不支持）
     public bool NoCast;                    // --no-cast
     public bool HexDecode;                 // --hex 中文识别
@@ -132,7 +134,9 @@ public sealed class CliOptions
                     case "--file-read": o.FileRead = Val(); break;
                     case "--file-write": o.FileWrite = Val(); break;
                     case "--file-dest": o.FileDest = Val(); break;
+                    case "--file-method": o.FileMethod = Val(); break;
                     case "--os-cmd": o.OsCmd = Val(); break;
+                    case "--cmd-method": o.CmdMethod = Val(); break;
                     case "--os-shell": o.OsShell = ""; break;
                     case "--no-cast": o.NoCast = true; break;
                     case "--hex": o.HexDecode = true; break;
@@ -217,9 +221,9 @@ public sealed class CliOptions
           --start=N --stop=N      dump 行范围（1 起）
           --where=COND            dump 行过滤条件
           --sql-query=SQL         执行自定义 SQL
-          --file-read=PATH        读取服务器文件
-          --file-write=LOCAL --file-dest=REMOTE   上传文件
-          --os-cmd=CMD            执行系统命令（UDF/xp_cmdshell 等）
+          --file-read=PATH        读取服务器文件（--file-method=名 指定方式，模糊匹配如"大对象"）
+          --file-write=LOCAL --file-dest=REMOTE   上传文件（--file-method 同上，如"日志写WebShell"）
+          --os-cmd=CMD            执行系统命令（UDF/xp_cmdshell 等；--cmd-method=名 指定方式，如"sp_OACreate"）
           --no-cast               取数不使用 CAST 转换
           --hex                   中文识别（HEX 包装防乱码）
 

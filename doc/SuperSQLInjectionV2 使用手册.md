@@ -248,7 +248,7 @@ CLI 检出注入后自动复用注入点拼接对应数据库的取数 SQL，无
 | openGauss / Kingbase | COPY FROM（兼容 PG 语法） |
 | H2 | CSVREAD（char 链免引号） |
 | ClickHouse | `file()` 表函数（仅 user_files 目录） |
-| Oracle / 达梦 | GETXML + Java 存储过程（免堆叠，需 CREATE PROCEDURE 权限；达梦为实验性） |
+| Oracle | GETXML + Java 存储过程（免堆叠，限 9i~11g：DBMS_XMLQUERY 可执行匿名 PL/SQL；12c 未验证，18c 弃用/21c+ 移除；XE 全版本无 JVM 不可用） |
 
 ### 6.7 写文件
 
@@ -260,8 +260,8 @@ CLI 检出注入后自动复用注入点拼接对应数据库的取数 SQL，无
 | openGauss / Kingbase | COPY TO（兼容 PG 语法） |
 | H2 | CSVWRITE（char 链免引号） |
 | SQLite | ATTACH DATABASE 写 WebShell（堆叠） |
-| ClickHouse | `INTO OUTFILE ... FORMAT RawBLOB`（Union 单语句，需非 readonly） |
-| Oracle / 达梦 | GETXML + Java 存储过程（内容 hex 传参，受 varchar2(4000) 限制约 2000 字节） |
+| ClickHouse | 不支持写文件（`INTO OUTFILE` 为 clickhouse-client 客户端侧功能，HTTP 接口固定报错 358 不可用） |
+| Oracle | GETXML + Java 存储过程（内容 hex 传参，受 varchar2(4000) 限制约 2000 字节；版本限制同上） |
 
 ### 6.8 命令执行
 
@@ -274,8 +274,8 @@ CLI 检出注入后自动复用注入点拼接对应数据库的取数 SQL，无
 | PostgreSQL | COPY FROM PROGRAM（9.3+）、UDF（lib_postgresqludf_sys，8.2~9.4） |
 | Kingbase | COPY FROM PROGRAM（复用 PG 通道） |
 | H2 | CREATE ALIAS Java 函数（需堆叠 + H2 1.x 且 JDK 编译器可用） |
-| Oracle | GETXML + Java 存储过程（`dbms_xmlquery.getxml` 在 SELECT 中执行匿名 PL/SQL 部署 Java，免堆叠） |
-| 达梦 | 复用 Oracle GETXML Java 通道（实验性，需实测验证） |
+| Oracle | GETXML + Java 存储过程（`dbms_xmlquery.getxml` 在 SELECT 中执行匿名 PL/SQL 部署 Java，免堆叠；限 9i~11g，XE/18c+ 不可用） |
+| 达梦 | 不支持（实测 DM8 无 DBMS_XMLQUERY，驱动堆叠禁 DDL） |
 
 输出逐字符实时回显；自动剥离通道产生的多余换行。
 

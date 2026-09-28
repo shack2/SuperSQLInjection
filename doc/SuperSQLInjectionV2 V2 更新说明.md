@@ -53,12 +53,12 @@ V2 是超级SQL注入工具（SSQLInjection）的跨平台重写版本。V1 基�
 | MySQL 命令执行 | 无 UDF 通道 | **内置 lib_mysqludf_sys 二进制**，Union 写库到 plugin 目录 + `CREATE FUNCTION sys_eval` 一键完成 UDF 提权执行 |
 | SQLServer 命令执行 | xp_cmdshell | xp_cmdshell（自动开启组件）+ **sp_OACreate(wscript.shell) 兜底**（xp 被删时用，输出经 BULK INSERT 回读） |
 | PostgreSQL | 文件读写 | 文件读写 + **UDF / COPY FROM PROGRAM 命令执行** + **大对象 lo_import/lo_export 单语句读写**（Union/报错通道即可，免堆叠） |
-| Oracle | — | **GETXML + Java 存储过程命令执行/文件读写**（`dbms_xmlquery.getxml` 在 SELECT 中执行匿名 PL/SQL 部署 Java，免堆叠） |
-| 达梦 | — | 复用 Oracle GETXML Java 通道（实验性） |
+| Oracle | — | **GETXML + Java 存储过程命令执行/文件读写**（`dbms_xmlquery.getxml` 在 SELECT 中执行匿名 PL/SQL 部署 Java，免堆叠；**限 9i~11g**，18c 弃用该包/21c+ 移除，XE 无 JVM 不可用） |
+| 达梦 | — | 不支持（实测 DM8 无 DBMS_XMLQUERY 包，驱动堆叠禁 DDL，纯注入不可达） |
 | Kingbase | — | 复用 PostgreSQL 通道：COPY 文件读写 + COPY FROM PROGRAM 命令执行 |
 | H2 | — | CSVREAD/CSVWRITE 文件读写 + **CREATE ALIAS Java 函数命令执行**（需 H2 1.x + JDK 编译器） |
 | SQLite | — | ATTACH DATABASE 写 WebShell（堆叠） |
-| ClickHouse | — | `file()` 读文件（user_files 目录）+ `INTO OUTFILE` 写文件 |
+| ClickHouse | — | `file()` 读文件（user_files 目录）；不支持写文件（`INTO OUTFILE` 为 clickhouse-client 客户端侧功能，HTTP 接口固定报错 358，注入场景不可用） |
 | MySQL 写文件 | Union 写文件 | Union 写文件 + **general_log 写 WebShell**（堆叠） |
 | 命令输出体验 | 一次性回显 | **逐字符实时回显**，自动净化通道产生的多余换行 |
 | 读文件 | 按库选语句 | 下拉选择通道，结果从首行展示，支持复制导出 |

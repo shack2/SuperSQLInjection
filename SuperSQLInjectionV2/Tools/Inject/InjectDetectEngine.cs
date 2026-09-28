@@ -246,7 +246,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                             }
                         }
                         NextTest:;
-                    }
+                        }
                     NextTechnique:;
                 }
                 //6. DNS外带探测（可选开关，本工具扩展）：不依赖页面响应/延时，payload携带唯一token触发数据库

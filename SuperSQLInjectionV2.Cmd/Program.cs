@@ -415,8 +415,10 @@ public static class Program
             Log.Highlight($"========== 读取文件: {opt.FileRead} ==========");
             var vm = new FileCmdViewModel(config);
             vm.RefreshFileMethods(dbType);
-            string? method = vm.FileMethods.FirstOrDefault(m => m.Contains("读文件", StringComparison.Ordinal));
-            if (method == null) { Log.Error($"当前数据库 {dbType} 不支持文件读取"); }
+            string? method = string.IsNullOrWhiteSpace(opt.FileMethod)
+                ? vm.FileMethods.FirstOrDefault(m => m.Contains("读文件", StringComparison.Ordinal))
+                : MatchMethod(vm.FileMethods, opt.FileMethod!);
+            if (method == null) { Log.Error($"当前数据库 {dbType} 不支持文件读取" + (string.IsNullOrWhiteSpace(opt.FileMethod) ? "" : $"（无匹配方式[{opt.FileMethod}]，可用：{string.Join(" / ", vm.FileMethods)}）")); }
             else
             {
                 vm.SelectedFileMethod = method;
@@ -436,8 +438,10 @@ public static class Program
             Log.Highlight($"========== 上传文件: {opt.FileWrite} → {opt.FileDest} ==========");
             var vm = new FileCmdViewModel(config);
             vm.RefreshFileMethods(dbType);
-            string? method = vm.FileMethods.FirstOrDefault(m => m.Contains("写文件", StringComparison.Ordinal));
-            if (method == null) { Log.Error($"当前数据库 {dbType} 不支持文件写入"); }
+            string? method = string.IsNullOrWhiteSpace(opt.FileMethod)
+                ? vm.FileMethods.FirstOrDefault(m => m.Contains("写文件", StringComparison.Ordinal) || m.Contains("WebShell", StringComparison.Ordinal))
+                : MatchMethod(vm.FileMethods, opt.FileMethod!);
+            if (method == null) { Log.Error($"当前数据库 {dbType} 不支持文件写入" + (string.IsNullOrWhiteSpace(opt.FileMethod) ? "" : $"（无匹配方式[{opt.FileMethod}]，可用：{string.Join(" / ", vm.FileMethods)}）")); }
             else
             {
                 vm.SelectedFileMethod = method;
@@ -458,7 +462,14 @@ public static class Program
             if (vm.CmdMethods.Count == 0) { Log.Error($"当前数据库 {dbType} 不支持命令执行（{vm.CmdMethodHint}）"); }
             else
             {
-                vm.SelectedCmdMethod = vm.CmdMethods[0];
+                vm.SelectedCmdMethod = string.IsNullOrWhiteSpace(opt.CmdMethod)
+                    ? vm.CmdMethods[0]
+                    : MatchMethod(vm.CmdMethods, opt.CmdMethod!) ?? "";
+                if (string.IsNullOrEmpty(vm.SelectedCmdMethod))
+                {
+                    Log.Error($"无匹配命令执行方式[{opt.CmdMethod}]，可用：{string.Join(" / ", vm.CmdMethods)}");
+                    return;
+                }
                 vm.CmdText = opt.OsCmd;
                 vm.CmdShowResult = true;
                 vm.CmdSessionMode = false;
@@ -467,6 +478,13 @@ public static class Program
                 if (!string.IsNullOrEmpty(vm.CmdResult)) Console.WriteLine(vm.CmdResult);
             }
         }
+    }
+
+    /// <summary>方式名匹配：优先精确相等，其次包含匹配（避免"大对象"误命中"大对象读文件"）</summary>
+    private static string? MatchMethod(IEnumerable<string> methods, string key)
+    {
+        return methods.FirstOrDefault(m => string.Equals(m, key, StringComparison.OrdinalIgnoreCase))
+               ?? methods.FirstOrDefault(m => m.Contains(key, StringComparison.OrdinalIgnoreCase));
     }
 
     // ================== 枚举（三通道） ==================
@@ -545,6 +563,8 @@ public static class Program
     {
         config.DataConfig.SelectedInjectType = best.InjectType;
         config.DataConfig.InjectParamName = best.PName ?? "";
+        //数据库类型同步回填：否则检测命中（非--dbms指定）时EnsureDataOpReady仍报"未识别数据库类型"，取数/文件/命令动作全部不可用
+        config.DataConfig.SelectedDBType = best.DBType;
         if (best.InjectType == InjectType.Blind || best.InjectType == InjectType.Time)
         {
             config.DataConfig.SelectBoolInject = best.BoolInjectType;

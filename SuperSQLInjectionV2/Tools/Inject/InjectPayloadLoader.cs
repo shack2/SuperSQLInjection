@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace SuperSQLInjectionV2.Tools.Inject
@@ -104,7 +105,20 @@ namespace SuperSQLInjectionV2.Tools.Inject
             }
             foreach (string part in text.Split(','))
             {
-                if (int.TryParse(part.Trim(), out int v))
+                string p = part.Trim();
+                //区间写法（如"1-8"）展开为连续整数，修复区间clause解析为空导致用例无匹配边界被静默跳过的问题
+                Match m = Regex.Match(p, @"^(\d+)\s*-\s*(\d+)$");
+                if (m.Success)
+                {
+                    int from = int.Parse(m.Groups[1].Value);
+                    int to = int.Parse(m.Groups[2].Value);
+                    for (int rv = Math.Min(from, to); rv <= Math.Max(from, to); rv++)
+                    {
+                        result.Add(rv);
+                    }
+                    continue;
+                }
+                if (int.TryParse(p, out int v))
                 {
                     result.Add(v);
                 }

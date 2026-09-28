@@ -153,28 +153,25 @@ namespace SuperSQLInjectionV2.ViewModels
                     FileMethodHint = "ATTACH写WebShell需堆叠注入（attach/create/insert三条语句）；不提供读文件（readfile()默认不可用）";
                     break;
                 case DBType.ClickHouse:
-                    //ClickHouse：file()表函数读user_files目录；INTO OUTFILE写文件（Union注入单语句）
+                    //ClickHouse：file()表函数读user_files目录；不提供写文件（INTO OUTFILE为客户端侧功能，HTTP接口固定报错358不可用）
                     FileMethods.Add("file()读文件");
-                    FileMethods.Add("INTO OUTFILE写文件");
                     CmdMethodHint = "ClickHouse 不支持命令执行";
-                    FileMethodHint = "file()仅能读 user_files 目录内文件；INTO OUTFILE需Union注入且非readonly模式，路径相对服务进程工作目录";
+                    FileMethodHint = "file()仅能读 user_files 目录内文件；不支持写文件（INTO OUTFILE仅clickhouse-client客户端侧生效，HTTP接口注入不可用）";
                     break;
                 case DBType.Oracle:
-                    //GETXML Java通道：dbms_xmlquery.getxml参数经EXECUTE IMMEDIATE执行，可传匿名PL/SQL块执行DDL，
-                    //借此免堆叠部署Java存储过程（CREATE JAVA SOURCE+映射函数），Union/盲注均可触发
+                    //GETXML Java通道：dbms_xmlquery.getxml可执行匿名PL/SQL块（实测23ai拒绝PL/SQL仅收SELECT，
+                    //社区资料确认适用9i~11g；18c弃用该包/21c起移除）。借此免堆叠部署Java存储过程。
                     FileMethods.Add("Java读文件");
                     FileMethods.Add("Java写文件");
                     CmdMethods.Add("Java命令执行(GETXML)");
-                    CmdMethodHint = "GETXML+Java存储过程：需 CREATE PROCEDURE 等高权限（DBMS_JAVA可用），返回值限4000字符";
-                    FileMethodHint = "Java通道读写文件，免堆叠（Union/盲注均可触发）；写文件内容限约2000字节（hex后受varchar2(4000)限制）";
+                    CmdMethodHint = "GETXML+Java存储过程：适用Oracle 9i~11g（DBMS_XMLQUERY可执行匿名PL/SQL；12c未验证，18c弃用/21c+移除）。需CREATE PROCEDURE权限+JVM，返回值限4000字符";
+                    FileMethodHint = "Java通道读写文件（同版本限制），免堆叠；写文件内容限约2000字节（hex后受varchar2(4000)限制）";
                     break;
                 case DBType.DM:
-                    //实验性：DM高度兼容Oracle语法，复用同一GETXML Java通道，需实测验证
-                    FileMethods.Add("Java读文件");
-                    FileMethods.Add("Java写文件");
-                    CmdMethods.Add("Java命令执行(GETXML)");
-                    CmdMethodHint = "实验性：复用Oracle GETXML+Java通道（DM兼容Oracle语法，需实测验证）";
-                    FileMethodHint = "实验性：复用Oracle Java通道读写文件，需实测验证";
+                    //实测（2026-09 DM8）：无DBMS_XMLQUERY/DBMS_JAVA包；DmProvider堆叠批内禁DDL；UTL_FILE需预建目录对象。
+                    //纯Web注入下无可用通道，不提供文件/命令操作。
+                    CmdMethodHint = "DM 暂不支持命令执行（无DBMS_XMLQUERY，驱动堆叠禁DDL，Java外部过程需预建）";
+                    FileMethodHint = "DM 暂不支持文件操作（UTL_FILE需DBA预建DIRECTORY，纯注入不可达）";
                     break;
                 case DBType.DB2:
                     //DB2命令执行需CREATE EXTERNAL PROCEDURE（C/Java外部例程DDL），客户端驱动不支持堆叠，纯注入不可达
@@ -213,10 +210,9 @@ namespace SuperSQLInjectionV2.ViewModels
                 && dbType != DBType.H2
                 && dbType != DBType.SQLite
                 && dbType != DBType.ClickHouse
-                && dbType != DBType.Oracle
-                && dbType != DBType.DM)
+                && dbType != DBType.Oracle)
             {
-                Log.Warning("当前数据库类型不支持文件操作，支持：MySQL、PostgreSQL、SQLServer、openGauss、Kingbase、H2、SQLite（ATTACH写）、ClickHouse、Oracle/DM（Java通道）！");
+                Log.Warning("当前数据库类型不支持文件操作，支持：MySQL、PostgreSQL、SQLServer、openGauss、Kingbase、H2、SQLite（ATTACH写）、ClickHouse、Oracle（Java通道，限9i~11g）！");
                 return;
             }
             if (string.IsNullOrEmpty(FilePath))
@@ -262,10 +258,9 @@ namespace SuperSQLInjectionV2.ViewModels
                 && !cmdDbType.Equals(DBType.MySQL)
                 && !cmdDbType.Equals(DBType.Kingbase)
                 && !cmdDbType.Equals(DBType.H2)
-                && !cmdDbType.Equals(DBType.Oracle)
-                && !cmdDbType.Equals(DBType.DM))
+                && !cmdDbType.Equals(DBType.Oracle))
             {
-                Log.Warning("目前命令执行支持：SQLServer（xp_cmdshell/sp_OACreate）、PostgreSQL（COPY FROM PROGRAM/UDF）、Kingbase（COPY FROM PROGRAM）、MySQL（UDF sys_eval）、H2（CREATE ALIAS）、Oracle/DM（GETXML+Java）！");
+                Log.Warning("目前命令执行支持：SQLServer（xp_cmdshell/sp_OACreate）、PostgreSQL（COPY FROM PROGRAM/UDF）、Kingbase（COPY FROM PROGRAM）、MySQL（UDF sys_eval）、H2（CREATE ALIAS）、Oracle（GETXML+Java，限9i~11g）！");
                 return;
             }
             if (string.IsNullOrEmpty(CmdText))

