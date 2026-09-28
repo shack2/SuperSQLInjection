@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>SuperSQLInjectionV2.Cmd</RootNamespace>
+    <AssemblyName>SuperSQLInjectionV2.Cmd</AssemblyName>
+    <!-- QuickJS P/Invoke 封装（主库传递引用）使用指针 -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+    <InformationalVersion>2.0.0</InformationalVersion>
+    <Description>SuperSQLInjectionV2 命令行版：SQL 注入检测与利用工具</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SuperSQLInjectionV2\SuperSQLInjectionV2.csproj" />
+  </ItemGroup>
+
+  <!-- Native AOT 体积优化（仅 AOT 发布时生效） -->
+  <PropertyGroup Condition="'$(PublishAot)'=='true'">
+    <IlcOptimizationPreference>Size</IlcOptimizationPreference>
+    <IlcGenerateCompleteTypeMetadata>false</IlcGenerateCompleteTypeMetadata>
+    <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
+    <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
+    <DebuggerSupport>false</DebuggerSupport>
+    <EventSourceSupport>false</EventSourceSupport>
+    <MetricsSupport>false</MetricsSupport>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <StackTraceSupport>false</StackTraceSupport>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

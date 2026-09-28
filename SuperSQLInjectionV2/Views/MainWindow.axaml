@@ -1,0 +1,39 @@
+<u:UrsaWindow
+    x:Class="SuperSQLInjectionV2.Views.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:viewModels="clr-namespace:SuperSQLInjectionV2.ViewModels"
+    xmlns:views="clr-namespace:SuperSQLInjectionV2.Views"
+    xmlns:iri="https://irihi.tech/shared"
+    Title="超级SQL注入工具V2 v2.0.0"
+    Width="1500"
+    Height="1050"
+    d:DesignHeight="1500"
+    d:DesignWidth="1050"
+    x:CompileBindings="True"
+    ExtendClientAreaToDecorationsHint="True"
+    x:DataType="viewModels:MainWindowViewModel"
+    WindowStartupLocation="CenterScreen"
+    Icon="avares://SuperSQLInjectionV2/Assets/SSQL.ico"
+    IsFullScreenButtonVisible="{OnPlatform {x:True}, macOS={x:False}}"
+    IsManagedResizerVisible="{OnPlatform {x:False}, Linux={x:True}}"
+    mc:Ignorable="d">
+
+    <u:UrsaWindow.RightContent>
+        <views:TitleBarRightContent />
+    </u:UrsaWindow.RightContent>
+
+    <u:UrsaWindow.Styles>
+        <!--This style is created to demonstrate Dialog StyleClass feature. This style is applied to dialogs in MainWindow OverlayDialogHost -->
+        <Style Selector="u|StandardDialogControl.Custom">
+            <Style Selector="^ /template/ Button#PART_OKButton">
+                <Setter Property="Content" Value="CUSTOM" />
+                <Setter Property="iri:ClassHelper.Classes" Value="Warning" />
+            </Style>
+        </Style>
+    </u:UrsaWindow.Styles>
+    <views:MainView />
+</u:UrsaWindow>

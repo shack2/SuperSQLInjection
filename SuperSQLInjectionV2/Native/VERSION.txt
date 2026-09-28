@@ -1,0 +1,11 @@
+libquickjs.dll
+来源: quickjs-ng v0.17.0 官方 release amalgam 源码（quickjs-amalgam.zip）
+     https://github.com/quickjs-ng/quickjs/releases/tag/v0.17.0
+构建: 本机 MSVC 14.51 (VS18) 自编译，/MT 静态链接 CRT，/std:c17 /experimental:c11atomics /DBUILDING_QJS_SHARED
+     构建脚本: TestHarness/build-qjs.bat（源码 quickjs-amalgam.c 已随目录归档，可复现构建）
+平台: win64 (x64)，JSValue 为默认非 NAN_BOXING 布局 { union u; int64 tag } 16 字节
+依赖: 仅 KERNEL32.dll（无 VC++ 运行时/MinGW 依赖）
+quickjs.h: 同版本头文件，供 P/Invoke 签名核对用
+
+说明: 曾尝试 mengmo/QuickJS-Windows-Build 2026-06-04 预编译 DLL，
+     其 JS_Eval 在嵌入调用（ctypes/.NET P/Invoke 均可复现）下访问冲突崩溃，弃用改为自编译。

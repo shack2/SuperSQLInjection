@@ -1,0 +1,102 @@
+<UserControl
+    x:Class="SuperSQLInjectionV2.Dialogs.ScriptTamperEditView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialogs="clr-namespace:SuperSQLInjectionV2.Dialogs"
+    xmlns:converters="clr-namespace:SuperSQLInjectionV2.Converters"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:AvaloniaEditor="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+    d:DesignHeight="640"
+    d:DesignWidth="880"
+    x:CompileBindings="True"
+    x:DataType="dialogs:ScriptTamperEditViewModel"
+    mc:Ignorable="d">
+    <UserControl.Resources>
+        <converters:InjectTypeNameConverter x:Key="EnumTextConverter" />
+    </UserControl.Resources>
+    <Grid Width="880" Height="640" RowDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="10">
+
+        <!-- 名称 + 作用域 + 执行次数 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,8">
+            <TextBlock Text="名称：" VerticalAlignment="Center" />
+            <TextBox Width="220" VerticalAlignment="Center" Text="{Binding Name}" />
+            <TextBlock Text="作用域：" VerticalAlignment="Center" />
+            <ComboBox Width="130" VerticalAlignment="Center"
+                      ItemsSource="{Binding ScopeList}"
+                      SelectedItem="{Binding Scope}"
+                      ToolTip.Tip="Payload级：Encode块内payload上执行（tamper语义）；报文级：整份HTTP报文上执行（eval语义）">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Converter={StaticResource EnumTextConverter}}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Text="位置：" VerticalAlignment="Center" />
+            <ComboBox Width="100" VerticalAlignment="Center"
+                      ItemsSource="{Binding PosList}"
+                      SelectedItem="{Binding ApplyPos}"
+                      IsEnabled="{Binding !Builtin}"
+                      ToolTip.Tip="全部位置=所有Encode块生效；仅编码位=query/URI段/urlencoded体（换行类工具防止在原文位被CRLF防护剔除而静默失效）；仅原文位=头/Cookie/JSON/XML/multipart体。内置项以注册表为准">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Converter={StaticResource EnumTextConverter}}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Text="执行次数：" VerticalAlignment="Center" />
+            <ComboBox Width="70" VerticalAlignment="Center"
+                      ItemsSource="{Binding DoCountItems}"
+                      SelectedItem="{Binding DoCount}"
+                      IsEnabled="{Binding IsPayloadScope}"
+                      ToolTip.Tip="同一变换连续执行N次（如双重编码场景）；报文级恒为1次" />
+        </StackPanel>
+
+        <!-- 代码编辑区（内置项只读展示功能描述） -->
+        <Border Grid.Row="1" Theme="{StaticResource CardBorder}" Padding="0">
+            <AvaloniaEditor:TextEditor Name="CodeEditor"
+                                       Document="{Binding CodeDocument}"
+                                       IsReadOnly="{Binding IsCodeReadOnly}"
+                                       ShowLineNumbers="True"
+                                       FontFamily="{StaticResource CodeFontFamily}"
+                                       HorizontalScrollBarVisibility="Auto"
+                                       VerticalScrollBarVisibility="Auto"
+                                       FontWeight="Light" />
+        </Border>
+
+        <!-- 验证执行区 -->
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,8,0,0">
+            <TextBlock Grid.Column="0" Text="测试payload：" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Margin="8,0" VerticalAlignment="Center"
+                     Classes="TextArea" AcceptsReturn="True" MinHeight="32" MaxHeight="76"
+                     TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     Text="{Binding TestInput}"
+                     PlaceholderText="输入测试payload（报文级工具为整份HTTP报文）" />
+            <u:IconButton Grid.Column="2" VerticalAlignment="Center"
+                          Theme="{DynamicResource OutlineIconButton}"
+                          Icon="{StaticResource SemiIconPlay}"
+                          IsLoading="{Binding IsTesting}"
+                          Content="验证执行"
+                          Command="{Binding TestRunCommand}" />
+        </Grid>
+        <TextBlock Grid.Row="3" Margin="0,6,0,4" Opacity="0.7" Text="{Binding TestStatus}" />
+
+        <!-- 执行结果 -->
+        <TextBox Grid.Row="4" Classes="TextArea" Height="80" AcceptsReturn="True"
+                 TextWrapping="Wrap" IsReadOnly="True"
+                 HorizontalAlignment="Stretch"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 Text="{Binding TestOutput}"
+                 PlaceholderText="执行结果（payload经过tamper函数处理后的输出）" />
+
+        <!-- 操作按钮 -->
+        <StackPanel Grid.Row="5" Orientation="Horizontal" Spacing="10"
+                    HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Theme="{DynamicResource SolidButton}" Width="90"
+                    Content="保 存" Command="{Binding ConfirmCommand}" />
+            <Button Theme="{DynamicResource OutlineButton}" Width="90"
+                    Content="取 消" Command="{Binding CancelCommand}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

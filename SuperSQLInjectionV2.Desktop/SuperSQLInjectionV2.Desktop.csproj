@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!--If you are willing to use Windows/MacOS native APIs you will need to create 3 projects.
+    One for Windows with net9.0-windows TFM, one for MacOS with net9.0-macos and one with net9.0 TFM for Linux.-->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PublishAot>False</PublishAot>
+    <PublishTrimmed>False</PublishTrimmed>
+  </PropertyGroup>
+
+  <!-- NativeAOT体积优化：关闭调试/EventSource/热重载/HTTP分布式追踪支持，折叠相同方法体 -->
+  <PropertyGroup Condition="'$(PublishAot)' == 'true'">
+    <DebuggerSupport>false</DebuggerSupport>
+    <EventSourceSupport>false</EventSourceSupport>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" />
+
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SuperSQLInjectionV2\SuperSQLInjectionV2.csproj" />
+  </ItemGroup>
+</Project>

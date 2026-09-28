@@ -1,0 +1,48 @@
+<UserControl
+    x:Class="SuperSQLInjectionV2.Dialogs.FingerprintEditView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialogs="clr-namespace:SuperSQLInjectionV2.Dialogs"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="240"
+    d:DesignWidth="640"
+    x:CompileBindings="True"
+    x:DataType="dialogs:FingerprintEditViewModel"
+    mc:Ignorable="d">
+    <Grid Width="640" Height="240" RowDefinitions="Auto,Auto,*,Auto" Margin="12">
+
+        <!-- DBMS + fork -->
+        <Grid ColumnDefinitions="Auto,*,Auto,*">
+            <TextBlock Text="DBMS：" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" VerticalAlignment="Center" Text="{Binding Dbms}"
+                     PlaceholderText="如 MySQL / IBM DB2 / DM（已存在的节点名会归并到同组）" />
+            <TextBlock Grid.Column="2" Text="fork：" Margin="10,0,0,0" VerticalAlignment="Center" />
+            <TextBox Grid.Column="3" VerticalAlignment="Center" Text="{Binding Fork}"
+                     PlaceholderText="衍生库名（如 MariaDB/TiDB），可留空"
+                     ToolTip.Tip="命中后以此名作为识别结果（比所属DBMS更精确），留空则报所属DBMS名" />
+        </Grid>
+
+        <!-- 正则 -->
+        <TextBlock Grid.Row="1" Margin="0,10,0,4" Opacity="0.7"
+                   Text="正则表达式（不区分大小写；字面文本请自行转义 [ ] . 等元字符）：" />
+        <TextBox Grid.Row="2" Classes="TextArea" AcceptsReturn="True" TextWrapping="Wrap"
+                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                 VerticalContentAlignment="Top"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 FontFamily="{StaticResource CodeFontFamily}"
+                 Text="{Binding Regexp}"
+                 PlaceholderText="如 SQLCODE[=:\d, -]+SQLSTATE 或 \[IBM\]\[DB2" />
+
+        <!-- 状态 + 按钮 -->
+        <Grid Grid.Row="3" Margin="0,10,0,0" ColumnDefinitions="*,Auto">
+            <TextBlock VerticalAlignment="Center" Opacity="0.7" Text="{Binding Status}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                <Button Theme="{DynamicResource SolidButton}" Width="90"
+                        Content="保 存" Command="{Binding ConfirmCommand}" />
+                <Button Theme="{DynamicResource OutlineButton}" Width="90"
+                        Content="取 消" Command="{Binding CancelCommand}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

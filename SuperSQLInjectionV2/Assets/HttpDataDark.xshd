@@ -1,0 +1,94 @@
+<?xml version="1.0"?>
+<SyntaxDefinition name="HttpData Highlighting Dark" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008" extensions=".httpdatadark">
+	<!-- 响应区高亮（深色）：状态行/响应头/HTML标签/SQL报错指纹/hex段/反射标记，配色与 Dsg 深色令牌匹配；注意：①Rule/Begin/End 正则必须单行书写（加载器不Trim）②正则中不允许字面空格，用\x20代替 ③Span优先于Rule -->
+	<Color name="Resp.Version" foreground="#FF4EC9B0" exampleText="HTTP/1.1"/>
+	<Color name="Resp.Status" foreground="#FFF0A848" fontWeight="bold" exampleText="200 404"/>
+	<Color name="Resp.Header" foreground="#FF6EA8FE" exampleText="Content-Type"/>
+	<Color name="Resp.MIME" foreground="#FFD8A0DF" exampleText="text/html"/>
+	<Color name="Resp.HtmlTag" foreground="#FF569CD6" exampleText="&lt;div&gt;"/>
+	<Color name="Resp.HtmlAttr" foreground="#FF9CDCFE" exampleText="class="/>
+	<Color name="Resp.HtmlComment" foreground="#FF6A9955" exampleText="&lt;!注释&gt;"/>
+	<Color name="Resp.SqlError" foreground="#FFF87171" fontWeight="bold" exampleText="SQL syntax error"/>
+	<Color name="Resp.Hex" foreground="#FFFBBF24" exampleText="0x4F8A2C"/>
+	<Color name="Resp.Url" foreground="#FF22D3EE" exampleText="https://example.com"/>
+	<Color name="Resp.Ip" foreground="#FF2DD4BF" exampleText="192.168.1.1:8080"/>
+	<Color name="Resp.JsonKey" foreground="#FF9CDCFE" exampleText="&quot;key&quot;:"/>
+	<Color name="Resp.String" foreground="#FFCE9178" exampleText="&quot;值&quot;"/>
+	<Color name="Resp.Encode" foreground="#FFFBBF24" exampleText="&lt;Encode&gt; %20"/>
+	<Color name="Resp.Point" foreground="#FFF87171" fontWeight="bold" exampleText="$sql$"/>
+
+	<RuleSet>
+		<!-- 1. HTML注释 -->
+		<Span color="Resp.HtmlComment" multiline="true">
+			<Begin><![CDATA[<!--]]></Begin>
+			<End><![CDATA[-->]]></End>
+		</Span>
+
+		<!-- 2. Encode标记块（响应中反射的编码标记，内含$sql$仍红色） -->
+		<Span color="Resp.Encode" multiline="true">
+			<Begin><![CDATA[<Encode(Base64)?(Raw)?>]]></Begin>
+			<End><![CDATA[<\/Encode(Base64)?(Raw)?>]]></End>
+			<RuleSet>
+				<Rule color="Resp.Point">\$sql\$</Rule>
+			</RuleSet>
+		</Span>
+
+		<!-- 3. 注入标记反射（响应中回显的$sql$是反射检测与指纹污染排查的关键信号） -->
+		<Rule color="Resp.Point">\$sql\$</Rule>
+		<Span color="Resp.Point" multiline="false">
+			<Begin>\$</Begin>
+			<End>\$</End>
+		</Span>
+		<Rule color="Resp.Encode">&lt;\/?(Rand|Token)&gt;</Rule>
+
+		<!-- 4. SQL报错指纹（报错注入/数据库识别核心信号，忽略大小写） -->
+		<Rule color="Resp.SqlError">(?i)(You\x20have\x20an\x20error\x20in\x20your\x20SQL\x20syntax|SQL\x20syntax.{0,40}(MySQL|MariaDB)|ERROR\x201\d{3}|mysql_(fetch|query|num_rows)|mysqli?_|Unclosed\x20quotation\x20mark|quoted\x20string\x20not\x20properly\x20terminated|Microsoft\x20OLE\x20DB\x20Provider\x20for\x20(SQL\x20Server|Oracle)|ODBC\x20(SQL\x20Server|Microsoft\x20Access)\x20Driver|SQLServer\x20JDBC\x20Driver|Incorrect\x20syntax\x20near|Unterminated\x20(string|quoted\x20identifier)|conversion\x20failed.{0,30}(varchar|int)|ORA-\d{5}|Oracle\x20(error|Database)|PLS-\d{5}|pg_(query|exec)|PostgreSQL.{0,20}ERROR|SQLSTATE\[\w+\]|SQLite\x20(error|exception)|SQLITE_ERROR|DB2\x20SQL\x20error|SQLCODE=-\d+|Informix|Dynamic\x20SQL\x20Error|Sybase\x20(message|error)|DM\.|dm_jdbc|KingbaseES|ClickHouse|DB::Exception|supplied\x20argument\x20is\x20not\x20a\x20valid|Warning:.*(mysql|pg_|oci|sqlsrv))</Rule>
+
+		<!-- 5. HTTP版本 + 状态码（仅响应行） -->
+		<Rule color="Resp.Version">HTTP\/\d(\.\d)?</Rule>
+		<Rule color="Resp.Status">(?&lt;=HTTP\/\d(\.\d)?\x20)\d{3}\b</Rule>
+
+		<!-- 6. 响应头字段名（行首任意Header-Name，冒号前） -->
+		<Rule color="Resp.Header">^[A-Za-z][A-Za-z0-9\-]*(?=:)</Rule>
+
+		<!-- 7. MIME类型 -->
+		<Rule color="Resp.MIME">\b(application|text|image|audio|video|multipart|font|message)\/[\w.+-]+</Rule>
+
+		<!-- 8. HTML标签（含属性内部高亮：属性名浅蓝、属性值字符串橙色） -->
+		<Span color="Resp.HtmlTag" multiline="false">
+			<Begin><![CDATA[<\/?[A-Za-z][A-Za-z0-9\-]*]]></Begin>
+			<End><![CDATA[>]]></End>
+			<RuleSet>
+				<Rule color="Resp.HtmlAttr">[A-Za-z\-]+(?==)</Rule>
+				<Span color="Resp.String" multiline="false">
+					<Begin>"</Begin>
+					<End>"</End>
+				</Span>
+			</RuleSet>
+		</Span>
+
+		<!-- 9. JSON键名（"key": 冒号前的引号串；字符串兜底Span的Begin已用负向预查跳过键名，此Rule才有机会命中） -->
+		<Rule color="Resp.JsonKey">&quot;[^&quot;\r\n]{1,60}&quot;(?=\s*:)</Rule>
+
+		<!-- 10. hex段（0x前缀hex / 32位以上长hex，DNS外带回收与哈希读取结果可视化） -->
+		<Rule color="Resp.Hex">\b0x[0-9a-fA-F]+\b|\b[0-9a-fA-F]{32,}\b</Rule>
+
+		<!-- 11. URL -->
+		<Rule color="Resp.Url">https?:\/\/[^\s&quot;'&lt;&gt;]+</Rule>
+
+		<!-- 12. IP:端口 -->
+		<Rule color="Resp.Ip">\b\d{1,3}(\.\d{1,3}){3}(:\d{1,5})?\b</Rule>
+
+		<!-- 13. URL百分号编码段 -->
+		<Rule color="Resp.Encode">%[0-9A-Fa-f]{2}</Rule>
+
+		<!-- 14. 双引号字符串（兜底；Begin负向预查跳过JSON键名"key":，让键名规则命中） -->
+		<Span color="Resp.String" multiline="false">
+			<Begin>&quot;(?!([^&quot;\r\n]{1,60}&quot;)?\s*:)</Begin>
+			<End>"</End>
+			<RuleSet>
+				<Rule color="Resp.String">\\"</Rule>
+			</RuleSet>
+		</Span>
+	</RuleSet>
+</SyntaxDefinition>

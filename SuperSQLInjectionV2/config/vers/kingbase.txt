@@ -1,0 +1,13 @@
+数据库版本：version()
+当前数据库：current_database()
+当前模式：current_schema()
+当前用户：current_user
+是否DBA：(select usesuper from pg_user where usename=current_user limit 1)
+数据库IP：inet_server_addr()
+应用连接IP：inet_client_addr()
+数据目录：(select setting from pg_settings where name='data_directory')
+Hash密码：(select passwd from pg_shadow limit 1)
+全部用户Hash：(select string_agg(usename||':'||coalesce(passwd,''),chr(10)) from pg_shadow)
+当前角色属性：(select 'super='||case when rolsuper then '1' else '0' end||',createrole='||case when rolcreaterole then '1' else '0' end||',createdb='||case when rolcreatedb then '1' else '0' end||',login='||case when rolcanlogin then '1' else '0' end from pg_roles where rolname=current_user)
+所属角色：(select string_agg(r.rolname,chr(10)) from pg_auth_members m join pg_roles r on r.oid=m.roleid where m.member=(select oid from pg_roles where rolname=current_user))
+全部角色：(select string_agg(rolname||'(super='||case when rolsuper then '1' else '0' end||')',chr(10)) from pg_roles)

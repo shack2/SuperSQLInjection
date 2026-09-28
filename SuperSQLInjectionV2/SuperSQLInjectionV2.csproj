@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- QuickJS P/Invoke 封装使用指针/fixed/stackalloc -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>SuperSQLInjectionV2</RootNamespace>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+    <InformationalVersion>2.0.0</InformationalVersion>
+    <ApplicationIcon />
+    <OutputType>Library</OutputType>
+    <!-- 验证开关：dotnet build -p:ForceJsonSourceGen=true 强制JSON走源生成路径（JIT下模拟AOT序列化行为，供harness探针验证） -->
+    <DefineConstants Condition="'$(ForceJsonSourceGen)' == 'true'">$(DefineConstants);FORCE_JSON_SOURCEGEN</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="Style\**" />
+    <Content Include="config\**\*.*" CopyToOutputDirectory="PreserveNewest" LinkBase="config\" />
+    <!-- QuickJS 原生引擎（quickjs-ng 2026-06-04 win64），tamper/eval JS 脚本运行时；Content+Link 保证传递复制到引用方（Desktop/TestHarness）输出根目录 -->
+    <Content Include="Native\libquickjs.dll" Link="libquickjs.dll" CopyToOutputDirectory="PreserveNewest" />
+    <!-- QuickJS 跨平台原生库（zig cc 交叉编译：linux-x64 glibc2.28 / osx-arm64），仅对应平台打包时被加载，Windows 下不参与加载 -->
+    <Content Include="Native\libquickjs.so" Link="libquickjs.so" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Native\libquickjs.dylib" Link="libquickjs.dylib" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="DiffPlex" />
+    <PackageReference Include="Irihi.Ursa" />
+    <PackageReference Include="Irihi.Ursa.Themes.Semi" />
+    <PackageReference Include="Semi.Avalonia" />
+    <PackageReference Include="Semi.Avalonia.AvaloniaEdit" />
+    <PackageReference Include="Semi.Avalonia.DataGrid" />
+    <PackageReference Include="VYaml" />
+  </ItemGroup>
+</Project>

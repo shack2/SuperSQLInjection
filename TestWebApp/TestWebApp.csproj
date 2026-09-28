@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>TestWebApp</AssemblyName>
+    <RootNamespace>TestWebApp</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="MySqlConnector" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="DM.DmProvider" />
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" />
+    <PackageReference Include="Net.IBM.Data.Db2" />
+    <PackageReference Include="ClickHouse.Client" />
+  </ItemGroup>
+
+  <!-- IBM.Data.Db2.dll 构建后改名 .dll.x：默认程序集探测落空后由
+       Db2NativeBootstrap 的 AssemblyLoadContext.Resolving 重定向到无'#'的缓存副本加载 -->
+  <Target Name="RenameDb2Asm" AfterTargets="Build">
+    <Move Condition="Exists('$(OutDir)IBM.Data.Db2.dll')"
+          SourceFiles="$(OutDir)IBM.Data.Db2.dll"
+          DestinationFiles="$(OutDir)IBM.Data.Db2.dll.x" />
+  </Target>
+
+</Project>

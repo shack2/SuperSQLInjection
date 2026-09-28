@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>SuperSQLInjectionV2.DnsServer</AssemblyName>
+    <RootNamespace>SuperSQLInjectionV2.DnsServer</RootNamespace>
+    <!-- 独立小工具：单文件发布，便于上传到VPS直接跑 -->
+    <PublishSingleFile Condition="'$(Configuration)'=='Release'">true</PublishSingleFile>
+    <SelfContained Condition="'$(Configuration)'=='Release'">true</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 与主程序共用DNS协议核心（单文件链接，不拖Avalonia依赖） -->
+    <Compile Include="..\SuperSQLInjectionV2\Tools\Dns\DnsLogServerCore.cs" Link="DnsLogServerCore.cs" />
+  </ItemGroup>
+
+</Project>

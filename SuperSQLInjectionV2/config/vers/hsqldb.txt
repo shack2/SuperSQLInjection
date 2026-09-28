@@ -1,0 +1,5 @@
+数据库版本：database_version()
+当前用户：current_user
+当前模式：current_schema
+是否DBA：(select case when authorization_type='DBA' then 1 else 0 end from information_schema.system_users where user_name=current_user)
+权限角色：(select authorization_type||case when admin then '/ADMIN' else '' end||case when readonly then '/READONLY' else '' end from information_schema.system_users where user_name=current_user)

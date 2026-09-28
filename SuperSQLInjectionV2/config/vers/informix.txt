@@ -1,0 +1,5 @@
+﻿当前数据库：(select dbinfo('dbname') from sysmaster:sysdual)
+当前用户：(select user from sysmaster:sysdual)
+主机名：(select dbinfo('dbhostname') from sysmaster:sysdual)
+实例名：(select dbservername from sysmaster:sysdual)
+数据库版本：(select dbinfo('version','full') from sysmaster:sysdual)

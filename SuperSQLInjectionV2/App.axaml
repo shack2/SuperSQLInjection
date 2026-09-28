@@ -1,0 +1,458 @@
+<Application
+    x:Class="SuperSQLInjectionV2.App"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:semi="https://irihi.tech/semi"
+    xmlns:u-semi="https://irihi.tech/ursa/themes/semi"
+    xmlns:u="https://irihi.tech/ursa"
+    xmlns:iri="https://irihi.tech/shared">
+
+    <Application.Styles>
+       
+       
+         <StyleInclude Source="avares://SuperSQLInjectionV2/Style/MyStyle.xaml" />
+         <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+        
+        <StyleInclude Source="avares://SuperSQLInjectionV2/Assets/MyIcons.axaml" />
+
+        <!--  ======== 全局默认字体（对齐 Web 的 font-sans 字体栈）：Inter → Segoe UI → PingFang SC → Hiragino Sans GB → Microsoft YaHei → system-ui → sans-serif。
+             控件级等宽字体（TextArea/代码编辑器）由更具体的样式覆盖，不受影响  ========  -->
+        <Style Selector="Control">
+            <Setter Property="TextElement.FontFamily" Value="Inter,Segoe UI,PingFang SC,Hiragino Sans GB,Microsoft YaHei,sans-serif" />
+        </Style>
+
+        <!-- semi datagrid style-->
+         <semi:DataGridSemiTheme />
+
+        <!--  ======== DataGrid 全局美化（对齐设计稿：表头灰底半粗、行悬浮、选中主色淡染、细分隔线） ========  -->
+        <Style Selector="DataGrid">
+            <Setter Property="Background" Value="{DynamicResource DsgCard}" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource DsgBorder}" />
+            <Setter Property="RowBackground" Value="Transparent" />
+            <Setter Property="RowHeight" Value="32" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
+            <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgLineStrong}" />
+        </Style>
+        <Style Selector="DataGridColumnHeader:pointerover">
+            <Setter Property="Background" Value="{DynamicResource DsgSurface3}" />
+        </Style>
+        <Style Selector="DataGridRow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
+        </Style>
+        <Style Selector="DataGridRow:selected">
+            <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
+            <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
+        </Style>
+
+        <!--  ======== TableView 全局美化（对齐 DataGrid 观感：紧凑行高、表头灰底半粗、行悬浮、选中主色淡染） ========  -->
+        <Style Selector="TableView">
+            <Setter Property="Background" Value="{DynamicResource DsgCard}" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="TableViewColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
+            <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <!--  表头行底色：盖住列间分隔条露出的下层背景  -->
+        <Style Selector="TableViewColumnHeadersPresenter">
+            <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
+        </Style>
+        <Style Selector="TableViewRow">
+            <Setter Property="MinHeight" Value="35" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <!--  隔行变色：偶数行浅灰底（声明在pointerover/selected之前，保证交互态优先）  -->
+        <Style Selector="TableViewRow:nth-child(2n)">
+            <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
+        </Style>
+        <Style Selector="TableViewCell">
+            <Setter Property="Padding" Value="5,2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!--  表格内嵌CheckBox：去掉默认最小高度，避免撑高行（环境变量/Hash/权限角色的选择列）  -->
+        <Style Selector="TableViewCell CheckBox">
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+     
+        <Style Selector="TableViewRow:pointerover">
+            <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
+        </Style>
+        <Style Selector="TableViewRow:selected">
+            <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
+            <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
+        </Style>
+        <!--  ======== 工具栏操作按钮（全局，弹窗同享）：紧凑内边距 + 新增(蓝)/修改(薄荷绿)/删除(粉) 双主题彩色实心风格  ========  -->
+        <Style Selector="u|IconButton.tbtn">
+            <Setter Property="Padding" Value="5" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="FontWeight" Value="Normal" />
+        </Style>
+      
+        <Style Selector="u|IconButton.opadd">
+            <Setter Property="Background" Value="{DynamicResource DsgOpAdd}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgOpAdd}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="u|IconButton.opadd:pointerover /template/ Border#PART_Background">
+            <Setter Property="Background" Value="{DynamicResource DsgOpAddHover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgOpAddHover}" />
+        </Style>
+        <Style Selector="u|IconButton.opadd:pressed /template/ Border#PART_Background">
+            <Setter Property="Background" Value="{DynamicResource DsgOpAddPressed}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgOpAddPressed}" />
+        </Style>
+        <Style Selector="u|IconButton.opedit">
+            <Setter Property="Background" Value="{DynamicResource DsgOpEdit}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgOpEdit}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="u|IconButton.opedit:pointerover /template/ Border#PART_Background">
+            <Setter Property="Background" Value="{DynamicResource DsgOpEditHover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgOpEditHover}" />
+        </Style>
+        <Style Selector="u|IconButton.opedit:pressed /template/ Border#PART_Background">
+            <Setter Property="Background" Value="{DynamicResource DsgOpEditPressed}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgOpEditPressed}" />
+        </Style>
+        <Style Selector="u|IconButton.opdel">
+            <Setter Property="Background" Value="{DynamicResource DsgOpDel}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgOpDel}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="u|IconButton.opdel:pointerover /template/ Border#PART_Background">
+            <Setter Property="Background" Value="{DynamicResource DsgOpDelHover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgOpDelHover}" />
+        </Style>
+        <Style Selector="u|IconButton.opdel:pressed /template/ Border#PART_Background">
+            <Setter Property="Background" Value="{DynamicResource DsgOpDelPressed}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgOpDelPressed}" />
+        </Style>
+        <!--  ======== TextBox 全局美化：统一细边框 + 圆角，悬浮/聚焦主色描边 ========  -->
+        <Style Selector="TextBox">
+            <Setter Property="iri:ClassHelper.Classes" Value="Bordered" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+        <Style Selector="TextBox:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgLineStrong}" />
+        </Style>
+        <Style Selector="TextBox:focus">
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimary}" />
+        </Style>
+
+        <!--  ======== 多行文本框（TextArea）：代码感内嵌编辑器——浅底、圆角边框、等宽字体、舒适内边距 ========  -->
+        <Style Selector="TextBox.TextArea">
+            <Setter Property="Background" Value="{DynamicResource DsgCodeBg}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+            <Setter Property="FontFamily" Value="{StaticResource CodeFontFamily}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        </Style>
+        <Style Selector="TextBox.TextArea:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgLineStrong}" />
+        </Style>
+        <Style Selector="TextBox.TextArea:focus">
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimary}" />
+            <Setter Property="Background" Value="{DynamicResource DsgCard}" />
+        </Style>
+
+        <!--  ======== ToggleSwitch.se 主题适配开关：轨道/旋钮用设计令牌色，随浅暗主题自动切换 ========  -->
+        <Style Selector="ToggleSwitch.se">
+            <Setter Property="MinWidth" Value="36" />
+            <Setter Property="MinHeight" Value="20" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border Name="PART_Track" Width="36" Height="20" CornerRadius="10"
+                                Background="{DynamicResource DsgInput}"
+                                BorderThickness="1" BorderBrush="{DynamicResource DsgLineStrong}">
+                            <Panel Name="PART_MovingKnobs">
+                                <Border Name="PART_Knob" Width="14" Height="12" CornerRadius="6"
+                                        Background="{DynamicResource DsgCard}"
+                                        HorizontalAlignment="Left" Margin="2,0,0,0" />
+                            </Panel>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style Selector="ToggleSwitch.se:pointerover /template/ Border#PART_Track">
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimary}" />
+        </Style>
+        <Style Selector="ToggleSwitch.se:checked /template/ Border#PART_Track">
+            <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryPointerover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimaryPointerover}" />
+        </Style>
+        <Style Selector="ToggleSwitch.se:checked:pointerover /template/ Border#PART_Track">
+            <Setter Property="Background" Value="{DynamicResource DsgPrimaryHover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimaryHover}" />
+        </Style>
+        <Style Selector="ToggleSwitch.se:checked /template/ Border#PART_Knob">
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Margin" Value="0,0,2,0" />
+        </Style>
+        <Style Selector="ToggleSwitch.se:disabled /template/ Border#PART_Track">
+            <Setter Property="Opacity" Value="0.45" />
+        </Style>
+          <!-- ava datagrid style
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+        -->
+
+        <!--This style is created to demonstrate Dialog StyleClass feature. This style is applied to Dialog Window-->
+        <Style Selector="u|StandardDialogWindow.Custom">
+            <Style Selector="^ /template/ Button#PART_OKButton">
+                <Setter Property="Content" Value="CUSTOM" />
+                <Setter Property="iri:ClassHelper.Classes" Value="Warning" />
+            </Style>
+        </Style>
+
+
+    </Application.Styles>
+
+  <Application.Resources>
+    <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <!-- 品牌主色（安全工具深蓝），覆盖Semi默认主题色 -->
+            <ResourceInclude Source="avares://SuperSQLInjectionV2/Style/Colors.xaml" />
+        </ResourceDictionary.MergedDictionaries>
+        <!--  品牌主色(安全工具深蓝)与背景分层:亮色下页面浅灰、卡片白形成层次;暗色沿用 Semi 深黑  -->
+        <ResourceDictionary.ThemeDictionaries>
+            <ResourceDictionary x:Key="Light">
+                <SolidColorBrush x:Key="SemiColorPrimary" Color="#2563EB" />
+                <SolidColorBrush x:Key="SemiColorPrimaryPointerover" Color="#3B82F6" />
+                <SolidColorBrush x:Key="SemiColorPrimaryActive" Color="#1D4ED8" />
+                <SolidColorBrush x:Key="WindowDefaultBackground" Color="#F4F6FA" />
+                <SolidColorBrush x:Key="TextBoxBorderedDefaultBorderBrush" Color="#E5E7EB" />
+                <!--  设计稿令牌（浅色）  -->
+                <SolidColorBrush x:Key="DsgBg" Color="#F4F6FA" />
+                <SolidColorBrush x:Key="DsgCard" Color="#FFFFFF" />
+                <SolidColorBrush x:Key="DsgSidebar" Color="#FBFCFE" />
+                <SolidColorBrush x:Key="DsgBorder" Color="#E2E6EE" />
+                <SolidColorBrush x:Key="DsgInput" Color="#D7DCE6" />
+                <SolidColorBrush x:Key="DsgSurface2" Color="#FAFCFF" />
+                <SolidColorBrush x:Key="DsgSurface3" Color="#EAEEF4" />
+                <SolidColorBrush x:Key="DsgLineStrong" Color="#D3D9E4" />
+                <SolidColorBrush x:Key="DsgInk1" Color="#232936" />
+                <SolidColorBrush x:Key="DsgInk2" Color="#5B6372" />
+                <SolidColorBrush x:Key="DsgInk3" Color="#939CAB" />
+                <SolidColorBrush x:Key="DsgPrimary" Color="#2563EB" />
+                <Color x:Key="DsgPrimaryColor">#2563EB</Color>
+                <Color x:Key="DsgPrimaryHoverColor">#1D4ED8</Color>
+                <SolidColorBrush x:Key="DsgPrimaryHover" Color="#1D4ED8" />
+                <SolidColorBrush x:Key="DsgPrimaryTint" Color="#EAF1FE" />
+                <SolidColorBrush x:Key="DsgPrimaryTint2" Color="#DBE8FE" />
+                <SolidColorBrush x:Key="DsgSuccess" Color="#15A34A" />
+                <SolidColorBrush x:Key="DsgSuccessTint" Color="#E7F6EC" />
+                <SolidColorBrush x:Key="DsgWarning" Color="#C77A08" />
+                <SolidColorBrush x:Key="DsgWarningTint" Color="#FBF2DD" />
+                <SolidColorBrush x:Key="DsgError" Color="#DC2626" />
+                <SolidColorBrush x:Key="DsgErrorTint" Color="#FDECEC" />
+                <SolidColorBrush x:Key="DsgCodeBg" Color="#FCFDFE" />
+                <SolidColorBrush x:Key="DsgMarkerBg" Color="#FDF0D6" />
+                <!--  导航专用：悬停底色（比Surface2更浅一档）/图标描边（比Ink2更浅一档）  -->
+                <SolidColorBrush x:Key="DsgNavHover" Color="#F2F2F2" />
+                <SolidColorBrush x:Key="DsgNavIcon" Color="#7C8494" />
+                <SolidColorBrush x:Key="CheckBoxDefaultBackground" Color="#FFFFFF" />
+                <SolidColorBrush x:Key="CheckBoxCheckedDefaultBackground" Color="#2563EB" />
+                <SolidColorBrush x:Key="CheckBoxCheckedDisabledBackground" Color="#7C8494" />
+                <SolidColorBrush x:Key="CheckBoxCheckedDisabledBorderBrush" Color="#7C8494" />
+                <SolidColorBrush x:Key="CheckBoxCheckedPointeroverBackground" Color="#1D4ED8" />
+                <SolidColorBrush x:Key="CheckBoxCheckedPressedBackground" Color="#3B82F6" />
+                <SolidColorBrush x:Key="CheckBoxCheckedDefaultBorderBrush" Color="#2563EB" />
+                <SolidColorBrush x:Key="CheckBoxCheckedPointeroverBorderBrush" Color="#1D4ED8" />
+                <SolidColorBrush x:Key="CheckBoxCheckedPressedBorderBrush" Color="#3B82F6" />
+                <SolidColorBrush x:Key="CheckBoxGlyphFill" Color="#FFFFFF" />
+
+                <SolidColorBrush x:Key="ButtonSolidForeground" Color="#FFFFFF" />
+
+                <!--  表格工具栏操作按钮色板（浅色，取自参考设计稿）：新增蓝/修改薄荷绿/删除粉，白字纯色柔和风  -->
+                <SolidColorBrush x:Key="DsgOpAdd" Color="#6A9DF7" />
+                <SolidColorBrush x:Key="DsgOpAddHover" Color="#3E74D1" />
+                <SolidColorBrush x:Key="DsgOpAddPressed" Color="#4D86E5" />
+                <SolidColorBrush x:Key="DsgOpEdit" Color="#6CD9C3" />
+                <SolidColorBrush x:Key="DsgOpEditHover" Color="#86E0CD" />
+                <SolidColorBrush x:Key="DsgOpEditPressed" Color="#4CC3AB" />
+                <SolidColorBrush x:Key="DsgOpDel" Color="#F59CA6" />
+                <SolidColorBrush x:Key="DsgOpDelHover" Color="#F8B3BE" />
+                <SolidColorBrush x:Key="DsgOpDelPressed" Color="#E87F90" />
+                
+                <!--  TabItem选中下划线/选中图标：别名冻结问题同暗色，浅色对齐我们的主色蓝#2563EB（原为Semi默认#1668DC）  -->
+                <SolidColorBrush x:Key="TabItemLinePipeSelectedBackground" Color="#2563EB" />
+                <SolidColorBrush x:Key="TabItemIconSelectedForeground" Color="#2563EB" />
+            </ResourceDictionary>
+            <ResourceDictionary x:Key="Dark">
+                <!--  深色主题主色：青色系。Semi三件套驱动Solid主色按钮底（白字需深青保证对比度：#0891B2底+白字≈4.6:1），
+                      DsgPrimary亮青#22D3EE负责深色底上的文字/描边/图标 accent  -->
+                <SolidColorBrush x:Key="SemiColorPrimary" Color="#0891B2" />
+                <SolidColorBrush x:Key="SemiColorPrimaryPointerover" Color="#06B6D4" />
+                <SolidColorBrush x:Key="SemiColorPrimaryActive" Color="#0E7490" />
+                <SolidColorBrush x:Key="WindowDefaultBackground" Color="#10131A" />
+                <SolidColorBrush x:Key="TextBoxBorderedDefaultBorderBrush" Color="#374151" />
+                <!--  设计稿令牌（深色）  -->
+                <SolidColorBrush x:Key="DsgBg" Color="#10131A" />
+                <SolidColorBrush x:Key="DsgCard" Color="#171A21" />
+                <SolidColorBrush x:Key="DsgSidebar" Color="#12151C" />
+                <SolidColorBrush x:Key="DsgBorder" Color="#262B36" />
+                <SolidColorBrush x:Key="DsgInput" Color="#353C4A" />
+                <SolidColorBrush x:Key="DsgSurface2" Color="#1D222C" />
+                <SolidColorBrush x:Key="DsgSurface3" Color="#252B37" />
+                <SolidColorBrush x:Key="DsgLineStrong" Color="#333B49" />
+                <SolidColorBrush x:Key="DsgInk1" Color="#E6EAF2" />
+                <SolidColorBrush x:Key="DsgInk2" Color="#A2AABB" />
+                <SolidColorBrush x:Key="DsgInk3" Color="#67707F" />
+                <SolidColorBrush x:Key="DsgPrimary" Color="#22D3EE" />
+                <Color x:Key="DsgPrimaryColor">#22D3EE</Color>
+                <Color x:Key="DsgPrimaryHoverColor">#06B6D4</Color>
+                <SolidColorBrush x:Key="DsgPrimaryHover" Color="#67E8F9" />
+
+                 <!--  CheckBox semi主题重写  -->
+                <SolidColorBrush x:Key="CheckBoxCheckedDefaultBackground" Color="#0891B2" />
+                <SolidColorBrush x:Key="CheckBoxCheckedDisabledBackground" Color="#4522D3EE" />
+                <SolidColorBrush x:Key="CheckBoxCheckedDisabledBorderBrush" Color="#4522D3EE" />
+                <SolidColorBrush x:Key="CheckBoxCheckedPointeroverBackground" Color="#06B6D4" />
+                <SolidColorBrush x:Key="CheckBoxCheckedPressedBackground" Color="#0E7490" />
+                <SolidColorBrush x:Key="CheckBoxCheckedDefaultBorderBrush" Color="#0E7490" />
+                <SolidColorBrush x:Key="CheckBoxCheckedPointeroverBorderBrush" Color="#06B6D4" />
+                <SolidColorBrush x:Key="CheckBoxCheckedPressedBorderBrush" Color="#0E7490" />
+                <SolidColorBrush x:Key="CheckBoxGlyphFill" Color="#FFFFFF" />
+
+                <!--  主色淡染（深色）：minibtn悬停底/边、按下底、导航选中底共用；alpha略提保证深底上可见  -->
+                <SolidColorBrush x:Key="DsgPrimaryTint" Color="#2E22D3EE" />
+                <SolidColorBrush x:Key="DsgPrimaryTint2" Color="#4522D3EE" />
+                <SolidColorBrush x:Key="DsgSuccess" Color="#34D399" />
+                <SolidColorBrush x:Key="DsgSuccessTint" Color="#1F34D399" />
+                <SolidColorBrush x:Key="DsgWarning" Color="#FBBF24" />
+                <SolidColorBrush x:Key="DsgWarningTint" Color="#1FFBBF24" />
+                <SolidColorBrush x:Key="DsgError" Color="#F87171" />
+                <SolidColorBrush x:Key="DsgErrorTint" Color="#1FF87171" />
+                <SolidColorBrush x:Key="DsgCodeBg" Color="#13161D" />
+                <SolidColorBrush x:Key="DsgMarkerBg" Color="#24FBBF24" />
+                <!--  表格工具栏操作按钮色板（深色）：同色系加深一档，保证深底上白字对比度  -->
+                <SolidColorBrush x:Key="DsgOpAdd" Color="#0891B2" />
+                <SolidColorBrush x:Key="DsgOpAddHover" Color="#06B6D4" />
+                <SolidColorBrush x:Key="DsgOpAddPressed" Color="#0E7490" />
+                <SolidColorBrush x:Key="DsgOpEdit" Color="#2F8A74" />
+                <SolidColorBrush x:Key="DsgOpEditHover" Color="#3FA98F" />
+                <SolidColorBrush x:Key="DsgOpEditPressed" Color="#267060" />
+                <SolidColorBrush x:Key="DsgOpDel" Color="#D06B7E" />
+                <SolidColorBrush x:Key="DsgOpDelHover" Color="#E08292" />
+                <SolidColorBrush x:Key="DsgOpDelPressed" Color="#B35468" />
+                <!--  导航专用：悬停底色（比Surface2更浅一档）/图标描边（比Ink2更浅一档）  -->
+                <SolidColorBrush x:Key="DsgNavHover" Color="#252C39" />
+                <SolidColorBrush x:Key="DsgNavIcon" Color="#B7BFCD" />
+                <!--  Semi主题包的Button主色令牌是 StaticResource 别名（加载时冻结为包内默认蓝，
+                      不吃上面的 SemiColorPrimary 覆盖），这里显式重写为青色系，
+                      修复 SolidIconButton / 纯色按钮暗色下仍是蓝底的问题  -->
+                <SolidColorBrush x:Key="ButtonSolidPrimaryBackground" Color="#0891B2" />
+                <SolidColorBrush x:Key="ButtonSolidPrimaryPointeroverBackground" Color="#06B6D4" />
+                <SolidColorBrush x:Key="ButtonSolidPrimaryPressedBackground" Color="#0E7490" />
+                <SolidColorBrush x:Key="ButtonSolidPrimaryBorderBrush" Color="#0891B2" />
+                <SolidColorBrush x:Key="ButtonSolidPrimaryPointeroverBorderBrush" Color="#06B6D4" />
+                <SolidColorBrush x:Key="ButtonSolidPrimaryPressedBorderBrush" Color="#0E7490" />
+                <SolidColorBrush x:Key="ButtonDefaultPrimaryForeground" Color="#22D3EE" />
+             
+                <!--  TabItem 主色/填充别名重写（同一 StaticResource 冻结问题）：
+                      选中下划线与选中图标用亮青（细线元素在深底上要亮一档），悬停底/描边对齐 Dsg 表面色  -->
+                <SolidColorBrush x:Key="TabItemLinePipeSelectedBackground" Color="#22D3EE" />
+                <SolidColorBrush x:Key="TabItemIconSelectedForeground" Color="#22D3EE" />
+                <SolidColorBrush x:Key="TabItemLinePipePointeroverBorderBrush" Color="#333B49" />
+                <SolidColorBrush x:Key="TabItemLinePipePressedBorderBrush" Color="#06B6D4" />
+                <SolidColorBrush x:Key="TabItemLineHeaderPointeroverBackground" Color="#1D222C" />
+                <SolidColorBrush x:Key="TabItemLineHeaderPressedBackground" Color="#252B37" />
+                <SolidColorBrush x:Key="TabItemLineHeaderSelectedBackground" Color="#2E22D3EE" />
+                <SolidColorBrush x:Key="TabItemButtonHeaderSelectedForeground" Color="#22D3EE" />
+                <SolidColorBrush x:Key="TabItemButtonHeaderSelectedBackground" Color="#2E22D3EE" />
+                <SolidColorBrush x:Key="TabControlSeparatorBorderBrush" Color="#262B36" />
+                <!--  主色衍生基础令牌（选中底/禁用态的源头，覆盖后仍须重写各控件的StaticResource别名）  -->
+                <SolidColorBrush x:Key="SemiColorPrimaryLight" Color="#2E22D3EE" />
+                <SolidColorBrush x:Key="SemiColorPrimaryLightPointerover" Color="#4522D3EE" />
+                <SolidColorBrush x:Key="SemiColorPrimaryLightActive" Color="#5A22D3EE" />
+                <SolidColorBrush x:Key="SemiColorPrimaryDisabled" Color="#155E75" />
+              
+                <!--  Slider：轨道/滑块描边三态（Disabled原包硬编码深蓝#0A4694，一并换青）  -->
+                <SolidColorBrush x:Key="SliderTrackForeground" Color="#0891B2" />
+                <SolidColorBrush x:Key="SliderThumbBorderBrush" Color="#0891B2" />
+                <SolidColorBrush x:Key="SliderThumbPointeroverBorderBrush" Color="#06B6D4" />
+                <SolidColorBrush x:Key="SliderThumbPressedBorderBrush" Color="#0E7490" />
+                <SolidColorBrush x:Key="SliderThumbDisabledBorderBrush" Color="#155E75" />
+                <!--  ProgressBar：指示条 + 主色文字  -->
+                <SolidColorBrush x:Key="ProgressBarIndicatorBrush" Color="#0891B2" />
+                <SolidColorBrush x:Key="ProgressBarPrimaryForeground" Color="#22D3EE" />
+                <!--  ToggleButton：Primary 不定态描边  -->
+                <SolidColorBrush x:Key="ToggleButtonPrimaryIndeterminateBorderBrush" Color="#0891B2" />
+                <!--  ListBox / ComboBox / TreeView / TableView：选中行淡染青底；ComboBox 聚焦/悬停/按下描边  -->
+                <SolidColorBrush x:Key="ListBoxItemSelectedBackground" Color="#2E22D3EE" />
+                <SolidColorBrush x:Key="ListBoxItemSelectedPointeroverBackground" Color="#4522D3EE" />
+                <SolidColorBrush x:Key="ComboBoxSelectorFocusBorderBrush" Color="#0891B2" />
+                <SolidColorBrush x:Key="ComboBoxSelectorPressedBorderBrush" Color="#0891B2" />
+                <SolidColorBrush x:Key="ComboBoxItemSelectedBackground" Color="#2E22D3EE" />
+                <SolidColorBrush x:Key="ComboBoxItemSelectedPointeroverBackground" Color="#4522D3EE" />
+                <SolidColorBrush x:Key="ComboBoxSelectorBorderedPointeroverBorderBrush" Color="#06B6D4" />
+                <SolidColorBrush x:Key="ComboBoxSelectorBorderedFocusBorderBrush" Color="#06B6D4" />
+                <SolidColorBrush x:Key="ComboBoxSelectorBorderedPressedBorderBrush" Color="#0E7490" />
+                <SolidColorBrush x:Key="TreeViewItemSelectedBackground" Color="#2E22D3EE" />
+                <SolidColorBrush x:Key="TableViewRowBackgroundSelected" Color="#2E22D3EE" />
+                <SolidColorBrush x:Key="TableViewRowBackgroundSelectedPointerover" Color="#4522D3EE" />
+                <SolidColorBrush x:Key="TableViewRowBackgroundSelectedPressed" Color="#5A22D3EE" />
+                <!--  TextBox：聚焦描边亮青（键盘焦点最强信号）、悬停中青  -->
+                <SolidColorBrush x:Key="TextBoxFocusBorderBrush" Color="#22D3EE" />
+                <SolidColorBrush x:Key="TextBoxBorderedPointeroverBorderBrush" Color="#06B6D4" />
+                <!--  Success 绿统一到设计稿 #34D399 色系：基础令牌（供徽章/成功提示等直接引用）  -->
+                <SolidColorBrush x:Key="SemiColorSuccess" Color="#34D399" />
+                <SolidColorBrush x:Key="SemiColorSuccessPointerover" Color="#6EE7B7" />
+                <SolidColorBrush x:Key="SemiColorSuccessActive" Color="#10B981" />
+                <SolidColorBrush x:Key="SemiColorSuccessDisabled" Color="#065F46" />
+                <!--  ToggleSwitch：勾选态走主题主色（青），未勾选态走Dsg输入表面色（StaticResource冻结，需显式重写）  -->
+                <SolidColorBrush x:Key="ToggleSwitchContainerCheckedDefaultBackground" Color="#0891B2" />
+                <SolidColorBrush x:Key="ToggleSwitchContainerCheckedPointeroverBackground" Color="#06B6D4" />
+                <SolidColorBrush x:Key="ToggleSwitchContainerCheckedPressedBackground" Color="#0E7490" />
+                <SolidColorBrush x:Key="ToggleSwitchContainerCheckedDisabledBackground" Color="#155E75" />
+                <SolidColorBrush x:Key="ToggleSwitchContainerUnCheckedDefaultBackground" Color="#353C4A" />
+                <SolidColorBrush x:Key="ToggleSwitchContainerUnCheckedPointeroverBackground" Color="#3E4655" />
+                <SolidColorBrush x:Key="ToggleSwitchContainerUnCheckedPressedBackground" Color="#475062" />
+                <SolidColorBrush x:Key="ToggleSwitchContainerUnCheckedDisabledBorderBrush" Color="#333B49" />
+              
+            </ResourceDictionary>
+        </ResourceDictionary.ThemeDictionaries>
+        <!-- 全局代码等宽字体栈（代码编辑器/报文/日志/多行文本框统一引用） -->
+        <FontFamily x:Key="CodeFontFamily">JetBrains Mono,Cascadia Code,SF Mono,Menlo,Consolas,DejaVu Sans Mono,Liberation Mono,Courier New,monospace</FontFamily>
+        <!-- ToggleSwitch 纤薄化（双主题共享）：轨道40x24改36x20、滑块18改14、左偏移2px对齐视觉间隙 -->
+        <x:Double x:Key="ToggleSwitchDefaultWidth">36</x:Double>
+        <x:Double x:Key="ToggleSwitchDefaultHeight">20</x:Double>
+        <CornerRadius x:Key="ToggleSwitchDefaultCornerRadius">10</CornerRadius>
+        <x:Double x:Key="ToggleSwitchIndicatorDefaultWidth">14</x:Double>
+        <Thickness x:Key="ToggleSwitchIndicatorDefaultMargin">2,0,0,0</Thickness>
+        <!-- IconButton 图标与文字间距：默认引用 SemiSpacingTight=8，收紧到 4（SemiSpacingExtraTight） -->
+        <x:Double x:Key="IconButtonInnerSpacing">4</x:Double>
+        <!-- TableView 表头下边框：Semi 默认 0,0,0,2 偏粗，收紧为 1px 与行间分割线一致 -->
+        <Thickness x:Key="TableViewColumnHeaderBorderThickness">0,0,0,1</Thickness>
+        <!-- 华为字体
+        <FontFamily x:Key="HarmonyOS_Sans_SC">avares://SuperSQLInjectionV2/Assets/Fonts/</FontFamily>
+        -->
+    </ResourceDictionary>
+</Application.Resources>
+
+
+</Application>

@@ -1,0 +1,7 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--  主色/背景覆盖已迁移至 App.axaml 的 ThemeDictionaries(Semi 中这些键为 SolidColorBrush,需按亮暗主题分别覆盖)  -->
+
+    <!--  统一圆角令牌  -->
+    <CornerRadius x:Key="ButtonCornerRadius">4</CornerRadius>
+    <CornerRadius x:Key="SemiBorderRadiusMedium">4</CornerRadius>
+</ResourceDictionary>

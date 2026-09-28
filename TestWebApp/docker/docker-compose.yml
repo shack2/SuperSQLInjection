@@ -1,0 +1,96 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: sqli-mysql
+    # 靶场环境：放开文件读写限制，用于验证load_file/into dumpfile/UDF写库等注入文件操作
+    command: --secure-file-priv=
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sqli_test
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  pgsql:
+    image: postgres:16
+    container_name: sqli-pgsql
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sqli_test
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgsql_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqli-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: Sa@123456
+      # 靶场环境：用Developer版（Express不支持xp_cmdshell/sp_oacreate，无法验证命令执行与文件操作注入）
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S 127.0.0.1 -U sa -P Sa@123456 -C -Q 'select 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  # ========== 国产数据库 ==========
+
+  # 达梦DM8（社区镜像，官方未发布Docker Hub镜像；SYSDBA/SYSDBA001，端口5236）
+  # 备用拉取：docker pull docker.1ms.run/xuxuclassmate/dameng:latest
+  dm:
+    image: docker.1ms.run/xuxuclassmate/dameng:latest
+    container_name: sqli-dm
+    privileged: true
+    environment:
+      PAGE_SIZE: 16
+      LD_LIBRARY_PATH: /opt/dmdbms/bin
+      INSTANCE_NAME: dm8db
+    ports:
+      - "5236:5236"
+    volumes:
+      - dm_data:/opt/dmdbms/data
+
+  # 人大金仓KingbaseES V8R6（system/123456，端口54321）
+  # license需自行从官网免费下载：https://www.kingbase.com.cn/xzzx/index.htm
+  # 下载后把授权文件放到本目录 license/license.dat，再用
+  #   docker-compose --profile kingbase up -d kingbase
+  # 启动（社区镜像内置license已过期，必须挂载有效授权才能启动）
+  kingbase:
+    image: docker.1ms.run/chyiyaqing/kingbase:v8r6
+    container_name: sqli-kingbase
+    environment:
+      SYSTEM_USER: system
+      SYSTEM_PWD: 123456
+    ports:
+      - "54321:54321"
+    volumes:
+      - kingbase_data:/opt/kingbase/data
+      - ./license/license.dat:/opt/kingbase/Server/bin/license.dat:ro
+    profiles: ["kingbase"]
+
+volumes:
+  mysql_data:
+  pgsql_data:
+  mssql_data:
+  dm_data:
+  kingbase_data:
+

@@ -1,0 +1,14 @@
+﻿<u:UrsaView xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="clr-namespace:SuperSQLInjectionV2.Views"
+             xmlns:u="https://irihi.tech/ursa"
+             mc:Ignorable="d" d:DesignWidth="1200"
+             d:DesignHeight="900"
+             x:Class="SuperSQLInjectionV2.Views.SingleView">
+    <u:UrsaView.RightContent>
+        <views:TitleBarRightContent/>
+    </u:UrsaView.RightContent>
+    <views:MainView/>
+</u:UrsaView>

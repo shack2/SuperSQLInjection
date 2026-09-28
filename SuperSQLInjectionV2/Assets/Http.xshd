@@ -1,0 +1,75 @@
+<?xml version="1.0"?>
+<SyntaxDefinition name="Custom Highlighting" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008" extensions=".http">
+	<!-- 浅色主题配色：与 Dsg 浅色设计令牌匹配；注意：Rule/Begin/End 正则必须单行书写，HighlightingLoader 不会 Trim 空白 -->
+	<Color name="HTTP.Method" foreground="#FF6F42C1" fontWeight="bold" exampleText="GET POST"/>
+	<Color name="HTTP.StatusCode" foreground="#FFD67F05" fontWeight="bold" exampleText="200 404"/>
+	<Color name="HTTP.Header" foreground="#FF2C52FF" exampleText="Host Content-Type"/>
+	<Color name="HTTP.String" foreground="#FF444444" exampleText="/api/v1/users"/>
+	<Color name="HTTP.Comment" foreground="Green" exampleText="# 注释"/>
+	<Color name="HTTP.Encode" foreground="#FFB45309" exampleText="&lt;Encode&gt; %20"/>
+	<Color name="HTTP.Point" foreground="Red" fontWeight="bold" exampleText="$sql$"/>
+	<Color name="HTTP.Version" foreground="#FF1E8449" exampleText="HTTP/1.1"/>
+	<Color name="HTTP.MIME" foreground="#FFC70039" exampleText="application/json"/>
+	<Color name="HTTP.Path" foreground="#FF0E7490" exampleText="/api/user"/>
+	<Color name="HTTP.Param" foreground="#FF0F766E" exampleText="?id=1&amp;name=x"/>
+	<Color name="HTTP.Sql" foreground="#FF9F1239" fontWeight="bold" exampleText="UNION SELECT"/>
+
+	<RuleSet>
+		<!-- 1. Encode标记块（编码处理范围，内含$sql$注入标记仍高亮） -->
+		<Span color="HTTP.Encode" multiline="true">
+			<Begin><![CDATA[<Encode(Base64)?(Raw)?>]]></Begin>
+			<End><![CDATA[<\/Encode(Base64)?(Raw)?>]]></End>
+			<RuleSet>
+				<Rule color="HTTP.Point">\$sql\$</Rule>
+			</RuleSet>
+		</Span>
+
+		<!-- 2. 注入标记 $sql$（最高优先级单行规则） -->
+		<Rule color="HTTP.Point">\$sql\$</Rule>
+
+		<!-- 3. 其他 $...$ 变量标记（单行限制，避免跨行吞掉大段内容） -->
+		<Span color="HTTP.Point" multiline="false">
+			<Begin>\$</Begin>
+			<End>\$</End>
+		</Span>
+
+		<!-- 4. 随机值/动态规则标记 -->
+		<Rule color="HTTP.Encode">&lt;\/?Rand&gt;|&lt;DRule&gt;</Rule>
+
+		<!-- 5. 请求方法（行首锚定，避免正文中的GET/POST误染色） -->
+		<Rule color="HTTP.Method">^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT|TRACE)\b</Rule>
+
+		<!-- 6. HTTP版本 -->
+		<Rule color="HTTP.Version">HTTP\/\d(\.\d)?</Rule>
+
+		<!-- 7. 状态码（仅响应行：HTTP/x.y 后的三位数字，避免正文三位数字误染色） -->
+		<Rule color="HTTP.StatusCode">(?&lt;=HTTP\/\d(\.\d)?\x20)\d{3}\b</Rule>
+
+		<!-- 8. 请求头字段名（行首任意Header-Name，冒号前） -->
+		<Rule color="HTTP.Header">^[A-Za-z][A-Za-z0-9\-]*(?=:)</Rule>
+
+		<!-- 9. MIME类型 -->
+		<Rule color="HTTP.MIME">\b(application|text|image|audio|video|multipart|font|message)\/[\w.+-]+</Rule>
+
+		<!-- 10. 请求路径（方法/主机后的 /path 段） -->
+		<Rule color="HTTP.Path">(?&lt;=\s)\/[^\s?#]*</Rule>
+
+		<!-- 11. 查询/表单参数（?id=1 &amp;name=x 逐段，值支持%编码与空值） -->
+		<Rule color="HTTP.Param">[?&amp;][^&amp;=\s]+(=[^&amp;\s]*)?</Rule>
+
+		<!-- 12. SQL关键字（注入payload语境，忽略大小写） -->
+		<Rule color="HTTP.Sql">(?i)\b(UNION|SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|AND|OR|ORDER\x20BY|GROUP\x20BY|HAVING|LIMIT|OFFSET|SLEEP|BENCHMARK|IFNULL|ISNULL|CONCAT|GROUP_CONCAT|LOAD_FILE|OUTFILE|EXEC|DECLARE|CAST|CONVERT|CHAR|SUBSTRING|MID|LENGTH)\b</Rule>
+
+		<!-- 13. URL百分号编码段（tamper/编码处理后的结果可视化） -->
+		<Rule color="HTTP.Encode">%[0-9A-Fa-f]{2}</Rule>
+
+		<!-- 14. 双引号字符串（含转义引号） -->
+		<Span color="HTTP.String" multiline="false">
+			<Begin>"</Begin>
+			<End>"</End>
+			<RuleSet>
+				<Rule color="HTTP.String">\\"</Rule>
+			</RuleSet>
+		</Span>
+	</RuleSet>
+</SyntaxDefinition>

@@ -1,0 +1,6 @@
+数据库版本：h2version()
+当前模式：current_schema()
+当前用户：current_user
+数据库路径：(select setting_value from information_schema.settings where setting_name='info.BASE_DIR')
+Java版本：(select setting_value from information_schema.settings where setting_name='java.version')
+管理员权限：(select admin from information_schema.users where name=current_user)
