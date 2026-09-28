@@ -26,6 +26,15 @@ public static class Program
     public static string AppVersion =>
         Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "2.0.0";
 
+    /// <summary>--selftest 探针：自定义 JS 项强制走 QuickJS 池化执行（非内置 C# 委托），验证原生库加载与 eval 链路</summary>
+    private sealed class SelfTestTamper : ITamperItem
+    {
+        public string Name => "selftest";
+        public bool Builtin => false;
+        public string? Key => null;
+        public string? Code => "function tamper(p){ return 'qjs:' + p + ':' + (1+1); }";
+    }
+
     public static async Task<int> Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
@@ -48,6 +57,27 @@ public static class Program
         {
             Console.WriteLine("SuperSQLInjectionV2.Cmd v" + AppVersion);
             return 0;
+        }
+
+        if (opt.SelfTest)
+        {
+            // 自检：真实加载 libquickjs 原生库并执行一段 JS（--version 不触碰 QuickJS，CI 冒烟需覆盖原生库加载链路）
+            try
+            {
+                string r = ScriptTamperEngine.TamperStrict(new SelfTestTamper(), "ok");
+                if (r == "qjs:ok:2")
+                {
+                    Console.WriteLine("selftest: QuickJS OK (" + r + ")");
+                    return 0;
+                }
+                Console.Error.WriteLine("selftest: QuickJS 返回不符预期: " + r);
+                return 1;
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine("selftest: QuickJS 加载/执行失败: " + e.Message);
+                return 1;
+            }
         }
         if (opt.ShowHelp || args.Length == 0)
         {

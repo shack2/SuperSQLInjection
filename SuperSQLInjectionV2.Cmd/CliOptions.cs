@@ -68,6 +68,7 @@ public sealed class CliOptions
     public bool Batch = true;              // --batch（CLI 默认非交互）
     public bool ShowHelp;                  // -h/--help
     public bool ShowVersion;               // --version
+    public bool SelfTest;                  // --selftest（加载 QuickJS 执行 JS 探针，CI 冒烟用）
 
     public bool HasAction =>
         Banner || CurrentUser || CurrentDb || Hostname || IsDba || AllEnv || Passwords || Privileges ||
@@ -139,6 +140,7 @@ public sealed class CliOptions
                     case "--batch": o.Batch = true; break;
                     case "--help": o.ShowHelp = true; break;
                     case "--version": o.ShowVersion = true; break;
+                    case "--selftest": o.SelfTest = true; break;
                     default: throw new ArgumentException($"未知参数: {a}");
                 }
             }
@@ -225,6 +227,7 @@ public sealed class CliOptions
           --output-dir=DIR        结果保存目录（默认 output/<host>_<port>/）
           --batch                 非交互模式（默认）
           --version               显示版本
+          --selftest              自检：真实加载 QuickJS 原生库执行 JS 探针（CI 冒烟用）
           -h, --help              显示帮助
 
         示例:

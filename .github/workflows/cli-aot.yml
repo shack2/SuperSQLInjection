@@ -61,18 +61,22 @@ jobs:
           rm -rf "$PUBDIR/output"
           ls -la "$PUBDIR"
 
-      - name: 冒烟验证（--version）
+      - name: 冒烟验证（--version + QuickJS 自检）
         if: runner.os == 'Windows'
         shell: pwsh
-        run: '& "SuperSQLInjectionV2.Cmd/bin/Release/net10.0/${{ matrix.rid }}/publish/SuperSQLInjectionV2.Cmd.exe" --version'
+        run: |
+          & "SuperSQLInjectionV2.Cmd/bin/Release/net10.0/${{ matrix.rid }}/publish/SuperSQLInjectionV2.Cmd.exe" --version
+          & "SuperSQLInjectionV2.Cmd/bin/Release/net10.0/${{ matrix.rid }}/publish/SuperSQLInjectionV2.Cmd.exe" --selftest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: 冒烟验证（--version）
+      - name: 冒烟验证（--version + QuickJS 自检）
         if: runner.os != 'Windows'
         shell: bash
         run: |
           PUBDIR="SuperSQLInjectionV2.Cmd/bin/Release/net10.0/${{ matrix.rid }}/publish"
           chmod +x "$PUBDIR/SuperSQLInjectionV2.Cmd"
           "$PUBDIR/SuperSQLInjectionV2.Cmd" --version
+          "$PUBDIR/SuperSQLInjectionV2.Cmd" --selftest
 
       - name: 打包 zip（Windows）
         if: runner.os == 'Windows'

@@ -46,11 +46,17 @@ jobs:
       - name: 编译桌面端 Native AOT（${{ matrix.rid }}）
         run: dotnet publish SuperSQLInjectionV2.Desktop/SuperSQLInjectionV2.Desktop.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:PublishTrimmed=true --self-contained
 
-      - name: 清理调试符号
+      - name: 清理调试符号与异平台 quickjs 库
         shell: bash
         run: |
           PUBDIR="SuperSQLInjectionV2.Desktop/bin/Release/net10.0/${{ matrix.rid }}/publish"
           rm -f "$PUBDIR"/*.pdb "$PUBDIR"/*.dbg "$PUBDIR"/*.dwarf 2>/dev/null || true
+          # 只保留本平台的 libquickjs，剔除异平台库（约省 8MB）
+          case "${{ matrix.rid }}" in
+            win-x64)   rm -f "$PUBDIR/libquickjs.so" "$PUBDIR/libquickjs.dylib";;
+            linux-x64) rm -f "$PUBDIR/libquickjs.dll" "$PUBDIR/libquickjs.dylib";;
+            osx-arm64) rm -f "$PUBDIR/libquickjs.dll" "$PUBDIR/libquickjs.so";;
+          esac
           ls -la "$PUBDIR"
 
       - name: 打包 zip（Windows）
