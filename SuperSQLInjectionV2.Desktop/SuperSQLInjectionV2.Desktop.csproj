@@ -10,6 +10,8 @@
 
   <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- exe 图标（窗口图标在 MainWindow.axaml 用 avares 单独指定） -->
+    <ApplicationIcon>..\SuperSQLInjectionV2\Assets\SSQL.ico</ApplicationIcon>
     <PublishAot>False</PublishAot>
     <PublishTrimmed>False</PublishTrimmed>
   </PropertyGroup>
