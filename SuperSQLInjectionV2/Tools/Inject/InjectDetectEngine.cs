@@ -83,6 +83,8 @@ namespace SuperSQLInjectionV2.Tools.Inject
             public int BaseSec = -1;
             //基线响应抖动（max-min，毫秒）：抖动大时时间类检测增加一轮确认
             public int BaseJitterMs = 0;
+            //重查询payload单位延时校准缓存（key=重查询函数标记，value=每[SLEEPTIME]单位实际耗时毫秒，-1=校准失败）
+            public Dictionary<string, double> HeavyUnitMs = new Dictionary<string, double>();
             //页面模板自身稳定性：3次原始请求两两ratio均>=0.98视为稳定
             public bool Stable = true;
             //注入位置（Query/BodyForm/Cookie/Header/BodyJson/Uri）与头名称（Place=Header时用）
@@ -904,13 +906,23 @@ namespace SuperSQLInjectionV2.Tools.Inject
             {
                 ctx.Config.TimeOut = time + 5;
             }
-            PayloadPlaceholder ph = new PayloadPlaceholder(time);
+            bool canSetTime = (test.RequestPayload ?? "").Contains("[SLEEPTIME]", StringComparison.Ordinal);
+            //重查询类payload（RANDOMBLOB/BENCHMARK/GENERATE_SERIES等CPU消耗型）：[SLEEPTIME]是放大倍数而非真实秒数，
+            //单位实际耗时取决于目标硬件（实测RANDOMBLOB约0.2秒/单位），不校准会因基准延时不达标整体漏报。
+            //以[SLEEPTIME]=1实测单位耗时后按目标延时等比放大（sqlmap同款校准思路），结果按重查询函数类型缓存到ctx。
+            double heavyUnitMs = -1;
+            string? heavyKey = canSetTime ? GetHeavyQueryKey(test.RequestPayload) : null;
+            if (heavyKey != null)
+            {
+                heavyUnitMs = await CalibrateHeavyUnitMs(ctx, test, boundary, where, heavyKey).ConfigureAwait(false);
+            }
+            int ScaleSleep(int t) => heavyUnitMs > 50 && heavyUnitMs < 950 ? Math.Min(100, (int)Math.Ceiling(t * 1000.0 / heavyUnitMs)) : t;
+            PayloadPlaceholder ph = new PayloadPlaceholder(ScaleSleep(time));
             string prefix = Rep(ctx, ph, boundary.Prefix);
             string suffix = Rep(ctx, ph, boundary.Suffix);
             string comment = Rep(ctx, ph, test.RequestComment);
             string payload = Rep(ctx, ph, test.RequestPayload) + comment;
             string reqTxt = BuildRequest(ctx, MarkedValue(ctx, BaseValue(ctx, where, payload), prefix, suffix));
-            bool canSetTime = (test.RequestPayload ?? "").Contains("[SLEEPTIME]", StringComparison.Ordinal);
 
             //第1次：基准延时
             HttpResponse resp = await Send(ctx, reqTxt, payload).ConfigureAwait(false);
@@ -923,7 +935,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
             if (canSetTime)
             {
                 int time2 = time + 2;
-                PayloadPlaceholder ph2 = new PayloadPlaceholder(time2);
+                PayloadPlaceholder ph2 = new PayloadPlaceholder(ScaleSleep(time2));
                 string prefix2 = Rep(ctx, ph2, boundary.Prefix);
                 string suffix2 = Rep(ctx, ph2, boundary.Suffix);
                 string payload2 = Rep(ctx, ph2, test.RequestPayload) + Rep(ctx, ph2, test.RequestComment);
@@ -1138,6 +1150,56 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 Log.Warning("目标响应时间抖动较大（" + ctx.BaseJitterMs + "毫秒），时间类检测将追加一轮确认防误报！");
             }
             return ctx.BaseSec;
+        }
+
+        /// <summary>重查询（CPU消耗型延时）payload特征标记：这类payload的[SLEEPTIME]是放大倍数，单位耗时远小于1秒</summary>
+        private static readonly string[] HeavyQueryMarkers = { "RANDOMBLOB(", "BENCHMARK(", "GENERATE_SERIES(", "REGEXP_SUBSTRING(", "REPEAT(", "RECURSIVE" };
+
+        /// <summary>识别payload是否属于重查询类型，返回其特征标记（用作校准缓存key）</summary>
+        private static string? GetHeavyQueryKey(string? payload)
+        {
+            if (string.IsNullOrEmpty(payload))
+            {
+                return null;
+            }
+            foreach (string m in HeavyQueryMarkers)
+            {
+                if (payload.Contains(m, StringComparison.OrdinalIgnoreCase))
+                {
+                    return m;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 重查询payload单位延时校准：以[SLEEPTIME]=1实测目标实际耗时（扣除基线网络耗时），结果缓存到ctx。
+        /// 返回单位毫秒；&lt;=0表示校准失败（调用方按不缩放处理，保持原有行为）
+        /// </summary>
+        private static async Task<double> CalibrateHeavyUnitMs(Ctx ctx, PayloadTest test, PayloadBoundary boundary, int where, string heavyKey)
+        {
+            if (ctx.HeavyUnitMs.TryGetValue(heavyKey, out double cached))
+            {
+                return cached;
+            }
+            double unitMs = -1;
+            try
+            {
+                PayloadPlaceholder cph = new PayloadPlaceholder(1);
+                string cprefix = Rep(ctx, cph, boundary.Prefix);
+                string csuffix = Rep(ctx, cph, boundary.Suffix);
+                string cpayload = Rep(ctx, cph, test.RequestPayload) + Rep(ctx, cph, test.RequestComment);
+                string creqTxt = BuildRequest(ctx, MarkedValue(ctx, BaseValue(ctx, where, cpayload), cprefix, csuffix));
+                HttpResponse resp = await Send(ctx, creqTxt, cpayload).ConfigureAwait(false);
+                unitMs = resp.RunTime - ctx.BaseSec * 1000.0;
+                if (unitMs > 50 && unitMs < 950)
+                {
+                    Log.Show("重查询payload（" + heavyKey.TrimEnd('(') + "）单位延时实测约" + (int)unitMs + "毫秒，[SLEEPTIME]将等比放大以达成目标延时！");
+                }
+            }
+            catch { /* 校准失败按不缩放处理 */ }
+            ctx.HeavyUnitMs[heavyKey] = unitMs;
+            return unitMs;
         }
 
         /// <summary>

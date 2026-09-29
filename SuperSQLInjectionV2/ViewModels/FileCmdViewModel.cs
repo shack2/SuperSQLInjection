@@ -138,7 +138,7 @@ namespace SuperSQLInjectionV2.ViewModels
                     FileMethods.Add("CSVREAD读文件");
                     FileMethods.Add("CSVWRITE写文件");
                     CmdMethods.Add("CREATE ALIAS命令执行");
-                    CmdMethodHint = "CREATE ALIAS（需堆叠注入+H2 1.x且JDK编译器可用，2.x移除此特性）；管道/重定向请自行加 /bin/sh -c 或 cmd /c";
+                    CmdMethodHint = "CREATE ALIAS（需JDK编译器javax.tools可用，H2 1.x/2.x均支持；JRE环境不可用）；管道/重定向请自行加 /bin/sh -c 或 cmd /c";
                     FileMethodHint = "";
                     break;
                 case DBType.HSQLDB:

@@ -471,3 +471,6 @@ skills/*/assets/bin/
 
 # CLI 注入会话输出目录
 /output/
+
+# CLI 在仓库根目录运行产生的运行时状态（盲注进度/取值缓存）
+/config/sessions/

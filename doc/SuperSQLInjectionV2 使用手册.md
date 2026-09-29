@@ -258,7 +258,7 @@ CLI 检出注入后自动复用注入点拼接对应数据库的取数 SQL，无
 | SQLServer | FileSystemObject、sp_MakeWebTask、备份写 WebShell |
 | PostgreSQL | COPY TO（堆叠）、大对象 lo_from_bytea/lo_export（Union/报错单语句） |
 | openGauss / Kingbase | COPY TO（兼容 PG 语法） |
-| H2 | CSVWRITE（char 链免引号） |
+| H2 | CSVWRITE（char 链免引号，writeColumnHeader=false+fieldDelimiter=空 → 裸字节落盘，仅末尾多一个 CRLF） |
 | SQLite | ATTACH DATABASE 写 WebShell（堆叠） |
 | ClickHouse | 不支持写文件（`INTO OUTFILE` 为 clickhouse-client 客户端侧功能，HTTP 接口固定报错 358 不可用） |
 | Oracle | GETXML + Java 存储过程（内容 hex 传参，受 varchar2(4000) 限制约 2000 字节；版本限制同上） |
@@ -273,7 +273,7 @@ CLI 检出注入后自动复用注入点拼接对应数据库的取数 SQL，无
 | SQLServer | xp_cmdshell（自动开启组件）、sp_OACreate(wscript.shell) 兜底（xp 被删时用，输出经 BULK INSERT 回读） |
 | PostgreSQL | COPY FROM PROGRAM（9.3+）、UDF（lib_postgresqludf_sys，8.2~9.4） |
 | Kingbase | COPY FROM PROGRAM（复用 PG 通道） |
-| H2 | CREATE ALIAS Java 函数（需堆叠 + H2 1.x 且 JDK 编译器可用） |
+| H2 | CREATE ALIAS Java 函数（需 JDK 编译器 javax.tools 可用，H2 1.x/2.x 均支持，JRE 不可用） |
 | Oracle | GETXML + Java 存储过程（`dbms_xmlquery.getxml` 在 SELECT 中执行匿名 PL/SQL 部署 Java，免堆叠；限 9i~11g，XE/18c+ 不可用） |
 | 达梦 | 不支持（实测 DM8 无 DBMS_XMLQUERY，驱动堆叠禁 DDL） |
 

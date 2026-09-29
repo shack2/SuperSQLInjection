@@ -186,9 +186,9 @@ namespace SuperSQLInjectionV2.Models
             BoolInjectType.MinLength
         ];
 
-        /// <summary>取数实际判定方式：注入类型为时间盲注时强制按响应耗时判定，否则用所选Bool盲注判断方式</summary>
+        /// <summary>取数实际判定方式：注入类型为时间盲注/堆叠时强制按响应耗时判定（堆叠取数回退时间通道，CheckValue=延时秒数），否则用所选Bool盲注判断方式</summary>
         [JsonIgnore]
-        public BoolInjectType EffectiveBoolType => SelectedInjectType == InjectType.Time ? BoolInjectType.Time : SelectBoolInject;
+        public BoolInjectType EffectiveBoolType => SelectedInjectType is InjectType.Time or InjectType.Stacked ? BoolInjectType.Time : SelectBoolInject;
 
         /// <summary>当前是否时间盲注通道（时间盲注注入类型；兼容旧配置的 Bool盲注+时间判定 组合）</summary>
         [JsonIgnore]

@@ -56,7 +56,7 @@ V2 是超级SQL注入工具（SSQLInjection）的跨平台重写版本。V1 基�
 | Oracle | — | **GETXML + Java 存储过程命令执行/文件读写**（`dbms_xmlquery.getxml` 在 SELECT 中执行匿名 PL/SQL 部署 Java，免堆叠；**限 9i~11g**，18c 弃用该包/21c+ 移除，XE 无 JVM 不可用） |
 | 达梦 | — | 不支持（实测 DM8 无 DBMS_XMLQUERY 包，驱动堆叠禁 DDL，纯注入不可达） |
 | Kingbase | — | 复用 PostgreSQL 通道：COPY 文件读写 + COPY FROM PROGRAM 命令执行 |
-| H2 | — | CSVREAD/CSVWRITE 文件读写 + **CREATE ALIAS Java 函数命令执行**（需 H2 1.x + JDK 编译器） |
+| H2 | — | CSVREAD/CSVWRITE 文件读写（裸字节落盘，免表头免引号包裹）+ **CREATE ALIAS Java 函数命令执行**（需 JDK 编译器 javax.tools 可用，实测 H2 1.4/2.x 均支持） |
 | SQLite | — | ATTACH DATABASE 写 WebShell（堆叠） |
 | ClickHouse | — | `file()` 读文件（user_files 目录）；不支持写文件（`INTO OUTFILE` 为 clickhouse-client 客户端侧功能，HTTP 接口固定报错 358，注入场景不可用） |
 | MySQL 写文件 | Union 写文件 | Union 写文件 + **general_log 写 WebShell**（堆叠） |

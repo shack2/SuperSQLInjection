@@ -565,9 +565,13 @@ public static class Program
         config.DataConfig.InjectParamName = best.PName ?? "";
         //数据库类型同步回填：否则检测命中（非--dbms指定）时EnsureDataOpReady仍报"未识别数据库类型"，取数/文件/命令动作全部不可用
         config.DataConfig.SelectedDBType = best.DBType;
-        if (best.InjectType == InjectType.Blind || best.InjectType == InjectType.Time)
+        if (best.InjectType == InjectType.Blind || best.InjectType == InjectType.Time || best.InjectType == InjectType.Stacked)
         {
-            config.DataConfig.SelectBoolInject = best.BoolInjectType;
+            //堆叠命中同样携带时间盲注oracle（BoolInjectType.Time + CheckValue=延时秒数），取数回退时间通道依赖（与GUI UpdateData对齐）
+            if (best.InjectType != InjectType.Time)
+            {
+                config.DataConfig.SelectBoolInject = best.BoolInjectType;
+            }
             config.DataConfig.CheckValue = best.CheckValue;
             config.DataConfig.Reverse = best.Revers;
         }
