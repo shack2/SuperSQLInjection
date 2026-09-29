@@ -123,7 +123,7 @@ git push origin v2.0.0   # release workflow 自动构建并挂载安装包
 
 ## 文档
 
-- [使用手册](doc/SuperSQLInjectionV2%20使用手册.md)：界面功能、配置说明、各数据库利用方式、FAQ
+- [使用手册（docx）](doc/SuperSQLInjectionV2%20使用手册.docx)：界面功能、配置说明、各数据库利用方式、能力支持矩阵、FAQ（[Markdown 源文件](doc/SuperSQLInjectionV2%20使用手册.md)）
 - [V2 更新说明](doc/SuperSQLInjectionV2%20V2%20更新说明.md)：相对 V1 的新增与优化项对照
 
 ## 许可证

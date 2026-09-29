@@ -250,7 +250,7 @@ CLI 检出注入后自动复用注入点拼接对应数据库的取数 SQL，无
 | ClickHouse | `file()` 表函数（仅 user_files 目录） |
 | Oracle | GETXML + Java 存储过程（免堆叠，限 9i~11g：DBMS_XMLQUERY 可执行匿名 PL/SQL；12c 未验证，18c 弃用/21c+ 移除；XE 全版本无 JVM 不可用） |
 
-### 6.7.1 二进制文件上传 / 下载
+### 6.7 二进制文件上传 / 下载
 
 操作方式下拉框中选择「二进制下载 / 二进制上传」通道，字节级无损（全程 hex 传输，本地不过文本编码）。GUI：上传先点「选择文件」装载本地文件，下载完成后点「保存到本地」落盘；CLI：`--file-read=远端 --file-method=二进制下载 --file-dest=本地路径` / `--file-write=本地 --file-dest=远端 --file-method=二进制上传`。
 
@@ -280,7 +280,7 @@ CLI 检出注入后自动复用注入点拼接对应数据库的取数 SQL，无
 | ClickHouse | 不支持写文件（`INTO OUTFILE` 为 clickhouse-client 客户端侧功能，HTTP 接口固定报错 358 不可用） |
 | Oracle | GETXML + Java 存储过程（内容 hex 传参，受 varchar2(4000) 限制约 2000 字节；版本限制同上） |
 
-### 6.8 命令执行
+### 6.9 命令执行
 
 按数据库类型自动选择执行通道：
 
@@ -296,9 +296,71 @@ CLI 检出注入后自动复用注入点拼接对应数据库的取数 SQL，无
 
 输出逐字符实时回显；自动剥离通道产生的多余换行。
 
-### 6.9 自定义 SQL
+### 6.10 自定义 SQL
 
 直接输入任意 SQL，工具按当前注入点与数据库类型自动拼接到可用通道执行并回显结果（多行结果表格化展示）。
+
+### 6.11 能力支持矩阵（按数据库 × 注入类型）
+
+注入类型缩写：**U**=Union 联合查询、**E**=报错、**B**=Bool 盲注、**T**=时间盲注、**S**=堆叠注入；「全通道」= U/E/B/T 任意一种即可（表达式类通道盲注逐位取值较慢，属正常现象）。
+
+**表 1　文件读取**
+
+| 数据库 | 通道 | 注入类型要求 | 前置条件 | 字节无损 |
+| --- | --- | --- | --- | --- |
+| MySQL | `load_file()` | 全通道 | FILE 权限 + `secure_file_priv` 允许目标路径 + 绝对路径 | ✅（二进制下载通道） |
+| SQLServer | FileSystemObject（sp_OACreate） | S | sysadmin + Ole Automation 开启（工具自动开启） | 文本 |
+| SQLServer | BULK INSERT | S（建表）+ 全通道（取数） | sysadmin / bulkadmin | 文本 |
+| SQLServer | OPENROWSET SINGLE_BLOB | S（建表）+ 全通道（取数） | sysadmin + Ad Hoc Distributed Queries（工具自动开启） | ✅（二进制下载通道） |
+| PostgreSQL | COPY FROM | S | superuser 或 pg_read_server_files | 文本 |
+| PostgreSQL | 大对象 lo_import | U / E / S | superuser 或 pg_read_server_files | ✅（二进制下载通道） |
+| openGauss | COPY FROM | S | superuser | 文本 |
+| Kingbase | COPY FROM | S | superuser | 文本 |
+| H2 | CSVREAD | 全通道 | 读写的是应用服务器本地文件 | 文本 |
+| H2 | FILE_READ + RAWTOHEX | 全通道 | admin 权限 | ✅（二进制下载通道） |
+| ClickHouse | `file()` 表函数 | 全通道 | 仅 user_files 目录内文件 | ✅（RawBLOB 二进制通道） |
+| SQLite | readfile() | 全通道 | 目标 SQLite 加载了官方 fileio 扩展（如 Calibre），否则函数不存在 | ✅（二进制下载通道） |
+| Oracle | Java SqliRead / SqliReadHex | 全通道（GETXML 部署） | 9i~11g（DBMS_XMLQUERY 可用）+ CREATE PROCEDURE 权限 + JVM；返回值限 4000 字符 | ✅（二进制下载通道） |
+| HSQLDB / DB2 / 达梦 | — | — | 纯注入无可达通道（TEXT TABLE / ADMIN_CMD 均非字节无损且需预置对象） | — |
+
+**表 2　文件写入**
+
+| 数据库 | 通道 | 注入类型要求 | 前置条件 | 字节无损 |
+| --- | --- | --- | --- | --- |
+| MySQL | Union `INTO DUMPFILE` | U | FILE 权限 + `secure_file_priv` 为空 + 目录可写 | ✅（≤4KB 单发） |
+| MySQL | 堆叠临时表分片 DUMPFILE | S | 同上；写后 `length(load_file())` 自动验证 | ✅ |
+| MySQL | general_log 写 WebShell | S | FILE 权限 + 可改 general_log 路径 | 文本 |
+| SQLServer | FileSystemObject 写 | S | sysadmin + Ole Automation | 文本 |
+| SQLServer | Sp_MakeWebTask | S | sysadmin（SQL Server 2012+ 已移除，失败会明确提示） | 文本 |
+| SQLServer | 备份写 WebShell | S | sysadmin / db_owner | 文本（有多余数据） |
+| SQLServer | ADODB.Stream 二进制写 | S | sysadmin + Ole Automation；临时表 varbinary 分片聚合，写后 datalength 验证 | ✅ |
+| PostgreSQL | COPY TO | S | superuser 或 pg_write_server_files | 文本 |
+| PostgreSQL | 大对象 lo_from_bytea/lo_export | U / E（小文件单发）、S（分片） | superuser 或 pg_write_server_files；导出前字节数校验 | ✅ |
+| openGauss | COPY TO | S | superuser | 文本 |
+| Kingbase | COPY TO | S | superuser | 文本 |
+| H2 | CSVWRITE | 全通道 | 仅末尾多一个 CRLF | 文本 |
+| H2 | FILE_WRITE(x'hex') | 全通道 | admin 权限；返回写入字节数天然验证；大文件自动切 CREATE ALIAS 分片（追加 S + JDK 编译器） | ✅ |
+| SQLite | writefile() | 全通道 | fileio 扩展已加载；无追加能力，超上限提示改 ATTACH | ✅ |
+| SQLite | ATTACH 写 WebShell | S | 堆叠三条语句（attach/create/insert） | 文本 |
+| Oracle | Java SqliWrite / SqliWriteBin | 全通道（GETXML 部署） | 版本限制同表 1；文本写限约 2000 字节（hex 后受 varchar2(4000) 限制）；二进制 1500 字节/片 append | ✅ |
+| ClickHouse | — | — | `INTO OUTFILE` 为客户端侧功能，HTTP 接口注入不可用 | — |
+| HSQLDB / DB2 / 达梦 | — | — | 同表 1 | — |
+
+**表 3　命令执行**
+
+| 数据库 | 通道 | 注入类型要求 | 前置条件 |
+| --- | --- | --- | --- |
+| MySQL | UDF sys_eval（内置 lib_mysqludf_sys 二进制自动写 plugin 目录 + CREATE FUNCTION） | U / S（写库建函数）+ 全通道（调用） | FILE 权限 + plugin 目录可写 + `secure_file_priv` 为空 |
+| SQLServer | xp_cmdshell（自动 sp_configure 开启组件） | S | sysadmin；仅 Windows 版 SQL Server |
+| SQLServer | sp_OACreate(wscript.shell) 兜底 | S | sysadmin + Ole Automation；输出经 BULK INSERT 回读 |
+| PostgreSQL | COPY FROM PROGRAM | S | 9.3+；superuser 或 pg_execute_server_program |
+| PostgreSQL | UDF sys_eval（lib_postgresqludf_sys） | S | 8.2~9.4；superuser |
+| Kingbase | COPY FROM PROGRAM（复用 PG 通道） | S | superuser |
+| H2 | CREATE ALIAS Java 函数 | S | JDK 编译器 javax.tools 可用（H2 1.x/2.x 均支持，JRE 不可用）；管道/重定向自行加 `/bin/sh -c` 或 `cmd /c` |
+| Oracle | GETXML + Java 存储过程 | 全通道（GETXML 部署） | 9i~11g；CREATE PROCEDURE 权限 + JVM；12c 未验证，18c 弃用 / 21c+ 移除 / XE 无 JVM |
+| openGauss / HSQLDB / SQLite / ClickHouse / DB2 / 达梦 | — | — | openGauss 已移除 COPY FROM PROGRAM；SQLite load_extension 默认禁用；ClickHouse 无执行通道；DB2 需外部例程 DDL；达梦需预置 jar + 开参重启 |
+
+> 二进制上传分片大小自适应：GET 注入约 1200 字节/片（URL 长度受限），POST 最大 6000~7000 字节/片。所有二进制通道均已做 MD5 逐字节实测（ClickHouse 仅下载、SQLite 无扩展时优雅降级提示）。
 
 ---
 
