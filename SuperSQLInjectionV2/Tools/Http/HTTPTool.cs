@@ -33,20 +33,6 @@ namespace SuperSQLInjectionV2.Tools.Http
         [GeneratedRegex(@"^HTTP/\d(?:\.\d)?\s+(\d{3})")]
         private static partial Regex ConnectStatusRegex();
 
-        public static HttpResponse sendRequestRetry(HttpRequest request)
-        {
-            return sendRequestRetry(request, false);
-        }
-
-        /// <summary>
-        /// 发送请求（带重试），isSubRequest为true时表示Token/二次注入等子请求，不再触发Token替换与二次注入。
-        /// 同步入口：委托异步版实现（Task.Run跳到无线程上下文的后台线程，避免UI同步上下文捕获await造成死锁），消除同步/异步双份逻辑（A3）
-        /// </summary>
-        private static HttpResponse sendRequestRetry(HttpRequest request, bool isSubRequest)
-        {
-            return Task.Run( ()=> SendRequestRetryAsync(request, isSubRequest), CancellationToken.None).GetAwaiter().GetResult();
-        }
-
         /// <summary>
         /// 异步发送请求（带重试）。全程不阻塞线程：
         /// 频率控制用信号量预约时间槽+Task.Delay，Token/二次注入子请求同样异步
