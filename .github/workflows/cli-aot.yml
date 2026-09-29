@@ -84,6 +84,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
           $pub = "SuperSQLInjectionV2.Cmd/bin/Release/net10.0/${{ matrix.rid }}/publish"
+          # 随包附带文档（使用手册/更新说明/界面截图）与README
+          Copy-Item -Recurse doc "$pub/doc"
+          Copy-Item README.md "$pub/README.md"
           Compress-Archive -Path "$pub/*" -DestinationPath "dist/SuperSQLInjectionV2.Cmd-$env:VERSION-${{ matrix.rid }}.zip" -Force
 
       - name: 打包 tar.gz（Linux/macOS）
@@ -92,6 +95,9 @@ jobs:
         run: |
           mkdir -p dist
           PUBDIR="SuperSQLInjectionV2.Cmd/bin/Release/net10.0/${{ matrix.rid }}/publish"
+          # 随包附带文档（使用手册/更新说明/界面截图）与README
+          cp -R doc "$PUBDIR/doc"
+          cp README.md "$PUBDIR/README.md"
           tar -czf "dist/SuperSQLInjectionV2.Cmd-$VERSION-${{ matrix.rid }}.tar.gz" -C "$PUBDIR" .
 
       - name: 上传产物

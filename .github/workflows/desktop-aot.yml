@@ -65,6 +65,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
           $pub = "SuperSQLInjectionV2.Desktop/bin/Release/net10.0/${{ matrix.rid }}/publish"
+          # 随包附带文档（使用手册/更新说明/界面截图）与README
+          Copy-Item -Recurse doc "$pub/doc"
+          Copy-Item README.md "$pub/README.md"
           Compress-Archive -Path "$pub/*" -DestinationPath "dist/SuperSQLInjectionV2-$env:VERSION-desktop-${{ matrix.rid }}.zip" -Force
 
       - name: 打包 tar.gz（Linux）
@@ -73,6 +76,9 @@ jobs:
         run: |
           mkdir -p dist
           PUBDIR="SuperSQLInjectionV2.Desktop/bin/Release/net10.0/${{ matrix.rid }}/publish"
+          # 随包附带文档（使用手册/更新说明/界面截图）与README
+          cp -R doc "$PUBDIR/doc"
+          cp README.md "$PUBDIR/README.md"
           tar -czf "dist/SuperSQLInjectionV2-$VERSION-desktop-${{ matrix.rid }}.tar.gz" -C "$PUBDIR" .
 
       # macOS 桌面端按平台惯例打 .app Bundle 再封装 .dmg：
@@ -138,8 +144,14 @@ jobs:
           find "$APP/Contents/MacOS" -maxdepth 1 \( -name "*.dylib" -o -type f -perm +111 \) -exec codesign --force --sign - {} \;
           codesign --force --sign - "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
-          hdiutil create -volname "SuperSQLInjectionV2" -srcfolder "$APP" -ov -format UDZO "dist/SuperSQLInjectionV2-$VERSION-desktop-${{ matrix.rid }}.dmg"
-          rm -rf "$APP" "$ICONSET"
+          # dmg 内容= .app + doc/ + README.md（文档不进 .app 内部，打开 dmg 即见；放 MacOS 目录会破坏签名密封）
+          STAGE="dist/dmg-stage"
+          mkdir -p "$STAGE"
+          mv "$APP" "$STAGE/"
+          cp -R doc "$STAGE/doc"
+          cp README.md "$STAGE/README.md"
+          hdiutil create -volname "SuperSQLInjectionV2" -srcfolder "$STAGE" -ov -format UDZO "dist/SuperSQLInjectionV2-$VERSION-desktop-${{ matrix.rid }}.dmg"
+          rm -rf "$STAGE" "$ICONSET"
           ls -la dist/
 
       - name: 上传产物
