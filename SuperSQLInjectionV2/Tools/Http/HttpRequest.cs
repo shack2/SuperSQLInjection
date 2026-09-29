@@ -37,7 +37,6 @@ namespace SuperSQLInjectionV2.Tools.Http
         /// HTTP协议版本 (默认为 HTTP/1.1)
         /// </summary>
         public string Version { get; set; } = "HTTP/1.1";
-        private bool _hasBody=false;
         private string _headerAndBody="";
         public string HeaderAndBody
         {
