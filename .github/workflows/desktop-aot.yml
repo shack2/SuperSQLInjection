@@ -122,9 +122,22 @@ jobs:
             sips -z $((s*2)) $((s*2)) build/AppIcon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
           done
           iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
-          # ad-hoc 签名：逐个签 dylib/主程序（不能用 --deep，config/udf 下的数据库UDF二进制目录会被误判为嵌套Bundle导致签名失败）
+          # Contents/MacOS 下的非代码内容会被 codesign 误判为"嵌套代码"导致签名失败
+          # （曾先后在 config/udf 的UDF库目录、config/vers/oracle.txt 上踩坑）。
+          # 根治：MacOS 下所有子目录（config/ 等纯数据目录）整体迁入 Contents/Resources，原位留相对符号链接——
+          # 应用按 AppDomain.BaseDirectory/config 访问，.NET 透明跟随符号链接，读写均不受影响。
+          shopt -s nullglob
+          for d in "$APP/Contents/MacOS"/*/; do
+            name=$(basename "$d")
+            mv "$d" "$APP/Contents/Resources/$name"
+            ln -s "../Resources/$name" "$APP/Contents/MacOS/$name"
+          done
+          # 防御：MacOS 顶层非 dylib/主程序的文件剥掉执行位（带 +x 的数据文件同样触发嵌套代码判定）
+          find "$APP/Contents/MacOS" -maxdepth 1 -type f ! -name "*.dylib" ! -name "SuperSQLInjectionV2.Desktop" -exec chmod -x {} +
+          # ad-hoc 签名：逐个签 dylib/主程序（Apple Silicon 要求所有代码至少 ad-hoc 签名），最后签整个 bundle 并校验
           find "$APP/Contents/MacOS" -maxdepth 1 \( -name "*.dylib" -o -type f -perm +111 \) -exec codesign --force --sign - {} \;
           codesign --force --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
           hdiutil create -volname "SuperSQLInjectionV2" -srcfolder "$APP" -ov -format UDZO "dist/SuperSQLInjectionV2-$VERSION-desktop-${{ matrix.rid }}.dmg"
           rm -rf "$APP" "$ICONSET"
           ls -la dist/
