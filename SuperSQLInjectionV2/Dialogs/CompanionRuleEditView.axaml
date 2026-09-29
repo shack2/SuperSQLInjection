@@ -13,7 +13,7 @@
     x:CompileBindings="True"
     x:DataType="dialogs:CompanionRuleEditViewModel"
     mc:Ignorable="d">
-    <Grid Width="880" Height="640" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="10">
+    <Grid Width="880" Height="660" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto" Margin="10">
 
         <!-- 名称 + 标记名 + 类型 + 启用 -->
         <WrapPanel Grid.Row="0" ItemSpacing="10" Margin="0,0,0,8">
@@ -41,7 +41,7 @@
                        IsVisible="{Binding Rule.UrlRowVisible}" />
             <TextBox Width="330" VerticalAlignment="Center" Text="{Binding Rule.Url}"
                      IsVisible="{Binding Rule.UrlRowVisible}"
-                     PlaceholderText="http://目标/page.jsp（可含&lt;Rand&gt;标记）" />
+                     PlaceholderText="http://目标/page.jsp（可含&lt;DRule&gt;标记）" />
             <ComboBox Width="80" VerticalAlignment="Center"
                       ItemsSource="{Binding Methods}"
                       SelectedItem="{Binding Rule.Method}"
@@ -51,7 +51,7 @@
                        Text="主请求含&lt;DRule&gt;标记时，每次发包前自动执行本规则抓取/生成动态值并回填" />
             <TextBlock VerticalAlignment="Center" Classes="Secondary" FontSize="11.5"
                        IsVisible="{Binding !IsBefore}"
-                       Text="每次注入请求后自动执行本规则，并以其响应替代主响应取数（&lt;Rand&gt;按请求流自动配对）" />
+                       Text="每次注入请求后自动执行本规则，并以其响应替代主响应取数（二次注入场景）" />
         </WrapPanel>
 
         <!-- 报文编辑区（报文来源时显示，HTTP语法高亮） -->
@@ -105,8 +105,8 @@
             </WrapPanel>
         </StackPanel>
 
-        <!-- 测试获取（仅动态值） -->
-        <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto" Margin="0,8,0,0" IsVisible="{Binding IsBefore}">
+        <!-- 测试获取（仅动态值）：按钮+状态一行，结果单独一行 -->
+        <Grid Grid.Row="4" ColumnDefinitions="Auto,*" Margin="0,8,0,0" IsVisible="{Binding IsBefore}">
             <u:IconButton Grid.Column="0" VerticalAlignment="Center"
                           Theme="{DynamicResource OutlineIconButton}"
                           Icon="{StaticResource SemiIconPlay}"
@@ -115,15 +115,17 @@
                           Command="{Binding TestFetchCommand}" />
             <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
                        Opacity="0.7" Text="{Binding TestStatus}" TextWrapping="Wrap" />
-            <TextBox Grid.Column="2" Width="240" VerticalAlignment="Center" IsReadOnly="True"
-                     Text="{Binding TestResult}" PlaceholderText="动态值结果" />
         </Grid>
+        <TextBox Grid.Row="5" Margin="0,6,0,0" IsReadOnly="True" AcceptsReturn="True"
+                 MinHeight="34" MaxHeight="90" TextWrapping="Wrap"
+                 IsVisible="{Binding IsBefore}"
+                 Text="{Binding TestResult}" PlaceholderText="动态值结果" />
         <!-- 二次注入规则的状态行（校验提示共用TestStatus） -->
         <TextBlock Grid.Row="4" Margin="0,8,0,0" Opacity="0.7" TextWrapping="Wrap"
                    IsVisible="{Binding !IsBefore}" Text="{Binding TestStatus}" />
 
         <!-- 操作按钮 -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal" Spacing="10"
+        <StackPanel Grid.Row="6" Orientation="Horizontal" Spacing="10"
                     HorizontalAlignment="Right" Margin="0,10,0,0">
             <Button Theme="{DynamicResource SolidButton}" Width="90"
                     Content="保 存" Command="{Binding ConfirmCommand}" />

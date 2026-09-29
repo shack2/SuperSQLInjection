@@ -13,17 +13,15 @@ namespace SuperSQLInjectionV2.Bypass
     /// </summary>
     public sealed class BypassPlan
     {
-        /// <summary>Payload级变换步骤（内置C#委托或自定义JS模型，按列表顺序、DoCount已展开；Pos为适用位置）</summary>
+        /// <summary>Payload级变换步骤（内置C#委托或自定义JS模型，按列表顺序、DoCount已展开）</summary>
         public readonly struct PayloadStep
         {
-            public PayloadStep(Func<string, string> impl, EncodePos pos) { Impl = impl; Js = null; Pos = pos; }
-            public PayloadStep(EncodeToolModel js, EncodePos pos) { Impl = null; Js = js; Pos = pos; }
+            public PayloadStep(Func<string, string> impl) { Impl = impl; Js = null; }
+            public PayloadStep(EncodeToolModel js) { Impl = null; Js = js; }
             /// <summary>内置实现（非空时直接调用）</summary>
             public Func<string, string>? Impl { get; }
             /// <summary>自定义JS项（Impl为空时走ScriptTamperEngine）</summary>
             public EncodeToolModel? Js { get; }
-            /// <summary>适用位置（Encode块内细分：Any/QueryOnly/RawOnly）</summary>
-            public EncodePos Pos { get; }
         }
 
         /// <summary>构建时的配置修订号</summary>
@@ -63,21 +61,15 @@ namespace SuperSQLInjectionV2.Bypass
                 {
                     continue;
                 }
-                //解析可执行体：内置按Key（兼容旧数据按Name），自定义需Code非空；适用位置内置取注册表、自定义取模型配置
+                //解析可执行体：内置按Key（兼容旧数据按Name），自定义需Code非空
                 Func<string, string>? impl = null;
-                EncodePos pos = EncodePos.Any;
                 if (tool.Builtin)
                 {
                     string key = !string.IsNullOrEmpty(tool.Key) ? tool.Key : tool.Name;
                     if (EncodeToolRegistry.TryGet(key, out EncodeTool? registered))
                     {
                         impl = registered.Impl;
-                        pos = registered.Pos;
                     }
-                }
-                else
-                {
-                    pos = tool.ApplyPos;
                 }
                 bool executable = impl != null || !string.IsNullOrWhiteSpace(tool.Code);
                 if (!executable)
@@ -96,7 +88,7 @@ namespace SuperSQLInjectionV2.Bypass
                 int count = Math.Max(1, tool.DoCount);
                 for (int i = 0; i < count; i++)
                 {
-                    payloadSteps.Add(impl != null ? new PayloadStep(impl, pos) : new PayloadStep(tool, pos));
+                    payloadSteps.Add(impl != null ? new PayloadStep(impl) : new PayloadStep(tool));
                 }
             }
 

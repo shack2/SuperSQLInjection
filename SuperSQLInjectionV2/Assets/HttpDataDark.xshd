@@ -39,7 +39,7 @@
 			<Begin>\$</Begin>
 			<End>\$</End>
 		</Span>
-		<Rule color="Resp.Encode">&lt;\/?(Rand|Token)&gt;</Rule>
+		<Rule color="Resp.Encode">&lt;\/?Token&gt;</Rule>
 
 		<!-- 4. SQL报错指纹（报错注入/数据库识别核心信号，忽略大小写） -->
 		<Rule color="Resp.SqlError">(?i)(You\x20have\x20an\x20error\x20in\x20your\x20SQL\x20syntax|SQL\x20syntax.{0,40}(MySQL|MariaDB)|ERROR\x201\d{3}|mysql_(fetch|query|num_rows)|mysqli?_|Unclosed\x20quotation\x20mark|quoted\x20string\x20not\x20properly\x20terminated|Microsoft\x20OLE\x20DB\x20Provider\x20for\x20(SQL\x20Server|Oracle)|ODBC\x20(SQL\x20Server|Microsoft\x20Access)\x20Driver|SQLServer\x20JDBC\x20Driver|Incorrect\x20syntax\x20near|Unterminated\x20(string|quoted\x20identifier)|conversion\x20failed.{0,30}(varchar|int)|ORA-\d{5}|Oracle\x20(error|Database)|PLS-\d{5}|pg_(query|exec)|PostgreSQL.{0,20}ERROR|SQLSTATE\[\w+\]|SQLite\x20(error|exception)|SQLITE_ERROR|DB2\x20SQL\x20error|SQLCODE=-\d+|Informix|Dynamic\x20SQL\x20Error|Sybase\x20(message|error)|DM\.|dm_jdbc|KingbaseES|ClickHouse|DB::Exception|supplied\x20argument\x20is\x20not\x20a\x20valid|Warning:.*(mysql|pg_|oci|sqlsrv))</Rule>

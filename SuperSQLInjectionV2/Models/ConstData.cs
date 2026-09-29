@@ -15,7 +15,6 @@ namespace SuperSQLInjectionV2.Models
         public const string EndPoint = "</Encode>";
         public const string InjectStr = "$sql$";
 
-        public const string RandStart = "<Rand>";        public const string RandEnd = "</Rand>";
         /// <summary>动态规则标记定界符（起止同一标记）：&lt;DRule&gt;标记名:占位值&lt;DRule&gt;</summary>
         public const string DRuleStart = "<DRule>";
         public const string DRuleEnd = "<DRule>";

@@ -89,6 +89,14 @@ namespace SuperSQLInjectionV2.Models
                     if (item is INotifyPropertyChanged npc) npc.PropertyChanged += ItemPropertyChanged;
                 }
             }
+            //编码工具链序号重编号（序号列=加载/执行顺序；Add/Remove/Move/整体替换均经此路径）
+            if (ReferenceEquals(sender, _encodeTools))
+            {
+                for (int i = 0; i < _encodeTools.Count; i++)
+                {
+                    _encodeTools[i].Seq = i + 1;
+                }
+            }
             Interlocked.Increment(ref _revision);
         }
 
@@ -100,6 +108,8 @@ namespace SuperSQLInjectionV2.Models
         //---- 集合（setter内重新挂钩：反序列化整体替换实例时保持修订追踪）----
 
         private ObservableCollection<ReplaceModel> _replaceItems = new();
+        //规则与状态分离：字符替换规则独立持久化到 config/rules/replace-rules.json（RuleStore），不进 lastconfig.json
+        [JsonIgnore]
         public ObservableCollection<ReplaceModel> ReplaceItems
         {
             get => _replaceItems;
@@ -111,6 +121,8 @@ namespace SuperSQLInjectionV2.Models
 
         /// <summary>统一编码工具链（编码处理/tamper合并）：内置项按Key走C#注册表，自定义项为JS脚本；Payload级在Encode块内按序执行，报文级在发送前按序执行</summary>
         private ObservableCollection<EncodeToolModel> _encodeTools = new();
+        //规则与状态分离：编码工具链独立持久化到 config/rules/tampers/（RuleStore），不进 lastconfig.json
+        [JsonIgnore]
         public ObservableCollection<EncodeToolModel> EncodeTools
         {
             get => _encodeTools;

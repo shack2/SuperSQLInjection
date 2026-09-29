@@ -235,6 +235,9 @@ namespace SuperSQLInjectionV2.Models
         /// <summary>穷举模式（G2）：某技术命中后继续测完其余技术，注入记录给出完整画像；默认关（命中即跳到下一技术省时）</summary>
         [ObservableProperty] public partial bool DetectExhaustive { get; set; } = false;
 
+        /// <summary>多参数并行检测：多参数目标按线程数并发执行单参数多技术检测（参数间上下文天然隔离）；默认关（串行逐个检测）</summary>
+        [ObservableProperty] public partial bool DetectParamParallel { get; set; } = false;
+
         /// <summary>DNS外带探测（本工具扩展能力）：检测期触发数据库向DNSLog域名发起解析，平台侧回收确认；需配置DNSLog域名+API Token</summary>
         [ObservableProperty] public partial bool DetectDnsOob { get; set; } = false;
 

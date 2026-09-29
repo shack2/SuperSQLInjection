@@ -59,6 +59,8 @@
             <StreamGeometry x:Key="LgUpload">M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12</StreamGeometry>
             <StreamGeometry x:Key="LgChevronsLeft">M11 17l-5-5 5-5 M18 17l-5-5 5-5</StreamGeometry>
             <StreamGeometry x:Key="LgChevronsRight">M6 17l5-5-5-5 M13 17l5-5-5-5</StreamGeometry>
+            <StreamGeometry x:Key="LgChevronUp">M18 15l-6-6-6 6</StreamGeometry>
+            <StreamGeometry x:Key="LgChevronDown">M6 9l6 6 6-6</StreamGeometry>
             <StreamGeometry x:Key="LgInfo">M12,22 A10,10 0 1 0 12,2 A10,10 0 1 0 12,22 Z M12 16v-4 M12 8h.01</StreamGeometry>
             <StreamGeometry x:Key="LgSend">M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z</StreamGeometry>
             <!--  lucide: refresh-cw（软件更新卡片）  -->
@@ -705,6 +707,7 @@
                                     <ComboBox Width="52" ItemsSource="{Binding AppConfig.DataConfig.DetectRisks}" SelectedItem="{Binding AppConfig.DataConfig.DetectRisk}" VerticalAlignment="Center" />
                                     <CheckBox Content="智能模式" IsChecked="{Binding AppConfig.DataConfig.SmartMode}" VerticalAlignment="Center" ToolTip.Tip="智能模式：启发式无任何迹象（非动态参数+无错误指纹）时跳过深度检测；非动态参数跳过页面比对类技术，仅保留时间/堆叠" />
                                     <CheckBox Content="穷举模式" IsChecked="{Binding AppConfig.DataConfig.DetectExhaustive}" VerticalAlignment="Center" ToolTip.Tip="默认命中一个用例即跳到下一技术（省时）；开启后同技术内继续测完剩余用例/边界，注入记录给出同技术多个命中（更完整画像，发包更多）" />
+                                    <CheckBox Content="多参数并行" IsChecked="{Binding AppConfig.DataConfig.DetectParamParallel}" VerticalAlignment="Center" ToolTip.Tip="多参数目标（表单/JSON/XML等）按线程数并发检测，N个参数约N倍提速；参数间检测上下文独立互不影响，默认关闭（串行逐个检测）" />
                                     <CheckBox Content="DNS外带探测" IsChecked="{Binding AppConfig.DataConfig.DetectDnsOob}" VerticalAlignment="Center" ToolTip.Tip="触发数据库向DNSLog域名发起DNS解析，平台侧回收确认（不依赖页面响应，可发现无回显无延时的盲注）。需先在网络设置配置DNSLog域名+API Token" />
                                 </StackPanel>
                             </WrapPanel>
@@ -1230,27 +1233,27 @@
                                         <StackPanel Orientation="Horizontal" Spacing="14">
                                             <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                                                 <TextBlock Text="值预测" Classes="Secondary" VerticalAlignment="Center" />
-                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" Classes="se" IsChecked="{Binding AppConfig.DataConfig.PredictOutput}" VerticalAlignment="Center"
+                                                <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.DataConfig.PredictOutput}" VerticalAlignment="Center"
                                                               ToolTip.Tip="值预测：盲注读取库名/表名/列名/用户名等常见值时，按common-outputs字典同长候选做整值等值探测，命中即1次请求整串收工；猜错只多1次请求不会取错数据。仅盲注/时间通道生效" />
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                                                 <TextBlock Text="在线学习" Classes="Secondary" VerticalAlignment="Center" />
-                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" Classes="se" IsChecked="{Binding AppConfig.DataConfig.NgramOnlineLearn}" VerticalAlignment="Center"
+                                                <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.DataConfig.NgramOnlineLearn}" VerticalAlignment="Center"
                                                               ToolTip.Tip="n-gram字符预测在线学习：成功读取的值（≤64字符纯ASCII）增量训练会话级trigram/bigram计数，按3倍权重合并进字符预测分布——同站点命名习惯越读越快；增量持久化到config/sessions/char_ngram_delta.json，删delta即恢复出厂；只影响分组权重不影响正确性，需开启值预测" />
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                                                 <TextBlock Text="值缓存" Classes="Secondary" VerticalAlignment="Center" />
-                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" Classes="se" IsChecked="{Binding AppConfig.DataConfig.ValueCache}" VerticalAlignment="Center"
+                                                <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.DataConfig.ValueCache}" VerticalAlignment="Center"
                                                               ToolTip.Tip="跨会话值缓存：结构类元数据取值（库/表/列/版本/用户等）持久化到config/sessions/value_cache.json，下次同注入点重读0请求直接命中；行数据不缓存防脏读；加载时日志提醒条数" />
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                                                 <TextBlock Text="缓存校验" Classes="Secondary" VerticalAlignment="Center" />
-                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" Classes="se" IsChecked="{Binding AppConfig.DataConfig.ValueCacheVerify}" VerticalAlignment="Center"
+                                                <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.DataConfig.ValueCacheVerify}" VerticalAlignment="Center"
                                                               ToolTip.Tip="值缓存新鲜度校验（默认开）：缓存命中后先发1次整值等值探测确认目标值未变化，目标库结构更新（加表/改名）时自动剔除陈旧值并重读更新；关闭则命中即返回（0请求，可能读到旧值）" />
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                                                 <TextBlock Text="通道升级" Classes="Secondary" VerticalAlignment="Center" />
-                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" Classes="se" IsChecked="{Binding AppConfig.DataConfig.ChannelUpgrade}" VerticalAlignment="Center"
+                                                <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.DataConfig.ChannelUpgrade}" VerticalAlignment="Center"
                                                               ToolTip.Tip="盲注/时间通道取数前自动探测同参数的Union/报错通道（来自注入记录），可用则本次读取走快通道，数量级提速；探测每注入点会话只进行一次，失败自动回退盲注" />
                                             </StackPanel>
                                             <Border Width="1" Background="{DynamicResource DsgBorder}" Margin="4,2" />
@@ -1269,17 +1272,17 @@
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                                                 <TextBlock Text="中文识别" Classes="Secondary" VerticalAlignment="Center" />
-                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" Classes="se" IsChecked="{Binding AppConfig.DataConfig.HexDecode}" VerticalAlignment="Center"
+                                                <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.DataConfig.HexDecode}" VerticalAlignment="Center"
                                                               ToolTip.Tip="中文识别：开启后Union/报错通道取值统一HEX(CAST)包装，回显纯ASCII，按【编码】（DbEncoding）解码还原，中文等多字节数据不乱码；盲注通道默认已多字节安全，不受影响" />
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                                                 <TextBlock Text="NoCast" Classes="Secondary" VerticalAlignment="Center" />
-                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" Classes="se" IsChecked="{Binding AppConfig.DataDump.DumpNoCast}" VerticalAlignment="Center"
+                                                <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.DataDump.DumpNoCast}" VerticalAlignment="Center"
                                                               ToolTip.Tip="NoCast：取数列不做cast/convert类型转换包装，避免特殊环境类型转换失败" />
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                                                 <TextBlock Text="读前清空" Classes="Secondary" VerticalAlignment="Center" />
-                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" Classes="se" IsChecked="{Binding AppConfig.DataDump.ClearLastData}" VerticalAlignment="Center"
+                                                <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.DataDump.ClearLastData}" VerticalAlignment="Center"
                                                               ToolTip.Tip="开始读取表数据前清空上次的结果列表" />
                                             </StackPanel>
                                         </StackPanel>
@@ -1837,8 +1840,6 @@
                                                                       IsVisible="{Binding AppConfig.FileCmd.IsBinaryMethod}"
                                                                       ToolTip.Tip="选择要上传的本地文件（二进制上传）"
                                                                       Content="选择文件" />
-                                                                <TextBlock Text="{Binding AppConfig.FileCmd.LocalFileHint}" Foreground="{DynamicResource DsgPrimary}" VerticalAlignment="Center"
-                                                                           IsVisible="{Binding AppConfig.FileCmd.IsBinaryMethod}" />
                                                                 <u:IconButton
                                                                       Theme="{StaticResource SolidIconButton}"
                                                                       Icon="{StaticResource LgDownload}"
@@ -2007,7 +2008,7 @@
                                                     <TextBlock Classes="toolshead" Text="库结构" VerticalAlignment="Center" />
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                         <TextBlock Text="字典猜解" Classes="Secondary" VerticalAlignment="Center" />
-                                                        <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" Classes="se" IsChecked="{Binding AppConfig.DataConfig.DictGuessAll}" VerticalAlignment="Center"
+                                                        <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.DataConfig.DictGuessAll}" VerticalAlignment="Center"
                                                                       ToolTip.Tip="字典猜解：获取表/字段走exists布尔字典猜解（common_tables/common_columns字典），用于元数据不可读的低权限点；Access默认启用" />
                                                         <Button Classes="minibtn" Height="20" Command="{Binding AppConfig.DataDump.AddDBStructNodeCommand}">添加库</Button>
                                                     </StackPanel>
@@ -2326,7 +2327,7 @@
                                                 <TextBlock Text="通过代理转发请求，支持代理池轮换与可用性验证" Classes="Secondary" FontSize="11" VerticalAlignment="Center" />
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                     <TextBlock Text="启用代理" Classes="Secondary" VerticalAlignment="Center" />
-                                                    <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" Classes="se" IsChecked="{Binding AppConfig.ProxyConfig.ProxyEnable}" VerticalAlignment="Center" />
+                                                    <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.ProxyConfig.ProxyEnable}" VerticalAlignment="Center" />
                                                     <TextBlock Text="代理模式：" Classes="Secondary" VerticalAlignment="Center" />
                                                     <ComboBox Width="130" Height="26" ItemsSource="{Binding AppConfig.ProxyConfig.ProxyTypeItems}" SelectedItem="{Binding AppConfig.ProxyConfig.SelectProxyType}" VerticalAlignment="Center" />
                                                     <TextBlock Text="当前代理：" Classes="Secondary" VerticalAlignment="Center" />
@@ -2347,7 +2348,7 @@
                                                     <TableViewColumn Header="是否启用" Width="*" HorizontalContentAlignment="Center">
                                                         <TableViewColumn.CellTemplate>
                                                             <DataTemplate x:DataType="models:Proxy">
-                                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" IsChecked="{Binding IsEnabled}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                <ToggleSwitch Classes="se" IsChecked="{Binding IsEnabled}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                             </DataTemplate>
                                                         </TableViewColumn.CellTemplate>
                                                     </TableViewColumn>
@@ -2478,7 +2479,7 @@
                                                     <TextBlock Text="开启随机UA后每请求从勾选的UA中轮换（无勾选用UA时用内置UA池）；不启用则保留报文自身User-Agent" Classes="Secondary" FontSize="11" VerticalAlignment="Center" />
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                         <TextBlock Text="随机UA" Classes="Secondary" VerticalAlignment="Center" />
-                                                        <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" Classes="se" IsChecked="{Binding AppConfig.ByPassConfig.RandomUa}" VerticalAlignment="Center" />
+                                                        <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.ByPassConfig.RandomUa}" VerticalAlignment="Center" />
                                                     </StackPanel>
                                                 </Grid>
                                             </Border>
@@ -2726,21 +2727,21 @@
                                                     <TableViewColumn Header="是否替换" Width="*" HorizontalContentAlignment="Center">
                                                         <TableViewColumn.CellTemplate>
                                                             <DataTemplate x:DataType="models:ReplaceModel">
-                                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" IsChecked="{Binding Enable}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                <ToggleSwitch Classes="se" IsChecked="{Binding Enable}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                             </DataTemplate>
                                                         </TableViewColumn.CellTemplate>
                                                     </TableViewColumn>
                                                     <TableViewColumn Header="是否正则" Width="*" HorizontalContentAlignment="Center">
                                                         <TableViewColumn.CellTemplate>
                                                             <DataTemplate x:DataType="models:ReplaceModel">
-                                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" IsChecked="{Binding IsRegex}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                <ToggleSwitch Classes="se" IsChecked="{Binding IsRegex}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                             </DataTemplate>
                                                         </TableViewColumn.CellTemplate>
                                                     </TableViewColumn>
                                                     <TableViewColumn Header="编码前处理" Width="*" HorizontalContentAlignment="Center">
                                                         <TableViewColumn.CellTemplate>
                                                             <DataTemplate x:DataType="models:ReplaceModel">
-                                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" IsChecked="{Binding BeforEncode}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                <ToggleSwitch Classes="se" IsChecked="{Binding BeforEncode}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                             </DataTemplate>
                                                         </TableViewColumn.CellTemplate>
                                                     </TableViewColumn>
@@ -2784,6 +2785,13 @@
                                                  <u:IconButton Icon="{StaticResource SemiIconPlusStroked}" Content="添加自定义" VerticalAlignment="Center" Classes="opadd tbtn"
                                                                           Theme="{DynamicResource SolidIconButton}" Command="{Binding AddCustomEncodeToolCommand}"/>
 
+                                                 <u:IconButton Icon="{StaticResource LgChevronUp}" Content="上 移" VerticalAlignment="Center" Classes="tbtn"
+                                                                          Theme="{DynamicResource SolidIconButton}" Command="{Binding MoveEncodeToolUpCommand}"
+                                                                          ToolTip.Tip="选中行上移一位（也可直接拖拽行到目标位置）"/>
+                                                 <u:IconButton Icon="{StaticResource LgChevronDown}" Content="下 移" VerticalAlignment="Center" Classes="tbtn"
+                                                                          Theme="{DynamicResource SolidIconButton}" Command="{Binding MoveEncodeToolDownCommand}"
+                                                                          ToolTip.Tip="选中行下移一位（也可直接拖拽行到目标位置）"/>
+
 
                                             </StackPanel>
                                             <TableView
@@ -2791,9 +2799,18 @@
                                                           CanUserResizeColumns="True"
                                                           Name="EncodeDataGrid"
                                                           ItemsSource="{Binding AppConfig.ByPassConfig.EncodeTools}"
+                                                          SelectedItem="{Binding SelectedEncodeTool}"
                                                           BorderThickness="1"
                                                           ScrollViewer.AllowAutoHide="True">
                                                 <TableView.Columns>
+                                                    <TableViewColumn Header="序号" Width="50" HorizontalContentAlignment="Center">
+                                                        <TableViewColumn.CellTemplate>
+                                                            <DataTemplate x:DataType="models:EncodeToolModel">
+                                                                <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" Classes="Secondary"
+                                                                           Text="{Binding Seq}" ToolTip.Tip="加载/执行顺序（序号小的先执行）" />
+                                                            </DataTemplate>
+                                                        </TableViewColumn.CellTemplate>
+                                                    </TableViewColumn>
                                                     <TableViewColumn Width="1.2*" x:DataType="models:EncodeToolModel" Binding="{Binding Name}" Header="名称" />
                                                     <TableViewColumn Header="类型" Width="0.7*" HorizontalContentAlignment="Center">
                                                         <TableViewColumn.CellTemplate>
@@ -2806,30 +2823,14 @@
                                                         <TableViewColumn.CellTemplate>
                                                             <DataTemplate x:DataType="models:EncodeToolModel">
                                                                 <ComboBox HorizontalAlignment="Stretch" VerticalAlignment="Center" ItemsSource="{Binding ScopeList}" SelectedItem="{Binding Scope}"
-                                                                          ToolTip.Tip="Payload级：Encode块内payload上执行；报文级：整份HTTP报文上执行">
+                                                                          IsEnabled="{Binding !Builtin}"
+                                                                          ToolTip.Tip="Payload级：Encode块内payload上执行；报文级：整份HTTP报文上执行（内置规则固定Payload级不可修改）">
                                                                     <ComboBox.ItemTemplate>
                                                                         <DataTemplate>
                                                                             <TextBlock Text="{Binding Converter={StaticResource InjectTypeNameConverter}}" />
                                                                         </DataTemplate>
                                                                     </ComboBox.ItemTemplate>
                                                                 </ComboBox>
-                                                            </DataTemplate>
-                                                        </TableViewColumn.CellTemplate>
-                                                    </TableViewColumn>
-                                                    <TableViewColumn Header="位置" Width="0.9*" HorizontalContentAlignment="Center">
-                                                        <TableViewColumn.CellTemplate>
-                                                            <DataTemplate x:DataType="models:EncodeToolModel">
-                                                                <Grid HorizontalAlignment="Center">
-                                                                    <TextBlock VerticalAlignment="Center" Text="{Binding PosText}" IsVisible="{Binding Builtin}" ToolTip.Tip="内置项适用位置由注册表固定（换行/控制符类工具锁定编码位）" />
-                                                                    <ComboBox IsVisible="{Binding !Builtin}" HorizontalAlignment="Stretch" VerticalAlignment="Center" ItemsSource="{Binding PosList}" SelectedItem="{Binding ApplyPos}"
-                                                                              ToolTip.Tip="全部位置=所有Encode块生效；仅编码位=query/URI段/urlencoded体；仅原文位=头/Cookie/JSON/XML/multipart体">
-                                                                        <ComboBox.ItemTemplate>
-                                                                            <DataTemplate>
-                                                                                <TextBlock Text="{Binding Converter={StaticResource InjectTypeNameConverter}}" />
-                                                                            </DataTemplate>
-                                                                        </ComboBox.ItemTemplate>
-                                                                    </ComboBox>
-                                                                </Grid>
                                                             </DataTemplate>
                                                         </TableViewColumn.CellTemplate>
                                                     </TableViewColumn>
@@ -2844,7 +2845,7 @@
                                                     <TableViewColumn Header="是否启用" Width="0.8*" HorizontalContentAlignment="Center">
                                                         <TableViewColumn.CellTemplate>
                                                             <DataTemplate x:DataType="models:EncodeToolModel">
-                                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" IsChecked="{Binding Enable}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                <ToggleSwitch Classes="se" IsChecked="{Binding Enable}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                             </DataTemplate>
                                                         </TableViewColumn.CellTemplate>
                                                     </TableViewColumn>
@@ -2855,12 +2856,14 @@
                                                                     <u:IconButton Width="26" Height="26" Padding="0"
                                                                                   Theme="{DynamicResource BorderlessIconButton}"
                                                                                   Icon="{StaticResource IconEdit}"
-                                                                                  ToolTip.Tip="编辑该编码工具"
+                                                                                  IsEnabled="{Binding !Builtin}"
+                                                                                  ToolTip.Tip="编辑该编码工具（内置规则不可修改）"
                                                                                   Command="{Binding $parent[TableView].DataContext.EditEncodeToolCommand}" CommandParameter="{Binding}" />
                                                                     <u:IconButton Width="26" Height="26" Padding="0" Classes="Danger"
                                                                                   Theme="{DynamicResource BorderlessIconButton}"
                                                                                   Icon="{StaticResource SemiIconDelete}"
-                                                                                  ToolTip.Tip="删除该编码工具"
+                                                                                  IsEnabled="{Binding !Builtin}"
+                                                                                  ToolTip.Tip="删除该编码工具（内置规则不可删除，可关闭启用开关）"
                                                                                   Command="{Binding $parent[TableView].DataContext.RemoveEncodeToolCommand}" CommandParameter="{Binding}" />
                                                                 </StackPanel>
                                                             </DataTemplate>
@@ -2944,7 +2947,7 @@
                                                             <TableViewColumn Header="启用" Width="0.6*" HorizontalContentAlignment="Center">
                                                                 <TableViewColumn.CellTemplate>
                                                                     <DataTemplate x:DataType="models:CompanionRequestConfig">
-                                                                        <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" IsChecked="{Binding Enabled}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                        <ToggleSwitch Classes="se" IsChecked="{Binding Enabled}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                                     </DataTemplate>
                                                                 </TableViewColumn.CellTemplate>
                                                             </TableViewColumn>
@@ -3026,7 +3029,7 @@
                                                             <TableViewColumn Header="启用" Width="0.6*" HorizontalContentAlignment="Center">
                                                                 <TableViewColumn.CellTemplate>
                                                                     <DataTemplate x:DataType="models:ScriptTamperModel">
-                                                                        <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" IsChecked="{Binding Enable}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                        <ToggleSwitch Classes="se" IsChecked="{Binding Enable}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                                     </DataTemplate>
                                                                 </TableViewColumn.CellTemplate>
                                                             </TableViewColumn>
@@ -3453,7 +3456,34 @@
                                 <Border Grid.Row="1" Height="1" Background="{DynamicResource DsgBorder}" />
                                 <GridSplitter Grid.Row="1" Height="5" Background="Transparent" HorizontalAlignment="Stretch" />
                                 <Grid RowDefinitions="Auto,*" Grid.Row="2">
-                                    <TextBox Height="30" Classes="Bordered" Margin="0,6,0,0" Text="{Binding AppConfig.RequestLog.SelectItem?.Payload}" />
+                                    <TextBox Height="30" Classes="Bordered" Margin="0,6,0,0" Name="RequestLogPayloadBox"
+                                             Text="{Binding AppConfig.RequestLog.SelectItem?.Payload}">
+                                        <TextBox.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuItem Header="剪切" Click="PayloadCutC">
+                                                    <MenuItem.Icon>
+                                                        <PathIcon Data="{StaticResource SemiIconScissors}" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <MenuItem Header="复制" Click="PayloadCopyC">
+                                                    <MenuItem.Icon>
+                                                        <PathIcon Data="{StaticResource SemiIconCopy}" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <MenuItem Header="粘贴" Click="PayloadPasteC">
+                                                    <MenuItem.Icon>
+                                                        <PathIcon Data="{StaticResource SemiIconImport}" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <Separator />
+                                                <MenuItem Header="解码" Name="DecodePayloadSubMenu">
+                                                    <MenuItem.Icon>
+                                                        <PathIcon Data="{StaticResource SemiIconCode}" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                            </MenuFlyout>
+                                        </TextBox.ContextFlyout>
+                                    </TextBox>
                                     <TabControl Grid.Row="1" BorderThickness="0">
                                         <TabItem>
                                             <TabItem.Header>
@@ -3472,9 +3502,25 @@
                                                                      Watermark="请求包">
                                                     <AvaloniaEditor:TextEditor.ContextFlyout>
                                                         <MenuFlyout>
+                                                            <MenuItem Header="剪切" Click="RequestLogCutC">
+                                                                <MenuItem.Icon>
+                                                                    <PathIcon Data="{StaticResource SemiIconScissors}" />
+                                                                </MenuItem.Icon>
+                                                            </MenuItem>
                                                             <MenuItem Header="Copy" InputGesture="ctrl+C" Command="{Binding CopyMouseCommand}" CommandParameter="{Binding #RequestLogBox.TextArea}" >
                                                                 <MenuItem.Icon>
                                                                     <PathIcon Data="{StaticResource SemiIconCopy}" />
+                                                                </MenuItem.Icon>
+                                                            </MenuItem>
+                                                            <MenuItem Header="粘贴" Click="RequestLogPasteC">
+                                                                <MenuItem.Icon>
+                                                                    <PathIcon Data="{StaticResource SemiIconImport}" />
+                                                                </MenuItem.Icon>
+                                                            </MenuItem>
+                                                            <Separator />
+                                                            <MenuItem Header="解码" Name="DecodeRequestSubMenu">
+                                                                <MenuItem.Icon>
+                                                                    <PathIcon Data="{StaticResource SemiIconCode}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                         </MenuFlyout>
@@ -3497,7 +3543,23 @@
                                                                            FontFamily="{StaticResource CodeFontFamily}"
                                                                            HorizontalScrollBarVisibility="Auto"
                                                                            VerticalScrollBarVisibility="Visible"
-                                                                           Watermark="响应包" />
+                                                                           Watermark="响应包">
+                                                    <AvaloniaEditor:TextEditor.ContextFlyout>
+                                                        <MenuFlyout>
+                                                            <MenuItem Header="复制" Click="ResponseLogCopyC">
+                                                                <MenuItem.Icon>
+                                                                    <PathIcon Data="{StaticResource SemiIconCopy}" />
+                                                                </MenuItem.Icon>
+                                                            </MenuItem>
+                                                            <Separator />
+                                                            <MenuItem Header="解码" Name="DecodeResponseSubMenu">
+                                                                <MenuItem.Icon>
+                                                                    <PathIcon Data="{StaticResource SemiIconCode}" />
+                                                                </MenuItem.Icon>
+                                                            </MenuItem>
+                                                        </MenuFlyout>
+                                                    </AvaloniaEditor:TextEditor.ContextFlyout>
+                                                </AvaloniaEditor:TextEditor>
                                             </TabItem.Content>
                                         </TabItem>
                                     </TabControl>
@@ -3560,7 +3622,7 @@
                                                     <TextBlock Text="{Binding AppVersionText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource DsgPrimary}" />
                                                 </Border>
                                                 <TextBlock Text="自动检测" Classes="Secondary" VerticalAlignment="Center" />
-                                                <ToggleSwitch Theme="{StaticResource SimpleToggleSwitch}" Classes="se" IsChecked="{Binding AppConfig.UpdateCheckEnable}" VerticalAlignment="Center"
+                                                <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.UpdateCheckEnable}" VerticalAlignment="Center"
                                                               ToolTip.Tip="软件启动后自动向更新服务检测新版本（服务地址在 config/update.ini 中配置）" />
                                                 <u:IconButton Theme="{StaticResource SolidIconButton}" Icon="{StaticResource LgRefreshCw}"
                                                               Content="检查更新" Command="{Binding CheckUpdateNowCommand}" VerticalAlignment="Center" />

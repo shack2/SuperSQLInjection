@@ -113,6 +113,8 @@ public static class Program
         };
         config.ByPassConfig.DelayMs = opt.DelayMs;
         config.ByPassConfig.RandomUa = opt.RandomAgent;
+        //规则库自动加载（config/rules/：自定义tamper/动态值脚本/动态规则/字符替换/代理池，与GUI共用同一套文件）
+        RuleStore.LoadAll(config, opt.RulesDir);
         config.DataConfig.DetectLevel = Math.Clamp(opt.Level, 1, 5);
         config.DataConfig.DetectRisk = Math.Clamp(opt.Risk, 1, 3);
         config.DataConfig.SmartMode = opt.Smart;
@@ -151,7 +153,7 @@ public static class Program
                  $"{(opt.Smart ? " Smart" : "")}{(string.IsNullOrWhiteSpace(opt.Technique) ? "" : " Technique=" + opt.Technique)}");
 
         // ---------- 参数发现 ----------
-        var candidates = DiscoverParams(requestTxt, defaultPlace, opt);
+        var candidates = DiscoverParams(config, requestTxt, defaultPlace, opt);
         if (candidates.Count == 0)
         {
             Log.Error("未发现可测试参数（用 -p 指定，或检查 URL/报文是否带参数）");
@@ -161,19 +163,53 @@ public static class Program
 
         // ---------- 注入检测 ----------
         var allHits = new List<InjectPoint>();
-        foreach (var (name, value, place, header) in candidates)
+        if (opt.Parallel && candidates.Count > 1)
         {
-            Log.Highlight($"▶ 检测参数 {name} ...");
-            var hits = await InjectDetectEngine.DetectParam(config, requestTxt, name, value, place, header) ?? [];
-            if (hits.Count > 0)
+            //多参数并行（与GUI「多参数并行」开关同源语义）：参数间上下文独立，并发度取 --threads（上限10）
+            int maxPar = Math.Clamp(opt.Threads, 1, 10);
+            Log.Show($"多参数并行检测已开启（并发={maxPar}）");
+            using var gate = new SemaphoreSlim(maxPar);
+            var tasks = candidates.Select(async c =>
             {
-                foreach (var h in hits) h.PName ??= name;
-                allHits.AddRange(hits);
-                Log.Success($"参数 {name} 检出 {hits.Count} 个注入类型");
+                await gate.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    Log.Highlight($"▶ 检测参数 {c.Name} ...");
+                    var hits = await InjectDetectEngine.DetectParam(config, requestTxt, c.Name, c.Value, c.Place, c.Header, c.UriIdx).ConfigureAwait(false) ?? [];
+                    foreach (var h in hits) h.PName ??= c.Name;
+                    return (c.Name, Hits: hits);
+                }
+                finally { gate.Release(); }
+            }).ToList();
+            foreach (var r in await Task.WhenAll(tasks).ConfigureAwait(false))
+            {
+                if (r.Hits.Count > 0)
+                {
+                    allHits.AddRange(r.Hits);
+                    Log.Success($"参数 {r.Name} 检出 {r.Hits.Count} 个注入类型");
+                }
+                else
+                {
+                    Log.Show($"参数 {r.Name} 未检出注入");
+                }
             }
-            else
+        }
+        else
+        {
+            foreach (var (name, value, place, header, uriIdx) in candidates)
             {
-                Log.Show($"参数 {name} 未检出注入");
+                Log.Highlight($"▶ 检测参数 {name} ...");
+                var hits = await InjectDetectEngine.DetectParam(config, requestTxt, name, value, place, header, uriIdx) ?? [];
+                if (hits.Count > 0)
+                {
+                    foreach (var h in hits) h.PName ??= name;
+                    allHits.AddRange(hits);
+                    Log.Success($"参数 {name} 检出 {hits.Count} 个注入类型");
+                }
+                else
+                {
+                    Log.Show($"参数 {name} 未检出注入");
+                }
             }
         }
 
@@ -695,10 +731,10 @@ public static class Program
     }
 
     /// <summary>从请求报文发现可测参数：Query / POST表单；-p 指定时只保留该参数</summary>
-    private static List<(string Name, string Value, ParamPlace Place, string Header)> DiscoverParams(
-        string requestTxt, ParamPlace bodyPlace, CliOptions opt)
+    private static List<(string Name, string Value, ParamPlace Place, string Header, int UriIdx)> DiscoverParams(
+        AppConfig config, string requestTxt, ParamPlace bodyPlace, CliOptions opt)
     {
-        var list = new List<(string, string, ParamPlace, string)>();
+        var list = new List<(string, string, ParamPlace, string, int)>();
         string firstLine = requestTxt.Split("\r\n")[0];
         var parts = firstLine.Split(' ');
         if (parts.Length >= 2)
@@ -711,7 +747,7 @@ public static class Program
                     int eq = kv.IndexOf('=', StringComparison.Ordinal);
                     string name = eq >= 0 ? kv[..eq] : kv;
                     string value = eq >= 0 ? kv[(eq + 1)..] : "";
-                    list.Add((Uri.UnescapeDataString(name), value, ParamPlace.Query, ""));
+                    list.Add((Uri.UnescapeDataString(name), value, ParamPlace.Query, "", -1));
                 }
             }
         }
@@ -727,9 +763,15 @@ public static class Program
                     int eq = kv.IndexOf('=', StringComparison.Ordinal);
                     string name = eq >= 0 ? kv[..eq] : kv;
                     string value = eq >= 0 ? kv[(eq + 1)..] : "";
-                    if (name.Length > 0) list.Add((Uri.UnescapeDataString(name), value, ParamPlace.BodyForm, ""));
+                    if (name.Length > 0) list.Add((Uri.UnescapeDataString(name), value, ParamPlace.BodyForm, "", -1));
                 }
             }
+        }
+        //扩展注入位置（与 GUI 共用枚举逻辑 ParamTargetDiscovery）：URI段/JSON/XML/Multipart 任意level，Cookie level>=2，UA/Referer/Host头 level>=3
+        var req = new HttpRequest(config, requestTxt);
+        foreach (var t in SuperSQLInjectionV2.Tools.ParamTargetDiscovery.DiscoverExtended(req, requestTxt, config.DataConfig.DetectLevel))
+        {
+            list.Add((t.Name, t.Value, t.Place, t.Header, t.UriIdx));
         }
         if (!string.IsNullOrWhiteSpace(opt.TestParam))
         {
@@ -737,7 +779,7 @@ public static class Program
             if (list.Count == 0)
             {
                 //-p 指定但报文里没有：按默认位置加入（值取 "1"）
-                list.Add((opt.TestParam!, "1", bodyPlace, ""));
+                list.Add((opt.TestParam!, "1", bodyPlace, "", -1));
             }
         }
         return list;

@@ -23,9 +23,6 @@ public partial class ScriptTamperEditViewModel : ObservableObject, IDialogContex
 
     [ObservableProperty] private ScriptScope _scope = ScriptScope.Payload;
 
-    /// <summary>适用位置（Payload级内细分；内置项以注册表为准此处仅展示）</summary>
-    [ObservableProperty] private EncodePos _applyPos = EncodePos.Any;
-
     [ObservableProperty] private int _doCount = 1;
 
     /// <summary>内置项标识（仅展示用，保存时不动模型的Builtin/Key/Code）</summary>
@@ -48,8 +45,6 @@ public partial class ScriptTamperEditViewModel : ObservableObject, IDialogContex
     [ObservableProperty] private bool _isTesting;
 
     public List<ScriptScope> ScopeList { get; } = Enum.GetValues<ScriptScope>().ToList();
-
-    public List<EncodePos> PosList { get; } = Enum.GetValues<EncodePos>().ToList();
 
     public List<int> DoCountItems { get; } = new List<int> { 1, 2, 3 };
 
@@ -119,16 +114,6 @@ public partial class ScriptTamperEditViewModel : ObservableObject, IDialogContex
             vm.DoCount = item.DoCount;
             vm.Builtin = item.Builtin;
             vm._key = item.Key ?? "";
-            //内置项位置以注册表为准（弹窗展示实际生效值）；自定义项取模型配置
-            if (item.Builtin)
-            {
-                string posKey = !string.IsNullOrEmpty(item.Key) ? item.Key : item.Name;
-                vm.ApplyPos = EncodeToolRegistry.TryGet(posKey, out EncodeTool posTool) ? posTool.Pos : EncodePos.Any;
-            }
-            else
-            {
-                vm.ApplyPos = item.ApplyPos;
-            }
             if (item.Builtin)
             {
                 string key = !string.IsNullOrEmpty(item.Key) ? item.Key : item.Name;
@@ -149,7 +134,7 @@ public partial class ScriptTamperEditViewModel : ObservableObject, IDialogContex
         return vm;
     }
 
-    /// <summary>把编辑内容写回模型（内置项仅更新名称/作用域/执行次数，代码保持空；位置仅自定义项生效）</summary>
+    /// <summary>把编辑内容写回模型（内置项仅更新名称/作用域/执行次数，代码保持空）</summary>
     public void ApplyTo(EncodeToolModel item)
     {
         item.Name = string.IsNullOrWhiteSpace(Name) ? "未命名工具" : Name;
@@ -158,7 +143,6 @@ public partial class ScriptTamperEditViewModel : ObservableObject, IDialogContex
         if (!item.Builtin)
         {
             item.Code = CodeDocument?.Text ?? "";
-            item.ApplyPos = ApplyPos;
         }
     }
 

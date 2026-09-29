@@ -278,6 +278,11 @@ public partial class MainViewViewModel : ViewModelBase
     [RelayCommand]
     private void AddRepaceModel()
     {
+        if (string.IsNullOrEmpty(AppConfig.ByPassConfig.AddReplaceItem.Src)) //源字符为空时规则无意义（执行计划层也会跳过），直接拦截
+        {
+            NotificationManager?.Show("源字符不能为空！");
+            return;
+        }
         AppConfig.ByPassConfig.AddReplaceItem.Index = AppConfig.ByPassConfig.ReplaceItems.Count+1;
         AppConfig.ByPassConfig.ReplaceItems.Add(AppConfig.ByPassConfig.AddReplaceItem);
         AppConfig.ByPassConfig.AddReplaceItem = new();
@@ -396,7 +401,7 @@ public partial class MainViewViewModel : ViewModelBase
     [RelayCommand]
     private async Task EditEncodeTool(EncodeToolModel item)
     {
-        if (item == null)
+        if (item == null || item.Builtin) //内置规则不可编辑（操作列按钮已禁用，此处命令层防御）
         {
             return;
         }
@@ -411,10 +416,56 @@ public partial class MainViewViewModel : ViewModelBase
     [RelayCommand]
     private void RemoveEncodeTool(EncodeToolModel item)
     {
-        if (item != null && AppConfig.ByPassConfig.EncodeTools.Contains(item))
+        if (item != null && !item.Builtin && AppConfig.ByPassConfig.EncodeTools.Contains(item)) //内置规则不可删除（命令层防御）
         {
             AppConfig.ByPassConfig.EncodeTools.Remove(item);
         }
+    }
+
+    /// <summary>编码处理页 TableView 当前选中行（上移/下移按钮与行拖拽排序的操作目标）</summary>
+    [ObservableProperty] private EncodeToolModel? _selectedEncodeTool;
+
+    /// <summary>编码工具移动到指定序号位置（上移/下移按钮与行拖拽共用；越界自动收敛，移动后保持选中）</summary>
+    public void MoveEncodeTool(EncodeToolModel? item, int newIndex)
+    {
+        var col = AppConfig.ByPassConfig.EncodeTools;
+        if (item == null)
+        {
+            return;
+        }
+        int old = col.IndexOf(item);
+        if (old < 0)
+        {
+            return;
+        }
+        newIndex = Math.Clamp(newIndex, 0, col.Count - 1);
+        if (old != newIndex)
+        {
+            col.Move(old, newIndex);
+        }
+        SelectedEncodeTool = item;
+    }
+
+    [RelayCommand]
+    private void MoveEncodeToolUp()
+    {
+        if (SelectedEncodeTool == null)
+        {
+            NotificationManager?.Show("请先选中要上移的行！");
+            return;
+        }
+        MoveEncodeTool(SelectedEncodeTool, AppConfig.ByPassConfig.EncodeTools.IndexOf(SelectedEncodeTool) - 1);
+    }
+
+    [RelayCommand]
+    private void MoveEncodeToolDown()
+    {
+        if (SelectedEncodeTool == null)
+        {
+            NotificationManager?.Show("请先选中要下移的行！");
+            return;
+        }
+        MoveEncodeTool(SelectedEncodeTool, AppConfig.ByPassConfig.EncodeTools.IndexOf(SelectedEncodeTool) + 1);
     }
 
     #region 动态值脚本管理（防护绕过-动态规则页脚本管理选项卡；请求抓取=输入抓取响应报文，自主生成=输入主请求报文，输出动态值）
@@ -1442,7 +1493,7 @@ public partial class MainViewViewModel : ViewModelBase
         IsRuning = true;
         try
         {
-            //剥离人工/自动标记（$sql$/<Encode>/<Rand>/<DRule>），避免标记字面量混入参数值污染检测探针；
+            //剥离人工/自动标记（$sql$/<Encode>/<DRule>），避免标记字面量混入参数值污染检测探针；
             //检测页报文为独立文档，始终只有用户原始报文，标记只随命中进入注入记录
             string cleanRequestTxt = RequestRewriter.StripRequestMarks(AppConfig.DetectRequestTxt);
             if (cleanRequestTxt.Length != AppConfig.DetectRequestTxt.Length)
@@ -1556,64 +1607,40 @@ public partial class MainViewViewModel : ViewModelBase
     private async Task CheckExtendedPlaces(HttpRequest request, string requestTxt)
     {
         int level = Math.Max(1, Math.Min(5, AppConfig.DataConfig.DetectLevel));
-        var targets = new List<(string name, string value, SuperSQLInjectionV2.Models.ParamPlace place, string header, string desc, int uriIdx)>();
+        //扩展位置目标枚举与 CLI 共用（ParamTargetDiscovery），保证两端参数发现面一致
+        var targets = SuperSQLInjectionV2.Tools.ParamTargetDiscovery.DiscoverExtended(request, requestTxt, level)
+            .Select(x => (name: x.Name, value: x.Value, place: x.Place, header: x.Header, desc: x.Desc, uriIdx: x.UriIdx))
+            .ToList();
 
-        //URI路径段自动识别（PLACE.URI 能力）：数字段与hex/uuid形态段（ RESTful 风格 /api/user/1/ 的id位）任意level都测
-        foreach (var seg in RequestRewriter.GetUriSegments(requestTxt))
+        if (AppConfig.DataConfig.DetectParamParallel && targets.Count > 1)
         {
-            if (Regex.IsMatch(seg.value, @"^-?\d+(\.\d+)?$") || Regex.IsMatch(seg.value, @"^[0-9a-fA-F]{8,}$"))
+            //多参数并行：参数间检测上下文（页面模板/相似度基线/DB候选）各自独立，可安全并发；
+            //并发度取线程数配置（上限10），命中统一回到本线程UpdateData应用，避免UI绑定并发写
+            int maxPar = Math.Max(1, Math.Min(AppConfig.ThreadSize, 10));
+            Log.Show("报告大侠，发现" + targets.Count + "个参数，多参数并行检测已开启（并发=" + maxPar + "），正在同时对所有参数进行注入测试（Level=" + level + "）！");
+            using SemaphoreSlim gate = new SemaphoreSlim(maxPar);
+            var tasks = targets.Select(async t =>
             {
-                targets.Add(("uri_seg_" + (seg.index + 1), seg.value, SuperSQLInjectionV2.Models.ParamPlace.Uri, "", "URI路径段[" + (seg.index + 1) + "]", seg.index));
-            }
-        }
-
-        if (request.IsJsonBody)
-        {
-            foreach (var kv in request.JsonParams)
+                await gate.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    return await SuperSQLInjectionV2.Tools.Inject.InjectDetectEngine.DetectParam(AppConfig, requestTxt, t.name, t.value, t.place, t.header, t.uriIdx).ConfigureAwait(false);
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            }).ToList();
+            List<InjectPoint>[] allHits = await Task.WhenAll(tasks).ConfigureAwait(false);
+            foreach (List<InjectPoint> hits in allHits)
             {
-                if (ConstData.JumpkeyList.ContainsKey(kv.Key)) continue;
-                targets.Add((kv.Key, kv.Value, SuperSQLInjectionV2.Models.ParamPlace.BodyJson, "", "JSON体", -1));
+                foreach (InjectPoint inp in hits)
+                {
+                    UpdateData(inp);
+                }
             }
+            return;
         }
-        if (request.IsXmlBody)
-        {
-            //SOAP/XML结构化注入：叶子元素文本作为注入参数（任意level，SOAP/XML 支持）
-            foreach (var kv in request.XmlParams)
-            {
-                if (ConstData.JumpkeyList.ContainsKey(kv.Key)) continue;
-                targets.Add((kv.Key, kv.Value, SuperSQLInjectionV2.Models.ParamPlace.BodyXml, "", "XML/SOAP体", -1));
-            }
-        }
-        if (request.IsMultipartBody)
-        {
-            foreach (var kv in request.MultipartParams)
-            {
-                if (ConstData.JumpkeyList.ContainsKey(kv.Key)) continue;
-                targets.Add((kv.Key, kv.Value, SuperSQLInjectionV2.Models.ParamPlace.BodyMultipart, "", "Multipart表单", -1));
-            }
-        }
-        if (level >= 2)
-        {
-            foreach (var kv in request.CookieParams)
-            {
-                if (ConstData.JumpkeyList.ContainsKey(kv.Key)) continue;
-                targets.Add((kv.Key, kv.Value, SuperSQLInjectionV2.Models.ParamPlace.Cookie, "", "Cookie", -1));
-            }
-        }
-        if (level >= 3)
-        {
-            string? ua = request.GetHeader("User-Agent");
-            if (ua != null) targets.Add(("User-Agent", ua, SuperSQLInjectionV2.Models.ParamPlace.Header, "User-Agent", "HTTP头", -1));
-            string? referer = request.GetHeader("Referer");
-            if (referer != null) targets.Add(("Referer", referer, SuperSQLInjectionV2.Models.ParamPlace.Header, "Referer", "HTTP头", -1));
-            //Host头自动检测（虚拟主机路由/日志记录场景的注入面；连接按URL寻址不受影响，仅改写头文本）
-            string? host = request.GetHeader("Host");
-            if (!string.IsNullOrEmpty(host))
-            {
-                targets.Add(("Host", host, SuperSQLInjectionV2.Models.ParamPlace.Header, "Host", "HTTP头", -1));
-            }
-        }
-
         foreach (var t in targets)
         {
             Log.Show("报告大侠，正在对" + t.desc + "参数 " + t.name + " 进行注入测试（Level=" + level + "）！");
@@ -2190,17 +2217,15 @@ public partial class MainViewViewModel : ViewModelBase
             //若先按空格切，闭合标签会被切掉导致<Encode>前缀残留在URL中
             string firstLine = reqLines[0].Trim();
             firstLine = Regex.Replace(firstLine, "<Encode>.*?</Encode>", "");
-            firstLine = Regex.Replace(firstLine, "<EncodeRaw>.*?</EncodeRaw>", "");
             //兜底：剥除未闭合的标记残余（含标记本身到行尾）
-            firstLine = Regex.Replace(firstLine, "<Encode(Raw)?>.*$", "");
+            firstLine = Regex.Replace(firstLine, "<Encode>.*$", "");
             string[] firstParts = firstLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (firstParts.Length >= 2)
             {
                 string cleanPath = firstParts[1];
                 //裸$sql$替换为原始参数值：PValue本身含编码块，须先剥除再作为替换值
-                string cleanPValue = Regex.Replace(record.PValue ?? "", "<Encode(Raw)?>.*?</Encode(Raw)?>", "");
+                string cleanPValue = Regex.Replace(record.PValue ?? "", "<Encode>.*?</Encode>", "");
                 cleanPath = cleanPath.Replace(ConstData.InjectStr, cleanPValue, StringComparison.Ordinal);
-                cleanPath = Regex.Replace(cleanPath, "<Rand>(.*?)</Rand>", "$1");
                 cleanPath = Regex.Replace(cleanPath, @"<DRule>[^:<>\s]*(?::([.\s\S]*?))?<DRule>", "$1");
                 if (cleanPath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
                     cleanPath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
@@ -2422,7 +2447,7 @@ public partial class MainViewViewModel : ViewModelBase
         {
             return DataOpBlock("请求报文含 " + markCount + " 个注入标记（$sql$），payload将同时替换所有位置！\n请只保留一个注入标记后再操作。");
         }
-        //2.5 注入标记必须位于<Encode>/<EncodeRaw>块内（裸$sql$会让payload原文进入请求行，含空格即畸形请求/500）
+        //2.5 注入标记必须位于<Encode>块内（裸$sql$会让payload原文进入请求行，含空格即畸形请求/500）
         if (!InjectMarkInEncodeBlock(txt))
         {
             return DataOpBlock("注入标记（$sql$）未包裹在编码标记（<Encode>…</Encode>）内！\n裸标记的payload将原文进入请求行（含空格/引号即畸形请求），请用编码标记包裹注入点，或恢复注入记录自动加载规范报文。");
@@ -2465,10 +2490,10 @@ public partial class MainViewViewModel : ViewModelBase
 
     /// <summary>Encode块匹配（与StringReplace.EncodeBlockRegex同款：命名组捕获块类型与块体，配对闭合）</summary>
     private static readonly System.Text.RegularExpressions.Regex EncodeBlockRegex = new System.Text.RegularExpressions.Regex(
-        "\\<(?<t>Encode|EncodeRaw)\\>(?<body>[.\\s\\S]*?)\\<\\/\\k<t>\\>",
+        "\\<(?<t>Encode)\\>(?<body>[.\\s\\S]*?)\\<\\/\\k<t>\\>",
         System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
-    /// <summary>判断注入标记$sql$是否位于某个Encode/EncodeRaw块体内</summary>
+    /// <summary>判断注入标记$sql$是否位于某个Encode块体内</summary>
     private static bool InjectMarkInEncodeBlock(string txt)
     {
         foreach (System.Text.RegularExpressions.Match m in EncodeBlockRegex.Matches(txt))
@@ -3010,6 +3035,8 @@ public partial class MainViewViewModel : ViewModelBase
             string result = JsonSerializer.Serialize(AppConfig, Source.JsonCtx.CompactInfo<AppConfig>());
 
             File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory+"/config/lastconfig.json", result);
+            //五类规则独立落 config/rules/（RuleStore），便于人工编辑与 CLI 共用
+            Bypass.RuleStore.SaveAll(AppConfig);
 
         } catch(Exception e) {
             //配置保存失败（占用/权限/序列化异常）：不阻断退出，但记录日志
@@ -3506,6 +3533,11 @@ public partial class MainViewViewModel : ViewModelBase
     {
 
         AppConfig =ReadConfig();
+        //规则与状态分离：lastconfig.json 只含界面状态与基础配置，五类规则从 config/rules/ 独立加载
+        Bypass.RuleStore.LoadAll(AppConfig);
+        //LoadAll 回填规则发生在 AppConfig 赋值（OnAppConfigChanged 刷新过滤视图）之后，此处补刷新，否则动态规则/脚本页显示空快照
+        RefreshDynRuleFilter();
+        RefreshTokenScriptFilter();
         AppConfig.TxtRequest.Text = AppConfig.RequestTxt;
         //检测页独立文档：优先载入持久化的检测报文；旧配置无此字段时用剥离标记后的取数报文兜底
         AppConfig.TxtDetectRequest.Text = string.IsNullOrWhiteSpace(AppConfig.DetectRequestTxt)

@@ -211,6 +211,8 @@ namespace SuperSQLInjectionV2.Models
         public List<string> TokenFetchModes { get; } = ["请求报文", "URL请求"];
 
         /// <summary>动态值脚本列表（JS，请求抓取=输入抓取响应报文，自主生成=输入主请求报文，输出动态值）</summary>
+        //规则与状态分离：动态值脚本独立持久化到 config/rules/token-scripts/（RuleStore），不进 lastconfig.json
+        [JsonIgnore]
         public ObservableCollection<ScriptTamperModel> TokenScripts { get; set; } = new ObservableCollection<ScriptTamperModel>();
 
         /// <summary>解析当前生效的动态值脚本：按规则ScriptName匹配（类型不限）→指定类型第一个启用脚本→任意第一个启用脚本；kind=-1不按类型过滤</summary>
@@ -244,16 +246,6 @@ namespace SuperSQLInjectionV2.Models
 
         //---- 绕过管道实例状态（原static字典按AppConfig键控常驻内存，收归实例随配置生命周期回收；均不参与序列化）----
 
-        /// <summary>Rand随机值缓存：同报文复用同一随机值（二次注入对比/反射剔除依赖幂等），cap=500超出剔最旧20%</summary>
-        [JsonIgnore]
-        public System.Collections.Concurrent.ConcurrentDictionary<string, string> RandCache { get; } = new();
-        [JsonIgnore]
-        internal object RandCacheLock { get; } = new object();
-        [JsonIgnore]
-        internal Queue<string> RandCacheLru { get; } = new Queue<string>();
-        /// <summary>二次注入页请求配对的最近一次随机值</summary>
-        [JsonIgnore]
-        public string LastRand { get; set; } = "";
         /// <summary>脚本Token的上次计算值（链式token脚本的输入）</summary>
         [JsonIgnore]
         public string LastToken { get; set; } = "";
@@ -270,7 +262,9 @@ namespace SuperSQLInjectionV2.Models
         /// <summary>
         /// 动态规则列表：动态值（Kind=0，抓取/生成动态值回填&lt;DRule&gt;）与二次注入（Kind=1，响应替代主响应取数）混合存储。
         /// 动态值规则可同时启用多条（按标记名区分，无标记名取第一条）；二次注入规则同时只能启用一条（开启自动关闭其余）。
+        /// 规则与状态分离：独立持久化到 config/rules/dynamic-rules.json（RuleStore），不进 lastconfig.json。
         /// </summary>
+        [JsonIgnore]
         public ObservableCollection<CompanionRequestConfig> CompanionRules
         {
             get => _companionRules;

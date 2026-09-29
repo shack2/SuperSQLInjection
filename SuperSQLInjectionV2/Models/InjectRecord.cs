@@ -148,9 +148,10 @@ namespace SuperSQLInjectionV2.Models
 
         public string TimeStr => Time.ToString("MM-dd HH:mm:ss");
 
-        /// <summary>下拉选择器显示文本（目标 · 参数 · 类型 · 数据库；数字型为默认上下文不显示后缀，其余上下文附加显示）</summary>
+        /// <summary>下拉选择器显示文本（目标 · 参数 · 类型 · 数据库；数字型为默认上下文不显示后缀，其余上下文附加显示；base64包装参数附加标识）</summary>
         public string DisplayText => TimeStr + "  " + Target + " · " + PName + " · " + InjectTypeDesc + " · " + DBType
-            + (BoundaryDesc == "数字型" ? "" : " · " + BoundaryDesc);
+            + (BoundaryDesc == "数字型" ? "" : " · " + BoundaryDesc)
+            + ("base64encode".Equals(AutoTamper, StringComparison.OrdinalIgnoreCase) ? " · base64" : "");
 
         public string InjectTypeDesc
         {

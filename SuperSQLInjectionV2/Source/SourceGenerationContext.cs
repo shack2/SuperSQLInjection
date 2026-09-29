@@ -46,6 +46,18 @@ namespace SuperSQLInjectionV2.Source
     //n-gram在线学习增量
     [JsonSerializable(typeof(NgramDeltaDto))]
     [JsonSerializable(typeof(Dictionary<string, Dictionary<string, int>>))]
+    //规则库独立文件（RuleStore：config/rules/）
+    [JsonSerializable(typeof(SuperSQLInjectionV2.Bypass.RuleStore.ChainEntry))]
+    [JsonSerializable(typeof(List<SuperSQLInjectionV2.Bypass.RuleStore.ChainEntry>))]
+    [JsonSerializable(typeof(SuperSQLInjectionV2.Bypass.RuleStore.BuiltinEntry))]
+    [JsonSerializable(typeof(List<SuperSQLInjectionV2.Bypass.RuleStore.BuiltinEntry>))]
+    [JsonSerializable(typeof(SuperSQLInjectionV2.Bypass.RuleStore.ScriptEntry))]
+    [JsonSerializable(typeof(List<SuperSQLInjectionV2.Bypass.RuleStore.ScriptEntry>))]
+    [JsonSerializable(typeof(SuperSQLInjectionV2.Bypass.RuleStore.DynamicRuleDto))]
+    [JsonSerializable(typeof(List<SuperSQLInjectionV2.Bypass.RuleStore.DynamicRuleDto>))]
+    [JsonSerializable(typeof(SuperSQLInjectionV2.Bypass.RuleStore.ProxyDto))]
+    [JsonSerializable(typeof(List<SuperSQLInjectionV2.Bypass.RuleStore.ProxyDto>))]
+    [JsonSerializable(typeof(List<ReplaceModel>))]
     //软件更新
     [JsonSerializable(typeof(CheckUpdateResponse))]
     [JsonSerializable(typeof(UpdateManifest))]

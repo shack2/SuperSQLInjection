@@ -33,18 +33,6 @@
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
-            <TextBlock Text="位置：" VerticalAlignment="Center" />
-            <ComboBox Width="100" VerticalAlignment="Center"
-                      ItemsSource="{Binding PosList}"
-                      SelectedItem="{Binding ApplyPos}"
-                      IsEnabled="{Binding !Builtin}"
-                      ToolTip.Tip="全部位置=所有Encode块生效；仅编码位=query/URI段/urlencoded体（换行类工具防止在原文位被CRLF防护剔除而静默失效）；仅原文位=头/Cookie/JSON/XML/multipart体。内置项以注册表为准">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding Converter={StaticResource EnumTextConverter}}" />
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
             <TextBlock Text="执行次数：" VerticalAlignment="Center" />
             <ComboBox Width="70" VerticalAlignment="Center"
                       ItemsSource="{Binding DoCountItems}"

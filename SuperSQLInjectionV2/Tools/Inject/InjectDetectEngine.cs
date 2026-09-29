@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace SuperSQLInjectionV2.Tools.Inject
@@ -92,7 +93,18 @@ namespace SuperSQLInjectionV2.Tools.Inject
             public string HeaderName = "";
             //URI路径段注入时的段序号（0基，非空段计数，与MyTools.GetUriSegments一致）
             public int UriIndex = -1;
+            //参数值为base64编码包装（--base64同款）：命中后PValue为解码后原文，标记值把基底值并入普通Encode块，
+            //发送期由自动启用的base64encode编码工具在链尾完成base64编码回写
+            public bool Base64 = false;
+            //WAF拦截统计（检测期经Send发出的请求）：状态码401/403/406/429/501计入拦截，
+            //用于「某技术全量被拦截≠无注入」的区分提示
+            public int WafSent = 0;
+            public int WafBlocked = 0;
         }
+
+        //base64encode临时启用的引用计数门闩（多参数并行检测时，首个base64参数启用、全部结束才还原）
+        private static readonly object B64Gate = new object();
+        private static int _b64ActiveCount = 0;
 
         /// <summary>
         /// 对单个参数执行多技术检测，不命中不停：每种技术类型各取一个命中（同类型确认即跳过剩余用例），
@@ -104,8 +116,27 @@ namespace SuperSQLInjectionV2.Tools.Inject
         {
             List<InjectPoint> hits = new List<InjectPoint>();
             Ctx ctx = new Ctx { Config = config, PName = pname, PValue = pvalue ?? "", Place = place, HeaderName = headerName, UriIndex = uriIndex };
+            //base64包装参数识别后临时启用base64encode工具（finally中按命中情况还原/保留）
+            bool b64TempEnabled = false;
             try
             {
+                //base64包装参数识别（--base64同款）：值整体是合法base64且解码后为可打印文本时，
+                //检测/取数按「解码→注入→编码回写」流程走——ctx.PValue切换为解码域，标记值整体并入Encode块，
+                //并自动启用内置base64encode编码工具（追加到工具列表末尾=链尾执行）完成编码回写
+                if (TryDecodeBase64Param(ctx.PValue, out string decodedB64))
+                {
+                    ctx.Base64 = true;
+                    ctx.PValue = decodedB64;
+                    //多参数并行下改为引用计数：首个base64参数真正启用工具，其余仅挂计数，全部检测完才还原
+                    lock (B64Gate)
+                    {
+                        if (_b64ActiveCount++ == 0)
+                        {
+                            b64TempEnabled = Bypass.EncodeToolRegistry.SetEnabled(config, "base64encode", true);
+                        }
+                    }
+                    Log.Show("参数" + pname + "的值为base64编码包装（解码后：'" + (decodedB64.Length > 50 ? decodedB64[..50] + "…" : decodedB64) + "'），已自动启用base64encode编码工具，按解码→注入→编码回写流程检测！");
+                }
                 int level = Math.Max(1, Math.Min(5, config.DataConfig.DetectLevel));
                 int risk = Math.Max(1, Math.Min(3, config.DataConfig.DetectRisk));
                 ctx.BaseReq = new HttpRequest(config, requestTxt);
@@ -194,6 +225,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 foreach (int stype in TechniqueOrder)
                 {
                     config.CheckStop();
+                    int wafSent0 = ctx.WafSent, wafBlocked0 = ctx.WafBlocked;
                     //注1：对疑似非动态参数仅告警不跳过（静态参数上比对类用例天然不命中，无需预过滤）
                     //注2：--smart只在"非动态+无指纹"时整体跳过（闸门B）；有指纹即全技术检测，不做技术裁剪
                     List<PayloadTest> tests = InjectPayloadLoader.GetTests(stype, level, risk)
@@ -250,6 +282,12 @@ namespace SuperSQLInjectionV2.Tools.Inject
                         NextTest:;
                         }
                     NextTechnique:;
+                    //WAF拦截反馈：该技术发出的请求全部被拦截（401/403/406/429/501）时明确提示「疑似被拦」而非「无注入」
+                    int tSent = ctx.WafSent - wafSent0, tBlocked = ctx.WafBlocked - wafBlocked0;
+                    if (tSent >= 4 && tBlocked == tSent)
+                    {
+                        Log.Warning(TechniqueName(stype) + "检测发出的" + tSent + "个请求全部被拦截（HTTP 401/403/406/429/501），疑似 WAF 防护拦截而非不存在注入！建议在防护绕过页配置随机UA/随机源IP/代理/延时/tamper后重测。");
+                    }
                 }
                 //6. DNS外带探测（可选开关，本工具扩展）：不依赖页面响应/延时，payload携带唯一token触发数据库
                 //向 token.DNSLog域名 发起DNS解析，平台侧回收确认，可发现无回显无延时的盲注点
@@ -266,6 +304,15 @@ namespace SuperSQLInjectionV2.Tools.Inject
                     }
                 }
                 //按利用价值升序：调用方顺序应用后，最优注入点（Union>报错>布尔>时间）成为当前生效配置
+                //base64包装参数：命中点记录AutoTamper=base64encode，注入记录持久化后，
+                //恢复记录取数时现有AutoTamper机制自动启用该工具完成编码回写
+                if (ctx.Base64)
+                {
+                    foreach (InjectPoint h in hits)
+                    {
+                        h.AutoTamper = "base64encode";
+                    }
+                }
                 return hits.OrderBy(ExploitPriority).ToList();
             }
             catch (OperationCanceledException)
@@ -275,6 +322,22 @@ namespace SuperSQLInjectionV2.Tools.Inject
             catch (Exception e)
             {
                 Log.Error("检测引擎异常：" + e.Message);
+            }
+            finally
+            {
+                //base64encode为检测期临时启用（引用计数）：最后一个base64参数检测完且无base64命中时还原，
+                //避免污染同会话后续参数的检测；有命中时保持启用（取数链路依赖，恢复注入记录的AutoTamper机制会再次确保）
+                if (ctx.Base64)
+                {
+                    lock (B64Gate)
+                    {
+                        _b64ActiveCount--;
+                        if (_b64ActiveCount == 0 && b64TempEnabled && !hits.Any(h => "base64encode".Equals(h.AutoTamper, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            Bypass.EncodeToolRegistry.SetEnabled(config, "base64encode", false);
+                        }
+                    }
+                }
             }
             return hits;
         }
@@ -1221,7 +1284,9 @@ namespace SuperSQLInjectionV2.Tools.Inject
         /// </summary>
         private static string MarkedValue(Ctx ctx, string pvalue, string prefix, string suffix)
         {
-            return (pvalue ?? "") + ConstData.StartPoint + FixPrefix(prefix) + ConstData.InjectStr + suffix + ConstData.EndPoint;
+            string marked = (pvalue ?? "") + ConstData.StartPoint + FixPrefix(prefix) + ConstData.InjectStr + suffix + ConstData.EndPoint;
+            //base64包装参数：剥离Encode标签把基底值并入块内重套普通Encode块（发送期由base64encode工具编码回写）
+            return ctx.Base64 ? WrapBase64MarkedValue(marked) : marked;
         }
 
         /// <summary>
@@ -1229,7 +1294,62 @@ namespace SuperSQLInjectionV2.Tools.Inject
         /// </summary>
         private static string? ProbeMarkedValue(Ctx ctx)
         {
-            return ctx.PValue + ConstData.GetParamAndEncode("");
+            string marked = ctx.PValue + ConstData.GetParamAndEncode("");
+            return ctx.Base64 ? WrapBase64MarkedValue(marked) : marked;
+        }
+
+        /// <summary>
+        /// base64包装参数的标记值整体打包：剥离成对Encode标签，把基底值（原参数解码值）并入块体，
+        /// 重新套普通&lt;Encode&gt;块——标记形态与非base64参数完全一致，
+        /// base64编码回写由启用的base64encode编码工具在发送管线链尾完成（AutoTamper机制随注入记录持久化/恢复）。
+        /// </summary>
+        public static string WrapBase64MarkedValue(string markedValue)
+        {
+            string inner = (markedValue ?? "")
+                .Replace(ConstData.StartPoint, "", StringComparison.Ordinal)
+                .Replace(ConstData.EndPoint, "", StringComparison.Ordinal);
+            return ConstData.StartPoint + inner + ConstData.EndPoint;
+        }
+
+        /// <summary>
+        /// base64包装参数识别（--base64同款启发式）：长度4~4096、纯base64字符集、解码成功、
+        /// UTF-8可解码且无可疑控制字符、去padding再编码与原文一致（排除恰好符合字符集的普通字符串）。
+        /// 识别失败静默返回false，按普通参数流程检测。
+        /// </summary>
+        private static bool TryDecodeBase64Param(string? value, out string decoded)
+        {
+            decoded = "";
+            //最短4字符（base64("1")="MQ=="）：过短值由往返一致性+可打印校验兜底排除误识别
+            if (string.IsNullOrEmpty(value) || value.Length < 4 || value.Length > 4096)
+            {
+                return false;
+            }
+            if (!Regex.IsMatch(value, @"^[A-Za-z0-9+/]+={0,2}$"))
+            {
+                return false;
+            }
+            try
+            {
+                byte[] bytes = Convert.FromBase64String(value);
+                string txt = Encoding.UTF8.GetString(bytes);
+                //UTF-8解码出现替换字符=大概率不是文本参数；控制字符（\t\r\n除外）同理
+                if (txt.Contains('�') || txt.Any(c => char.IsControl(c) && c != '\t' && c != '\r' && c != '\n'))
+                {
+                    return false;
+                }
+                //往返一致性：去padding重编码必须还原（"test1234"这类偶合串会被此条排除）
+                string trimmed = value.TrimEnd('=');
+                if (!Convert.ToBase64String(bytes).TrimEnd('=').Equals(trimmed, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+                decoded = txt;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -1311,7 +1431,8 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 }
             }
             //where!=3或vector无取数槽位时走and胶水路径（bakedVector=null）
-            return BakeExploitMarkedValue(pvalue, prefix, suffix, db, bakedVector);
+            string marked = BakeExploitMarkedValue(pvalue, prefix, suffix, db, bakedVector);
+            return ctx.Base64 ? WrapBase64MarkedValue(marked) : marked;
         }
 
         /// <summary>
@@ -1408,7 +1529,14 @@ namespace SuperSQLInjectionV2.Tools.Inject
         {
             HttpRequest hr = new HttpRequest(ctx.Config, requestTxt);
             hr.Payload = payload;
-            return await HTTPTool.SendRequestRetryAsync(hr).ConfigureAwait(false);
+            HttpResponse resp = await HTTPTool.SendRequestRetryAsync(hr).ConfigureAwait(false);
+            //WAF拦截统计：401未授权/403禁止/406不接受/429限流/501不支持 均视为疑似拦截
+            ctx.WafSent++;
+            if (resp.StatusCode is 401 or 403 or 406 or 429 or 501)
+            {
+                ctx.WafBlocked++;
+            }
+            return resp;
         }
 
         /// <summary>

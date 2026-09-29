@@ -19,6 +19,8 @@ namespace SuperSQLInjectionV2.Models
 
         [ObservableProperty] public partial ProxyType? SelectProxyType { get; set; } = ProxyType.Fixed;
 
+        //规则与状态分离：代理池独立持久化到 config/rules/proxies.json（RuleStore），不进 lastconfig.json
+        [JsonIgnore]
         public ObservableCollection<Proxy> ProxyItems { get; set; } = new ObservableCollection<Proxy>();
 
         [JsonIgnore]

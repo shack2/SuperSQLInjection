@@ -14,7 +14,7 @@ namespace SuperSQLInjectionV2.Bypass
     /// <summary>
     /// 绕过管道（P0-1）：显式有序Stage，替代原先散落在HTTPTool/StringReplace的6个隐式挂点。
     /// ApplyOnceAsync（每逻辑请求一次，产物可被多轮重试复用）：
-    ///   Stage1 Token替换 → Stage2 Rand/payload/Encode块处理（StringReplace，计划快照驱动）→ Stage3 报文级脚本（eval语义）
+    ///   Stage1 Token替换 → Stage2 payload/Encode块处理（StringReplace，计划快照驱动）→ Stage3 报文级脚本（eval语义）
     /// ApplyPerRetryAsync（每轮重试执行，作用于Stage产物副本，改写不叠加）：
     ///   Stage4 限速（--delay/--safe-freq）→ Stage5 随机UA（--random-agent）→ Stage6 HPP/chunked
     /// 认证/Digest/重试循环/二次注入仍由HTTPTool负责（属于传输语义，非绕过变换）。
@@ -42,7 +42,7 @@ namespace SuperSQLInjectionV2.Bypass
             {
                 await ReplaceTokenAsync(request).ConfigureAwait(false);
             }
-            //Stage2：Rand标记/注入串替换/Encode块（字符替换→编码项→Payload级tamper→Base64/兜底URL编码）
+            //Stage2：注入串替换/Encode块（字符替换→编码项→Payload级tamper→兜底URL编码）
             HttpRequest newRequest = await StringReplace.StrReplaceCenterAsync(request).ConfigureAwait(false);
             //Stage3：报文级脚本（eval语义）：tamper/编码处理后、发送前改写整份报文
             //注意：脚本只改报文文本，连接目标仍以原Host/Port为准（面向签名/token类改写）
@@ -74,16 +74,10 @@ namespace SuperSQLInjectionV2.Bypass
             ApplyChunked(request, plan);
         }
 
-        /// <summary>清空Token/Rand缓存（测试/重置场景用；状态为AppConfig实例字段，按配置维度清理）</summary>
+        /// <summary>清空Token缓存（测试/重置场景用；状态为AppConfig实例字段，按配置维度清理）</summary>
         public static void ResetTokenCache(AppConfig config)
         {
             config.LastToken = "";
-            config.LastRand = "";
-            config.RandCache.Clear();
-            lock (config.RandCacheLock)
-            {
-                config.RandCacheLru.Clear();
-            }
         }
 
         //---- Stage1：动态规则标记（DRule） ----

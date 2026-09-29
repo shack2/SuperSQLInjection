@@ -59,6 +59,16 @@ public partial class MainView : UserControl
         EditorThemeTool.ApplyHttpDataEditorTheme(HttpDataEditors);
         EditorThemeTool.FollowAppThemeData(HttpDataEditors);
 
+        //请求日志页：payload/请求包/响应包右键"解码"子菜单（7种解码方式，选区优先无选区取全文）
+        BuildDecodeMenuItems();
+
+        //编码处理页：行拖拽排序（TableView无内置行拖拽，指针事件实现；行内开关/下拉/按钮上不启动拖拽）
+        //Pressed走Tunnel（到达行之前先记录起点）；Moved/Released必须handledEventsToo=true——
+        //TableView行选择在内部把指针事件标记Handled，默认Bubble订阅收不到，拖拽永远不触发
+        EncodeDataGrid.AddHandler(PointerPressedEvent, EncodeGrid_PointerPressed, RoutingStrategies.Tunnel);
+        EncodeDataGrid.AddHandler(PointerMovedEvent, EncodeGrid_PointerMoved, RoutingStrategies.Bubble, true);
+        EncodeDataGrid.AddHandler(PointerReleasedEvent, EncodeGrid_PointerReleased, RoutingStrategies.Bubble, true);
+
         RequestTxtBox.AddHandler(PointerWheelChangedEvent, (o, i) =>
         {
             if (i.KeyModifiers != KeyModifiers.Control) return;
@@ -95,6 +105,117 @@ public partial class MainView : UserControl
     private void ClearRequestC(object? sender, RoutedEventArgs e)
     {
         ActiveRequestEditor.Document.Text = "";
+    }
+
+    //---------------- 请求日志页：剪切/复制/粘贴 + 右键解码 ----------------
+
+    /// <summary>解码方式列表（与编码工具页同源，避免两处维护漂移）</summary>
+    private static readonly string[] s_decodeMethods = new EncodeToolsViewModel().DecodeMethods.ToArray();
+
+    /// <summary>构造payload/请求包/响应包三处右键菜单的"解码"子菜单项（Tag挂文本取值委托，点击时取选区或全文）</summary>
+    private void BuildDecodeMenuItems()
+    {
+        foreach ((MenuItem menu, Func<string?> getter) in new (MenuItem, Func<string?>)[]
+        {
+            (DecodePayloadSubMenu, GetPayloadMenuText),
+            (DecodeRequestSubMenu, GetRequestLogMenuText),
+            (DecodeResponseSubMenu, GetResponseLogMenuText)
+        })
+        {
+            foreach (string method in s_decodeMethods)
+            {
+                var item = new MenuItem { Header = method, Tag = getter };
+                item.Click += DecodeMenuC;
+                menu.Items.Add(item);
+            }
+        }
+    }
+
+    /// <summary>payload框：选区优先，无选区取全文</summary>
+    private string? GetPayloadMenuText()
+    {
+        return !string.IsNullOrEmpty(RequestLogPayloadBox.SelectedText) ? RequestLogPayloadBox.SelectedText : RequestLogPayloadBox.Text;
+    }
+
+    /// <summary>请求包编辑器：选区优先，无选区取全文</summary>
+    private string? GetRequestLogMenuText()
+    {
+        return !string.IsNullOrEmpty(RequestLogBox.SelectedText) ? RequestLogBox.SelectedText : RequestLogBox.Text;
+    }
+
+    /// <summary>响应包编辑器：选区优先，无选区取全文</summary>
+    private string? GetResponseLogMenuText()
+    {
+        return !string.IsNullOrEmpty(ResponseLogBox.SelectedText) ? ResponseLogBox.SelectedText : ResponseLogBox.Text;
+    }
+
+    /// <summary>右键解码：按菜单项Header对应方式解码，结果弹窗展示并输出日志</summary>
+    private async void DecodeMenuC(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem mi || mi.Tag is not Func<string?> getter)
+        {
+            return;
+        }
+        string method = mi.Header as string ?? "";
+        string text = getter() ?? "";
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            Log.Warning("没有可解码的内容（可先选中要解码的文本，无选区时将对全文解码）！");
+            return;
+        }
+        try
+        {
+            string result = EncodeToolsViewModel.DecodeByMethod(method, text);
+            Log.Show("右键解码（" + method + "）：" + (result.Length > 300 ? result[..300] + " ……（完整结果见弹窗）" : result));
+            var options = new OverlayDialogOptions
+            {
+                FullScreen = false,
+                HorizontalAnchor = HorizontalPosition.Center,
+                VerticalAnchor = VerticalPosition.Center,
+                Mode = DialogMode.None,
+                Buttons = DialogButton.None,
+                Title = "解码结果 · " + method,
+                CanLightDismiss = true,
+                CanDragMove = true,
+                IsCloseButtonVisible = true,
+                CanResize = true,
+            };
+            await OverlayDialog.ShowStandardAsync<Dialogs.DecodeResultView, Dialogs.DecodeResultViewModel>(
+                new Dialogs.DecodeResultViewModel(method, text, result), options: options);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning("解码（" + method + "）失败：" + ex.Message);
+        }
+    }
+
+    /// <summary>请求日志payload框：剪切</summary>
+    private void PayloadCutC(object? sender, RoutedEventArgs e) => RequestLogPayloadBox.Cut();
+
+    /// <summary>请求日志payload框：复制</summary>
+    private void PayloadCopyC(object? sender, RoutedEventArgs e) => RequestLogPayloadBox.Copy();
+
+    /// <summary>请求日志payload框：粘贴</summary>
+    private void PayloadPasteC(object? sender, RoutedEventArgs e) => RequestLogPayloadBox.Paste();
+
+    /// <summary>请求日志请求包：剪切</summary>
+    private void RequestLogCutC(object? sender, RoutedEventArgs e) => RequestLogBox.Cut();
+
+    /// <summary>请求日志请求包：粘贴</summary>
+    private void RequestLogPasteC(object? sender, RoutedEventArgs e) => RequestLogBox.Paste();
+
+    /// <summary>请求日志响应包：复制（选区优先，无选区复制全文）</summary>
+    private void ResponseLogCopyC(object? sender, RoutedEventArgs e)
+    {
+        string text = ResponseLogBox.SelectedText;
+        if (string.IsNullOrEmpty(text))
+        {
+            text = ResponseLogBox.Text;
+        }
+        if (!string.IsNullOrEmpty(text))
+        {
+            TopLevel.GetTopLevel(this)?.Clipboard?.SetTextAsync(text);
+        }
     }
 
     /// <summary>网络设置DNSLog页：应用内置DNS接收服务配置（按开关/端口/域名启停）</summary>
@@ -601,10 +722,90 @@ public partial class MainView : UserControl
 
     private void RemoveBypassSelect(object? sender, RoutedEventArgs e)
     {
-        EncodeDataGrid.SelectedItems?.Cast<EncodeToolModel>().ToList().ForEach(x =>
+        //内置规则不可删除（可关闭启用开关）：多选删除仅作用于自定义项
+        EncodeDataGrid.SelectedItems?.Cast<EncodeToolModel>().Where(x => !x.Builtin).ToList().ForEach(x =>
         {
             _viewModel?.AppConfig?.ByPassConfig.EncodeTools.Remove(x);
         });
+    }
+
+    //---- 编码处理页行拖拽排序 ----
+    private Point _encodeDragStart;
+    private EncodeToolModel? _encodeDragItem;
+    private bool _encodeDragging;
+
+    private void EncodeGrid_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        _encodeDragging = false;
+        _encodeDragItem = null;
+        if (!e.GetCurrentPoint(EncodeDataGrid).Properties.IsLeftButtonPressed || e.Source is not Visual v)
+        {
+            return;
+        }
+        //行内交互控件（开关/下拉/按钮）按下时不启动拖拽，留给原交互
+        if (v.FindAncestorOfType<ToggleSwitch>() != null || v.FindAncestorOfType<ComboBox>() != null || v.FindAncestorOfType<Button>() != null)
+        {
+            return;
+        }
+        if (EncodeRowItem(v) is { } item)
+        {
+            _encodeDragItem = item;
+            _encodeDragStart = e.GetPosition(EncodeDataGrid);
+        }
+    }
+
+    /// <summary>按可视树向上找行项：优先TableViewRow，兜底逐级查DataContext（行容器类型变更时仍可用）</summary>
+    private static EncodeToolModel? EncodeRowItem(Visual v)
+    {
+        if (v.FindAncestorOfType<TableViewRow>()?.DataContext is EncodeToolModel m)
+        {
+            return m;
+        }
+        for (Visual? cur = v; cur != null; cur = cur.GetVisualParent())
+        {
+            if (cur.DataContext is EncodeToolModel m2)
+            {
+                return m2;
+            }
+        }
+        return null;
+    }
+
+    private void EncodeGrid_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_encodeDragItem == null)
+        {
+            return;
+        }
+        PointerPoint pt = e.GetCurrentPoint(EncodeDataGrid);
+        if (!pt.Properties.IsLeftButtonPressed)
+        {
+            _encodeDragItem = null;
+            _encodeDragging = false;
+            return;
+        }
+        Point pos = pt.Position;
+        if (!_encodeDragging && (Math.Abs(pos.X - _encodeDragStart.X) > 6 || Math.Abs(pos.Y - _encodeDragStart.Y) > 6))
+        {
+            _encodeDragging = true;
+            EncodeDataGrid.Cursor = new Cursor(StandardCursorType.SizeAll);
+        }
+    }
+
+    private void EncodeGrid_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        //拖拽中指针被原行捕获，e.Source仍是起始行——目标行需按松开位置重新命中测试
+        if (_encodeDragging && _encodeDragItem != null)
+        {
+            IInputElement? hit = EncodeDataGrid.InputHitTest(e.GetPosition(EncodeDataGrid));
+            if (hit is Visual hv && EncodeRowItem(hv) is { } target)
+            {
+                _viewModel?.MoveEncodeTool(_encodeDragItem, _viewModel.AppConfig.ByPassConfig.EncodeTools.IndexOf(target));
+            }
+        }
+        _encodeDragItem = null;
+        _encodeDragging = false;
+        EncodeDataGrid.Cursor = Cursor.Default;
     }
 
     private void RemoveTemplateRow(object? sender, RoutedEventArgs e)

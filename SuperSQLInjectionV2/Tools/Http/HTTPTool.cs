@@ -50,7 +50,7 @@ namespace SuperSQLInjectionV2.Tools.Http
         {
             //检查停止信号，一旦停止立即中断所有发包
             request.AppConfig.CheckStop();
-            //P0-1：绕过管道一次段（Token→Rand/payload/Encode块→报文级脚本），产物供多轮重试复用
+            //P0-1：绕过管道一次段（Token→payload/Encode块→报文级脚本），产物供多轮重试复用
             HttpRequest newRequest = await BypassPipeline.ApplyOnceAsync(request, isSubRequest).ConfigureAwait(false);
             //P4-1：保存绕过处理后的原始报文，每轮重试从此重建，防止随机UA/HPP/chunked等改写层层叠加污染
             string originalHeaderAndBody = newRequest.HeaderAndBody;
@@ -103,8 +103,6 @@ namespace SuperSQLInjectionV2.Tools.Http
                         HttpRequest? sencondRequest = afterRule.BuildRequest(request.AppConfig, "请求二次注入页面");
                         if (sencondRequest != null)
                         {
-                            //流内配对：复用本次注入请求实际使用的随机值（多线程安全，不再依赖全局LastRand）
-                            sencondRequest.FlowRand = newRequest.FlowRand;
                             HttpResponse sencondResponse = await SendRequestRetryAsync(sencondRequest, true).ConfigureAwait(false);
                             if (sencondResponse.StatusCode == 0)
                             {

@@ -1052,6 +1052,15 @@ namespace SuperSQLInjectionV2.Models.Data
         private static readonly InjectRecord _noFastChannel = new InjectRecord();
 
         /// <summary>
+        /// 通道升级取值（FileCmdTools等工具类复用入口）：同参数存在可用Union/Error记录时本次读取直接走快通道；
+        /// 无快通道/探测失败返回null，调用方继续原盲注链路。探测结果按 目标+参数 缓存（成功/失败都只探一次）
+        /// </summary>
+        public static async Task<string?> TryUpgradeFetch(AppConfig config, string dataPayload, int maxLen)
+        {
+            return await TryUpgradeChannel(config, dataPayload, maxLen).ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// 尝试通道升级：返回非null=已由快通道完成本次读取；null=无快通道/探测失败，继续盲注链路。
         /// 探测结果按 目标+参数 缓存（成功/失败都只探一次）
         /// </summary>

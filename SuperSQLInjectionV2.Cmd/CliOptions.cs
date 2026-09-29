@@ -21,6 +21,7 @@ public sealed class CliOptions
     public string? Dbms;                   // --dbms mysql/sqlserver/...
     public bool Smart;                     // --smart
     public bool Exhaustive;                // --exhaustive 穷举模式
+    public bool Parallel;                  // --parallel 多参数并行检测
     public string? DnsDomain;              // --dns-domain（DNS外带）
     public string? DnsToken;               // --dns-token
 
@@ -33,6 +34,7 @@ public sealed class CliOptions
     public bool RandomAgent;               // --random-agent
     public string? UserAgent;              // --user-agent
     public string? Tamper;                 // --tamper 逗号分隔编码工具名
+    public string? RulesDir;               // --rules-dir 规则库目录（默认 config/rules/）
     public bool FollowRedirects;           // --follow-redirects
 
     // ---- 取数动作 ----
@@ -104,6 +106,7 @@ public sealed class CliOptions
                     case "--dbms": o.Dbms = Val(); break;
                     case "--smart": o.Smart = true; break;
                     case "--exhaustive": o.Exhaustive = true; break;
+                    case "--parallel": o.Parallel = true; break;
                     case "--dns-domain": o.DnsDomain = Val(); break;
                     case "--dns-token": o.DnsToken = Val(); break;
                     case "--proxy": o.Proxy = Val(); break;
@@ -114,6 +117,7 @@ public sealed class CliOptions
                     case "--random-agent": o.RandomAgent = true; break;
                     case "--user-agent": o.UserAgent = Val(); break;
                     case "--tamper": o.Tamper = Val(); break;
+                    case "--rules-dir": o.RulesDir = Val(); break;
                     case "--follow-redirects": o.FollowRedirects = true; break;
                     case "--banner": o.Banner = true; break;
                     case "--current-user": o.CurrentUser = true; break;
@@ -192,6 +196,7 @@ public sealed class CliOptions
           --dbms=DBMS             指定数据库（mysql/pgsql/sqlserver/sqlite/oracle/...）
           --smart                 智能模式（无迹象参数快速跳过）
           --exhaustive            穷举模式（同技术测完全部用例）
+          --parallel              多参数并行检测（并发度取 --threads，上限 10）
           --dns-domain=D          DNS 外带接收域名（配合 --dns-token）
 
         请求:
@@ -202,7 +207,8 @@ public sealed class CliOptions
           --threads=N             盲注并发线程（默认 1，建议 ≤10）
           --random-agent          随机 User-Agent
           --user-agent=UA         指定 User-Agent
-          --tamper=A,B            编码处理工具链（按名称/key）
+          --tamper=A,B            编码处理工具链（内置名/key 或 rules 目录中的自定义脚本名）
+          --rules-dir=DIR         规则库目录（默认 config/rules/，与 GUI 共用：自定义tamper/动态规则/字符替换/代理池）
           --follow-redirects      跟随 302 重定向
 
         取数动作（检测到注入后执行，可组合）:

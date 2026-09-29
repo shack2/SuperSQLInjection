@@ -22,12 +22,12 @@ namespace SuperSQLInjectionV2.ViewModels
 
         public List<string> EncodeMethods { get; } =
         [
-            "URL编码", "Base64", "ASCII", "Hex16进制", "MD5-16", "MD5-32", "Unicode", "MySQL chr", "SQLServer char"
+            "URL编码", "Base64", "ASCII", "Hex16进制", "MD5-16", "MD5-32", "Unicode", "HTML实体编码", "MySQL chr", "SQLServer char"
         ];
 
         public List<string> DecodeMethods { get; } =
         [
-            "URL解码", "Base64", "ASCII", "Hex16进制", "Unicode", "MySQL chr还原", "SQLServer char还原"
+            "URL解码", "Base64", "ASCII", "Hex16进制", "Unicode", "HTML实体解码", "MySQL chr还原", "SQLServer char还原"
         ];
 
         /// <summary>
@@ -66,6 +66,9 @@ namespace SuperSQLInjectionV2.ViewModels
                     case "Unicode":
                         Output = TextCodec.String2Unicode(Input);
                         break;
+                    case "HTML实体编码":
+                        Output = System.Net.WebUtility.HtmlEncode(Input);
+                        break;
                     case "MySQL chr":
                         Output = TextCodec.StrToChrOrChar(Input, "chr", " ", "UTF-8");
                         break;
@@ -93,34 +96,37 @@ namespace SuperSQLInjectionV2.ViewModels
             }
             try
             {
-                switch (SelectedDecode)
-                {
-                    case "URL解码":
-                        Output = System.Web.HttpUtility.UrlDecode(Input);
-                        break;
-                    case "Base64":
-                        Output = Encoding.UTF8.GetString(Convert.FromBase64String(Input));
-                        break;
-                    case "ASCII":
-                        Output = TextCodec.AsciiToString(Input);
-                        break;
-                    case "Hex16进制":
-                        Output = TextCodec.unHex(Input, "UTF-8");
-                        break;
-                    case "Unicode":
-                        Output = UnicodeToString(Input);
-                        break;
-                    case "MySQL chr还原":
-                        Output = TextCodec.ChrOrCharToStr(Input, "chr", "UTF-8");
-                        break;
-                    case "SQLServer char还原":
-                        Output = TextCodec.ChrOrCharToStr(Input, "char", "UTF-8");
-                        break;
-                }
+                Output = DecodeByMethod(SelectedDecode, Input);
             }
             catch (Exception e)
             {
                 Log.Show("解码发生异常！" + e.Message);
+            }
+        }
+
+        /// <summary>按解码方式名解码（编码工具页与请求日志右键解码菜单共用的唯一实现）</summary>
+        public static string DecodeByMethod(string method, string input)
+        {
+            switch (method)
+            {
+                case "URL解码":
+                    return System.Web.HttpUtility.UrlDecode(input);
+                case "Base64":
+                    return Encoding.UTF8.GetString(Convert.FromBase64String(input));
+                case "ASCII":
+                    return TextCodec.AsciiToString(input);
+                case "Hex16进制":
+                    return TextCodec.unHex(input, "UTF-8");
+                case "Unicode":
+                    return UnicodeToString(input);
+                case "HTML实体解码":
+                    return System.Net.WebUtility.HtmlDecode(input);
+                case "MySQL chr还原":
+                    return TextCodec.ChrOrCharToStr(input, "chr", "UTF-8");
+                case "SQLServer char还原":
+                    return TextCodec.ChrOrCharToStr(input, "char", "UTF-8");
+                default:
+                    return input;
             }
         }
 

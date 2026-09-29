@@ -34,7 +34,7 @@
 		</Span>
 
 		<!-- 4. 随机值/动态规则标记 -->
-		<Rule color="HTTP.Encode">&lt;\/?Rand&gt;|&lt;DRule&gt;</Rule>
+		<Rule color="HTTP.Encode">&lt;DRule&gt;</Rule>
 
 		<!-- 5. 请求方法（行首锚定，避免正文中的GET/POST误染色） -->
 		<Rule color="HTTP.Method">^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|CONNECT|TRACE)\b</Rule>

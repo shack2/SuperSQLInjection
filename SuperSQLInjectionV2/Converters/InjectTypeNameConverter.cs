@@ -8,7 +8,7 @@ namespace SuperSQLInjectionV2.Converters;
 /// <summary>
 /// 枚举的界面显示名转换器（AOT 安全：全部编译期映射，不用反射读 Description 特性）：
 /// InjectType 用内置中文映射（Blind=Bool盲注、Time=时间盲注、Dns=DNS盲注等）；
-/// 其余枚举（BoolInjectType/DBType/EncodePos/ScriptScope/ParamPlace/ErrorInjectType）
+/// 其余枚举（BoolInjectType/DBType/ScriptScope/ParamPlace/ErrorInjectType）
 /// 按各自 Description 特性的文案逐一映射，未覆盖的枚举回退枚举名。
 /// </summary>
 public class InjectTypeNameConverter : IValueConverter
@@ -56,13 +56,6 @@ public class InjectTypeNameConverter : IValueConverter
                 DBType.HSQLDB => "HSQLDB",
                 DBType.ClickHouse => "ClickHouse",
                 _ => d.ToString()
-            },
-            EncodePos ep => ep switch
-            {
-                EncodePos.Any => "全部位置",
-                EncodePos.QueryOnly => "仅编码位",
-                EncodePos.RawOnly => "仅原文位",
-                _ => ep.ToString()
             },
             ScriptScope ss => ss switch
             {

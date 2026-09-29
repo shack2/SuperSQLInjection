@@ -21,8 +21,6 @@ namespace SuperSQLInjectionV2.Bypass
         public required Func<string, string> Impl { get; init; }
         /// <summary>是否在"添加内置工具"列表可见（false=仅兼容旧配置的遗留变体）</summary>
         public required bool Visible { get; init; }
-        /// <summary>适用位置：产出换行/控制符的工具标QueryOnly（原文位会被CRLF防护剔除而静默失效，直接在计划层跳过）</summary>
-        public EncodePos Pos { get; init; } = EncodePos.Any;
     }
 
     /// <summary>
@@ -45,13 +43,40 @@ namespace SuperSQLInjectionV2.Bypass
             return All.TryGetValue(key ?? "()", out tool!);
         }
 
+        /// <summary>
+        /// 按Key/Name启用或停用内置编码工具：列表中不存在且为启用操作时，按注册表定义补建（追加到列表末尾，
+        /// 对base64encode这类必须链尾执行的工具天然有序）。已处于目标状态时不动。
+        /// 返回本次是否发生了状态变更（检测期临时启用的调用方据此决定是否需要还原）。
+        /// </summary>
+        public static bool SetEnabled(AppConfig config, string key, bool enable, string? logReason = null)
+        {
+            EncodeToolModel? item = config.ByPassConfig.EncodeTools.FirstOrDefault(s =>
+                string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(s.Name, key, StringComparison.OrdinalIgnoreCase));
+            if (item == null && enable && TryGet(key, out EncodeTool? reg))
+            {
+                item = new EncodeToolModel { Name = reg.Name, Key = reg.Key, Scope = ScriptScope.Payload, Builtin = true, Enable = false };
+                config.ByPassConfig.EncodeTools.Add(item);
+            }
+            if (item == null || item.Enable == enable)
+            {
+                return false;
+            }
+            item.Enable = enable;
+            if (enable && !string.IsNullOrEmpty(logReason))
+            {
+                Log.Show(logReason);
+            }
+            return true;
+        }
+
         private static Dictionary<string, EncodeTool> Build()
         {
             var d = new Dictionary<string, EncodeTool>(StringComparer.OrdinalIgnoreCase);
             void Reg(string key, string name, string desc, Func<string, string> impl, bool visible = true)
                 => d[key] = new EncodeTool { Key = key, Name = name, Description = desc, Impl = impl, Visible = visible };
 
-            //---- 基底：31个内置tamper（实现见BuiltinTampers）----
+            //---- 基底：33个内置tamper（实现见BuiltinTampers）----
             var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["space2comment"] = "空格转注释", ["space2plus"] = "空格转加号", ["uppercase"] = "全大写",
@@ -72,19 +97,11 @@ namespace SuperSQLInjectionV2.Bypass
             {
                 Reg(bt.Name, names.TryGetValue(bt.Name, out string? cn) ? cn : bt.Name, bt.Description, bt.Impl);
             }
-            //产出换行/控制符的工具标QueryOnly：原文位（头/Cookie/JSON体）中这些字符会被CRLF防护剔除导致静默失效
-            foreach (string qkey in new[] { "space2randomblank", "space2mssqlblank" })
-            {
-                if (d.TryGetValue(qkey, out EncodeTool? qt))
-                {
-                    d[qkey] = new EncodeTool { Key = qt.Key, Name = qt.Name, Description = qt.Description + "（仅编码位生效）", Impl = qt.Impl, Visible = qt.Visible, Pos = EncodePos.QueryOnly };
-                }
-            }
 
             //---- 语义更优实现覆盖（原EncodeType版）----
             //space2dash/space2hash：换行版（真换行由兜底URL编码为%0A；原JS字面%0a经兜底会被编成%250a导致失效）
-            d["space2dash"] = new EncodeTool { Key = "space2dash", Name = "空格转--注释", Description = "空格→破折号注释+随机串+换行（--x%0a，MySQL/MSSQL；仅编码位生效）", Impl = s => Space2CommentLineNewline(s, "--"), Visible = true, Pos = EncodePos.QueryOnly };
-            d["space2hash"] = new EncodeTool { Key = "space2hash", Name = "空格转#注释", Description = "空格→井号注释+随机串+换行（#x%0a，MySQL；仅编码位生效）", Impl = s => Space2CommentLineNewline(s, "#"), Visible = true, Pos = EncodePos.QueryOnly };
+            d["space2dash"] = new EncodeTool { Key = "space2dash", Name = "空格转--注释", Description = "空格→破折号注释+随机串+换行（--x%0a，MySQL/MSSQL）", Impl = s => Space2CommentLineNewline(s, "--"), Visible = true };
+            d["space2hash"] = new EncodeTool { Key = "space2hash", Name = "空格转#注释", Description = "空格→井号注释+随机串+换行（#x%0a，MySQL）", Impl = s => Space2CommentLineNewline(s, "#"), Visible = true };
             //equaltolike：安全正则（避开<= >= != ==，原tamper版会误伤复合运算符）
             d["equaltolike"] = new EncodeTool { Key = "equaltolike", Name = "等号转LIKE", Description = "等号比较→LIKE比较（避开<=/>=/!=/==）", Impl = s => Regex.Replace(s, @"(?<![\<\>\!\=])\=(?![\=])", " LIKE "), Visible = true };
 
@@ -95,11 +112,6 @@ namespace SuperSQLInjectionV2.Bypass
             Reg("altcase", "交替大小写", "关键字字母按位交替大小写（库名.表/全局变量/字符串不处理）", s => ToLowerOrUpperCase(s, " ", 1));
             Reg("unicode", "Unicode宽字符编码", "整段字符→%uXXXX（UTF-16宽字符，ASP/IIS场景）", TextCodec.String2Unicode);
             Reg("includecomment", "关键字内联注释", "标识符包裹MySQL内联执行注释（kw→/*!kw*/）", StringReplace.IncludeString);
-
-            //---- 遗留变体（仅兼容旧配置，不在添加列表出现）----
-            Reg("charunicodeencodeall", "Unicode宽字符编码(全字符)", "每个字符→%uXXXX（含字母数字，旧版CharUnicodeEncode行为）", CharUnicodeEncodeAll, visible: false);
-            Reg("halfversionedmorekeywords-full", "关键字半版本注释(全包裹)", "MySQL关键字全包裹半版本注释（UNION→/*!0UNION*/，旧版行为）", s => VersionedKeywordsFull(s, "0"), visible: false);
-
             return d;
         }
 
@@ -197,42 +209,6 @@ namespace SuperSQLInjectionV2.Bypass
             }
             return sb.ToString();
         }
-
-        /// <summary>MySQL关键字集合（旧版全包裹versionedkeywords用）</summary>
-        private static readonly string[] MySqlKeywords = {
-            "UNION","SELECT","FROM","WHERE","AND","OR","GROUP","ORDER","BY","LIMIT",
-            "INSERT","UPDATE","DELETE","VALUES","INTO","CONCAT","CHAR","FLOOR","RAND","COUNT",
-            "SLEEP","BENCHMARK","IF","LIKE","BETWEEN","IN","NOT","NULL","DISTINCT","ALL","AS",
-            "JOIN","LEFT","RIGHT","INNER","OUTER","CROSS","HAVING","EXISTS","CAST","CONVERT",
-            "SUBSTRING","MID","ASCII","ORD","HEX","UNHEX","DATABASE","USER","VERSION","SCHEMA"
-        };
-
-        /// <summary>旧版全包裹版本注释：MySQL关键字包裹为 /*!verKW*/（单引号内不处理，已在注释内的不重复包裹）</summary>
-        private static string VersionedKeywordsFull(string str, string version)
-        {
-            string[] segs = str.Split('\'');
-            for (int i = 0; i < segs.Length; i += 2)
-            {
-                foreach (string kw in MySqlKeywords)
-                {
-                    segs[i] = Regex.Replace(segs[i],
-                        "(?<!/\\*!\\d{0,6})\\b" + kw + "\\b(?!\\*/)",
-                        "/*!" + version + kw + "*/",
-                        RegexOptions.IgnoreCase);
-                }
-            }
-            return string.Join("'", segs);
-        }
-
-        /// <summary>旧版CharUnicodeEncode：每个字符都做%uXXXX编码（含字母数字）</summary>
-        private static string CharUnicodeEncodeAll(string str)
-        {
-            StringBuilder sb = new StringBuilder();
-            foreach (char c in str)
-            {
-                sb.Append("%u").Append(((int)c).ToString("X4"));
-            }
-            return sb.ToString();
-        }
+      
     }
 }

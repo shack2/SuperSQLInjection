@@ -179,7 +179,7 @@ namespace SuperSQLInjectionV2.Tools
         /// <summary>
         /// JSON请求体位置注入：按点路径（支持 arr[0] 下标）替换标量值，保持其余结构不变
         /// </summary>
-        //JSON写回使用宽松转义：< > & ' 等字符保持原文（注入标记<Encode>/<EncodeRaw>与payload引号不能被\uXXXX转义）
+        //JSON写回使用宽松转义：< > & ' 等字符保持原文（注入标记<Encode>与payload引号不能被\uXXXX转义）
 
     }
 

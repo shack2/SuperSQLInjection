@@ -9,9 +9,6 @@ namespace SuperSQLInjectionV2.Tools.Http
         private static readonly string[] s_lineSeparators = { "\r\n", "\n" };
 
         public string Payload { get; set; } = "";
-        /// <summary>请求流内随机值（多线程安全配对）：StrReplaceCenter生成/消费；
-        /// 普通请求=输出（本次<Rand>实际使用的值），二次注入页请求=输入（预设为注入请求的FlowRand，替代全局LastRand避免多线程交错错配）</summary>
-        public string? FlowRand { get; set; }
         /// <summary>后置伴随规则指定标记名（&lt;Sencond:标记名&gt;&lt;/Sencond&gt;指令，StrReplaceCenter提取后从报文剔除）：
         /// 非空时本次请求的后置取数使用该标记名对应的规则，替代默认的第一条启用后置规则</summary>
         public string? SencondTag { get; set; }
@@ -276,16 +273,17 @@ namespace SuperSQLInjectionV2.Tools.Http
             var queryParams = Query.Split('&');
             foreach (var param in queryParams)
             {
-                var keyValue = param.Split('=');
-                if (keyValue.Length == 2)
+                //按首个'='切分：值本身可含'='（如base64填充"MQ=="），Split('=')全切会把这类参数整条丢弃
+                int eq = param.IndexOf('=', StringComparison.Ordinal);
+                if (eq > 0)
                 {
-                   QueryString[keyValue[0]] = Uri.UnescapeDataString(keyValue[1]);
-                    Params[keyValue[0]] = Uri.UnescapeDataString(keyValue[1]);
+                   QueryString[param[..eq]] = Uri.UnescapeDataString(param[(eq + 1)..]);
+                    Params[param[..eq]] = Uri.UnescapeDataString(param[(eq + 1)..]);
                 }
-                else if (keyValue.Length == 1)
+                else if (eq < 0 && param.Length > 0)
                 {
-                    QueryString[keyValue[0]] = string.Empty;
-                    Params[keyValue[0]] = string.Empty;
+                    QueryString[param] = string.Empty;
+                    Params[param] = string.Empty;
                 }
             }
         }
@@ -333,14 +331,15 @@ namespace SuperSQLInjectionV2.Tools.Http
             var bodyParams = BodyText.Split('&');
             foreach (var param in bodyParams)
             {
-                var keyValue = param.Split('=');
-                if (keyValue.Length == 2)
+                //按首个'='切分：值本身可含'='（如base64填充），避免整条参数被丢弃
+                int eq = param.IndexOf('=', StringComparison.Ordinal);
+                if (eq > 0)
                 {
-                    BodyParams[keyValue[0]] = Uri.UnescapeDataString(keyValue[1]);
+                    BodyParams[param[..eq]] = Uri.UnescapeDataString(param[(eq + 1)..]);
                 }
-                else if (keyValue.Length == 1)
+                else if (eq < 0 && param.Length > 0)
                 {
-                    BodyParams[keyValue[0]] = string.Empty;
+                    BodyParams[param] = string.Empty;
                 }
             }
         }
