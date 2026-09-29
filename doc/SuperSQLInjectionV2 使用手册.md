@@ -255,7 +255,7 @@ CLI 检出注入后自动复用注入点拼接对应数据库的取数 SQL，无
 | 数据库 | 写文件通道 |
 | --- | --- |
 | MySQL | Union `INTO DUMPFILE`、`general_log` 写 WebShell（堆叠）、UDF 写库（内置 lib_mysqludf_sys 二进制写 plugin 目录建 `sys_eval`，为命令执行铺路） |
-| SQLServer | FileSystemObject、sp_MakeWebTask、备份写 WebShell |
+| SQLServer | FileSystemObject、sp_MakeWebTask、备份写 WebShell（写后自动验证：xp_fileexist 确认文件存在 + BULK INSERT 回读内容比对；sp_MakeWebTask 在 SQL Server 2012+ 已移除，验证失败会明确提示而非误报成功） |
 | PostgreSQL | COPY TO（堆叠）、大对象 lo_from_bytea/lo_export（Union/报错单语句） |
 | openGauss / Kingbase | COPY TO（兼容 PG 语法） |
 | H2 | CSVWRITE（char 链免引号，writeColumnHeader=false+fieldDelimiter=空 → 裸字节落盘，仅末尾多一个 CRLF） |

@@ -350,7 +350,40 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 payload = payload.Replace(" 1=1;", ";", StringComparison.Ordinal);
             }
             await SendPayload(config, payload).ConfigureAwait(false);
-            Log.Show("大侠，写文件操作小的我已经完成了额，剩下的就请大侠人工检查写文件是否成功！");
+            await VerifySqlServerWrite(config, vm).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// SQLServer写后验证：先经xp_fileexist确认文件存在（二进制备份格式也能判），
+        /// 存在时再尝试BULK INSERT回读做内容片段比对；不存在则明确报写入失败，
+        /// 避免sp_makewebtask已被新版移除/目标路径无权限等静默失败时误报成功
+        /// </summary>
+        private static async Task VerifySqlServerWrite(AppConfig config, FileCmdViewModel vm)
+        {
+            try
+            {
+                string existPayload = PayloadFactory.BasePayload.Get("FileExistCheck").Replace("{path}", vm.FilePath, StringComparison.Ordinal);
+                string exists = (await ReadSqlServerScalar(config, existPayload, PayloadFactory.BasePayload.Get("FileExistResult")).ConfigureAwait(false))?.Trim() ?? "";
+                if (!"1".Equals(exists, StringComparison.Ordinal))
+                {
+                    Log.Warning("写入验证失败：目标文件不存在（xp_fileexist确认）！新版SQLServer已移除sp_makewebtask、服务账号对目标路径无写权限时均会失败。");
+                    return;
+                }
+                //文件已存在：尝试回读内容片段比对（备份写等二进制格式回读不出原文属正常，按存在即成功）
+                string content = vm.FileContent ?? "";
+                string probe = content.Length > 16 ? content.Substring(0, 16) : content;
+                string back = await ReadSqlServerFileText(config, vm.FilePath).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(back) && !string.IsNullOrEmpty(probe) && back.Contains(probe, StringComparison.Ordinal))
+                {
+                    Log.Show("写入验证通过：文件已写入且回读内容一致（回读长度" + back.Length + "字节）");
+                    return;
+                }
+                Log.Show("写入验证通过：文件已确认存在（xp_fileexist）；内容为二进制/备份格式未做逐字节比对，请按需人工抽查。");
+            }
+            catch (Exception e)
+            {
+                Log.Warning("写入验证异常：" + e.Message + "，请人工检查目标文件。");
+            }
         }
 
         /// <summary>
@@ -380,7 +413,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             await SendPayload(config, payload).ConfigureAwait(false);
             //删库删表
             await SendPayload(config, dropWriteFileBackUpTableAndDropDB).ConfigureAwait(false);
-            Log.Show("大侠，写文件操作小的我已经完成了额，剩下的就请大侠人工检查写文件是否成功！");
+            await VerifySqlServerWrite(config, vm).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -1568,29 +1601,37 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         /// <summary>SQLServer BULK INSERT读文件并返回文本（sp_OACreate命令输出回读共用）</summary>
         private static async Task<string> ReadSqlServerFileText(AppConfig config, string path)
         {
-            string dropTable = PayloadFactory.BasePayload.Get("CmdDropTable");
             string readPayload = PayloadFactory.BasePayload.Get("FileReadBulk").Replace("{path}", path, StringComparison.Ordinal);
+            return await ReadSqlServerScalar(config, readPayload, PayloadFactory.BasePayload.Get("FileContent")).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// SQLServer通用标量回读：先发堆叠setup语句（建临时表/装数据），再经当前取数通道读取一个标量结果，最后清理临时表
+        /// </summary>
+        private static async Task<string> ReadSqlServerScalar(AppConfig config, string setupPayload, string selectSql)
+        {
+            string dropTable = PayloadFactory.BasePayload.Get("CmdDropTable");
             if (config.DataConfig.IsTimeChannel)
             {
                 dropTable = dropTable.Replace(" 1=1;", ";", StringComparison.Ordinal);
-                readPayload = readPayload.Replace(" 1=1;", ";", StringComparison.Ordinal);
+                setupPayload = setupPayload.Replace(" 1=1;", ";", StringComparison.Ordinal);
             }
-            await SendPayload(config, readPayload).ConfigureAwait(false);
+            await SendPayload(config, setupPayload).ConfigureAwait(false);
             try
             {
                 switch (config.DataConfig.SelectedInjectType)
                 {
                     case InjectType.Union:
-                        return await DataComm.DataDumpWithNoFrom(config, PayloadFactory.BasePayload.Get("FileContent")).ConfigureAwait(false);
+                        return await DataComm.DataDumpWithNoFrom(config, selectSql).ConfigureAwait(false);
                     case InjectType.Error:
-                        return await DataComm.DataDumpWithError(config, PayloadFactory.BasePayload.Get("FileContent")).ConfigureAwait(false);
+                        return await DataComm.DataDumpWithError(config, selectSql).ConfigureAwait(false);
                     default:
                         if (string.IsNullOrEmpty(config.DataConfig.CheckValue))
                         {
                             Log.Warning("大侠，请在注入中心，配置Bool盲注的判断值！");
                             return "";
                         }
-                        return (await DataComm.GetStringByBool(config, PayloadFactory.BasePayload.Get("FileContent"), 1024 * 100).ConfigureAwait(false)) ?? "";
+                        return (await DataComm.GetStringByBool(config, selectSql, 1024 * 100).ConfigureAwait(false)) ?? "";
                 }
             }
             finally
