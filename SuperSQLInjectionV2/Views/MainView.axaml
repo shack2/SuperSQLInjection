@@ -1011,7 +1011,7 @@
                                                             Command="{Binding SelectNavCommand}" CommandParameter="2.1">
                                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                                             <PathIcon Data="{StaticResource IconReadFile}" Width="14" Height="14" />
-                                                            <TextBlock Text="读取文件" VerticalAlignment="Center" />
+                                                            <TextBlock Text="文件操作" VerticalAlignment="Center" />
                                                         </StackPanel>
                                                     </Button>
                                                     <Button Grid.Row="1" Grid.Column="1" Classes="minibtn" Height="34" CornerRadius="4" Margin="4,8,0,0"
@@ -1292,7 +1292,7 @@
                                     </Grid>
                                 </Border>
 
-                                <!--  选项卡：请求配置 / 环境变量 / 读取文件 / 命令执行 / 数据操作  -->
+                                <!--  选项卡：请求配置 / 环境变量 / 文件操作 / 命令执行 / 数据操作  -->
                                 <TabControl Grid.Row="1" BorderThickness="0" Padding="6,0,0,0" SelectedIndex="{Binding DataOpTabIndex}">
                                     <TabItem>
                                         <TabItem.Header>
@@ -1801,19 +1801,19 @@
                                         <TabItem.Header>
                                             <WrapPanel>
                                                 <Path Classes="luc" Data="{StaticResource LgBinary}" Width="14" Height="14" VerticalAlignment="Center" />
-                                                <TextBlock Margin="6,0,0,0" Text="读取文件" VerticalAlignment="Center" />
+                                                <TextBlock Margin="6,0,0,0" Text="文件操作" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
                                         <TabItem.Content>
                                             <Grid RowDefinitions="*">
-                                                <!--  读取文件区  -->
+                                                <!--  文件操作区  -->
                                                 <Border Grid.Row="0">
                                                     <Grid RowDefinitions="Auto,*">
                                                         <Border Grid.Row="0" Padding="10,6" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DsgBorder}">
                                                             <WrapPanel ItemSpacing="10" VerticalAlignment="Center">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="0,0,6,0">
                                                                     <PathIcon Data="{StaticResource IconReadFile}" Width="14" Height="14" Foreground="{DynamicResource DsgPrimary}" />
-                                                                    <TextBlock Text="读取文件" FontSize="12.5" FontWeight="Bold" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="文件操作" FontSize="12.5" FontWeight="Bold" VerticalAlignment="Center" />
                                                                 </StackPanel>
                                                                 <TextBlock Text="文件路径：" Classes="Secondary" VerticalAlignment="Center" />
                                                                 <TextBox Width="220" VerticalAlignment="Center" Text="{Binding AppConfig.FileCmd.FilePath}" />

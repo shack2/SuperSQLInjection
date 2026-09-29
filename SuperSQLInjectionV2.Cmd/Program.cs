@@ -412,7 +412,7 @@ public static class Program
         if (opt.FileRead != null)
         {
             Console.WriteLine();
-            Log.Highlight($"========== 读取文件: {opt.FileRead} ==========");
+            Log.Highlight($"========== 文件操作-读取: {opt.FileRead} ==========");
             var vm = new FileCmdViewModel(config);
             vm.RefreshFileMethods(dbType);
             string? method = string.IsNullOrWhiteSpace(opt.FileMethod)

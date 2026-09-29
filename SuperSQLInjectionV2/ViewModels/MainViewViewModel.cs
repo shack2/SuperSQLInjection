@@ -2733,10 +2733,10 @@ public partial class MainViewViewModel : ViewModelBase
         }
     }
 
-    /// <summary>数据管理页选项卡：0请求配置 1环境变量 2Hash读取 3权限角色 4读取文件 5命令执行 6自定义SQL 7数据操作</summary>
+    /// <summary>数据管理页选项卡：0请求配置 1环境变量 2Hash读取 3权限角色 4文件操作 5命令执行 6自定义SQL 7数据操作</summary>
     [ObservableProperty] private int _dataOpTabIndex = 0;
 
-    /// <summary>导航切换，参数格式："页索引" 或 "页索引.子页索引"（2.x 映射到数据操作页的同级选项卡：2.0环境变量 2.1读取文件 2.2命令执行）</summary>
+    /// <summary>导航切换，参数格式："页索引" 或 "页索引.子页索引"（2.x 映射到数据操作页的同级选项卡：2.0环境变量 2.1文件操作 2.2命令执行）</summary>
     [RelayCommand]
     private void SelectNav(string index)
     {
@@ -2753,7 +2753,7 @@ public partial class MainViewViewModel : ViewModelBase
             }
             if (page == 2)
             {
-                //注入操作功能已并入数据管理页（P4）：2.x直达同级选项卡（2.0环境变量→1 2.1读取文件→4 2.2命令执行→5）
+                //注入操作功能已并入数据管理页（P4）：2.x直达同级选项卡（2.0环境变量→1 2.1文件操作→4 2.2命令执行→5）
                 page = 4;
                 DataOpTabIndex = 1;
                 if (parts.Length > 1 && int.TryParse(parts[1], out int sub))
