@@ -529,6 +529,58 @@ public partial class MainView : UserControl
         return files.Count > 0 ? files[0].Path.LocalPath : null;
     }
 
+    /// <summary>二进制上传：选择本地文件并装载字节</summary>
+    private async void PickBinaryLocalFile(object? sender, RoutedEventArgs e)
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel == null)
+        {
+            return;
+        }
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = "选择要上传的本地文件",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new Avalonia.Platform.Storage.FilePickerFileType("所有文件") { Patterns = s_allPatterns }
+            }
+        });
+        if (files.Count > 0)
+        {
+            _viewModel?.AppConfig?.FileCmd.LoadLocalFile(files[0].Path.LocalPath);
+        }
+    }
+
+    /// <summary>二进制下载：保存取回的字节到本地文件</summary>
+    private async void SaveBinaryLocalFile(object? sender, RoutedEventArgs e)
+    {
+        var vm = _viewModel?.AppConfig?.FileCmd;
+        if (vm == null)
+        {
+            return;
+        }
+        if (vm.FileBytes == null || vm.FileBytes.Length == 0)
+        {
+            Log.Warning("暂无已下载的二进制内容，请先执行二进制下载！");
+            return;
+        }
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel == null)
+        {
+            return;
+        }
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+        {
+            Title = "保存二进制文件到本地",
+            SuggestedFileName = System.IO.Path.GetFileName(vm.FilePath)
+        });
+        if (file != null)
+        {
+            vm.SaveFileBytesTo(file.Path.LocalPath);
+        }
+    }
+
     /// <summary>
     /// 验证选中的代理是否可用
     /// </summary>

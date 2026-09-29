@@ -425,7 +425,18 @@ public static class Program
                 vm.FilePath = opt.FileRead;
                 Log.Show($"方式: {method}");
                 await FileCmdTools.ExecuteFile(config, vm);
-                if (!string.IsNullOrEmpty(vm.FileContent)) Console.WriteLine(vm.FileContent);
+                if (method.Contains("二进制下载", StringComparison.Ordinal))
+                {
+                    //二进制下载：必须 --file-dest 指定本地保存路径，字节直接落盘
+                    if (string.IsNullOrWhiteSpace(opt.FileDest)) { Log.Error("二进制下载需要 --file-dest 指定本地保存路径"); }
+                    else if (vm.FileBytes == null || vm.FileBytes.Length == 0) { Log.Error("二进制下载结果为空（详见上方日志）"); }
+                    else
+                    {
+                        File.WriteAllBytes(opt.FileDest!, vm.FileBytes);
+                        Log.Success($"已保存: {opt.FileDest}（{vm.FileBytes.Length}字节）");
+                    }
+                }
+                else if (!string.IsNullOrEmpty(vm.FileContent)) Console.WriteLine(vm.FileContent);
             }
         }
 
@@ -446,7 +457,14 @@ public static class Program
             {
                 vm.SelectedFileMethod = method;
                 vm.FilePath = opt.FileDest!;
-                vm.FileContent = File.ReadAllText(opt.FileWrite);
+                if (method.Contains("二进制上传", StringComparison.Ordinal))
+                {
+                    vm.LoadLocalFile(opt.FileWrite);
+                }
+                else
+                {
+                    vm.FileContent = File.ReadAllText(opt.FileWrite);
+                }
                 Log.Show($"方式: {method}");
                 await FileCmdTools.ExecuteFile(config, vm);
             }

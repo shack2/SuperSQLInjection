@@ -221,8 +221,9 @@ public sealed class CliOptions
           --start=N --stop=N      dump 行范围（1 起）
           --where=COND            dump 行过滤条件
           --sql-query=SQL         执行自定义 SQL
-          --file-read=PATH        读取服务器文件（--file-method=名 指定方式，模糊匹配如"大对象"）
-          --file-write=LOCAL --file-dest=REMOTE   上传文件（--file-method 同上，如"日志写WebShell"）
+          --file-read=PATH        读取服务器文件（--file-method=名 指定方式，模糊匹配如"大对象"/"二进制下载"）
+          --file-write=LOCAL --file-dest=REMOTE   上传文件（--file-method 同上，如"日志写WebShell"/"二进制上传"）
+                                  二进制下载：--file-read=远端路径 --file-method=二进制下载 --file-dest=本地保存路径
           --os-cmd=CMD            执行系统命令（UDF/xp_cmdshell 等；--cmd-method=名 指定方式，如"sp_OACreate"）
           --no-cast               取数不使用 CAST 转换
           --hex                   中文识别（HEX 包装防乱码）

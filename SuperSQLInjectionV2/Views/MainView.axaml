@@ -56,6 +56,7 @@
             <StreamGeometry x:Key="LgArrowLeftRight">M8 3L4 7l4 4 M4 7h16 M16 21l4-4-4-4 M20 17H4</StreamGeometry>
             <StreamGeometry x:Key="LgFileCode">M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M10 13l-2 2 2 2 M14 17l2-2-2-2</StreamGeometry>
             <StreamGeometry x:Key="LgDownload">M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3</StreamGeometry>
+            <StreamGeometry x:Key="LgUpload">M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12</StreamGeometry>
             <StreamGeometry x:Key="LgChevronsLeft">M11 17l-5-5 5-5 M18 17l-5-5 5-5</StreamGeometry>
             <StreamGeometry x:Key="LgChevronsRight">M6 17l5-5-5-5 M13 17l5-5-5-5</StreamGeometry>
             <StreamGeometry x:Key="LgInfo">M12,22 A10,10 0 1 0 12,2 A10,10 0 1 0 12,22 Z M12 16v-4 M12 8h.01</StreamGeometry>
@@ -1828,7 +1829,23 @@
                                                                           ItemsSource="{Binding AppConfig.FileCmd.FileMethods}"
                                                                           PlaceholderText="选择操作方式"
                                                                           SelectedItem="{Binding AppConfig.FileCmd.SelectedFileMethod}" />
-                                                               
+
+                                                                <u:IconButton
+                                                                      Theme="{StaticResource SolidIconButton}"
+                                                                      Icon="{StaticResource LgUpload}"
+                                                                      Click="PickBinaryLocalFile"
+                                                                      IsVisible="{Binding AppConfig.FileCmd.IsBinaryMethod}"
+                                                                      ToolTip.Tip="选择要上传的本地文件（二进制上传）"
+                                                                      Content="选择文件" />
+                                                                <TextBlock Text="{Binding AppConfig.FileCmd.LocalFileHint}" Foreground="{DynamicResource DsgPrimary}" VerticalAlignment="Center"
+                                                                           IsVisible="{Binding AppConfig.FileCmd.IsBinaryMethod}" />
+                                                                <u:IconButton
+                                                                      Theme="{StaticResource SolidIconButton}"
+                                                                      Icon="{StaticResource LgDownload}"
+                                                                      Click="SaveBinaryLocalFile"
+                                                                      IsVisible="{Binding AppConfig.FileCmd.IsBinaryMethod}"
+                                                                      ToolTip.Tip="二进制下载完成后，保存到本地文件"
+                                                                      Content="保存到本地" />
                                                                 <u:IconButton
                                                                       Theme="{StaticResource SolidIconButton}"
                                                                       Icon="{StaticResource SemiIconPlay}"

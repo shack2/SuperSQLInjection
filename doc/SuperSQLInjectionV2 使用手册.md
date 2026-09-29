@@ -250,7 +250,24 @@ CLI 检出注入后自动复用注入点拼接对应数据库的取数 SQL，无
 | ClickHouse | `file()` 表函数（仅 user_files 目录） |
 | Oracle | GETXML + Java 存储过程（免堆叠，限 9i~11g：DBMS_XMLQUERY 可执行匿名 PL/SQL；12c 未验证，18c 弃用/21c+ 移除；XE 全版本无 JVM 不可用） |
 
-### 6.7 写文件
+### 6.7.1 二进制文件上传 / 下载
+
+操作方式下拉框中选择「二进制下载 / 二进制上传」通道，字节级无损（全程 hex 传输，本地不过文本编码）。GUI：上传先点「选择文件」装载本地文件，下载完成后点「保存到本地」落盘；CLI：`--file-read=远端 --file-method=二进制下载 --file-dest=本地路径` / `--file-write=本地 --file-dest=远端 --file-method=二进制上传`。
+
+| 数据库 | 二进制下载 | 二进制上传 |
+| --- | --- | --- |
+| MySQL | `hex(load_file())`，全注入通道可用 | Union 小文件单发 `0x.. INTO DUMPFILE`（≤4KB）；堆叠临时表分片 + `ORDER BY id INTO DUMPFILE` 按序拼接；写后 `length(load_file())` 验证 |
+| PostgreSQL | `lo_import` + `encode(data,'hex')` 分页（Union/报错/堆叠） | 堆叠分页写 `pg_largeobject` + `lo_export`；小文件 Union/报错 `lo_from_bytea` 单发；导出前字节数校验 |
+| SQLServer | `OPENROWSET(BULK..SINGLE_BLOB)` → `convert(varchar(max),b,2)`（堆叠建表，取数全通道可用） | 临时表 varbinary 分片 → `@bin+=data` 聚合 → `sp_OACreate + ADODB.Stream(Type=1)` 写出（自动开 Ole Automation，已实测 SQL Server 2022 字节无损）；写后回读 datalength 验证 |
+| Oracle | Java `SqliReadHex` 分片（RandomAccessFile seek，1500 字节/片） | Java `SqliWriteBin` 分片 append；写后 `SqliFileSize` 验证（同 GETXML 版本限制） |
+| H2 | `RAWTOHEX(FILE_READ())`（FILE_READ 单参数返回 BLOB，需 admin） | `FILE_WRITE(x'hex')` 单发（返回写入字节数直接验证）；大文件自动切 CREATE ALIAS 分片 append |
+| ClickHouse | `file(path,'RawBLOB')` + `hex()`（仅 user_files 目录） | 不支持 |
+| SQLite | `hex(readfile())`（fileio 扩展 blob 无损，仅加载该扩展的目标可用，如 Calibre） | `writefile(path, x'hex')` 单发（返回字节数验证；无追加能力，超上限提示改 ATTACH） |
+| HSQLDB / DB2 / 达梦 | 不支持 | 不支持（HSQLDB 仅 TEXT TABLE 文本且需多 DDL；DB2 仅 ADMIN_CMD 文本级 IO；达梦 Java 外部函数需预置 jar + 开参重启，UTL_FILE 需预建 DIRECTORY） |
+
+> 二进制上传分片大小自适应：GET 注入 1200 字节/片（URL 长度受限），POST 最大 6000~7000 字节/片。
+
+### 6.8 写文件
 
 | 数据库 | 写文件通道 |
 | --- | --- |

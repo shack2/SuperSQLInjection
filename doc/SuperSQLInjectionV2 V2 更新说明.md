@@ -63,6 +63,7 @@ V2 是超级SQL注入工具（SSQLInjection）的跨平台重写版本。V1 基�
 | MySQL 写文件 | Union 写文件 | Union 写文件 + **general_log 写 WebShell**（堆叠） |
 | 命令输出体验 | 一次性回显 | **逐字符实时回显**，自动净化通道产生的多余换行 |
 | 读文件 | 按库选语句 | 下拉选择通道，结果从首行展示，支持复制导出 |
+| **二进制文件上传/下载** | 不支持 | **全库 hex 分片无损通道**：MySQL（`hex(load_file)` / Union 单发≤4KB 或堆叠临时表 `into dumpfile` 分片，写后 `length(load_file)` 验证）、PostgreSQL（大对象 `encode/decode` hex，导出前 `sum(length(data))` 校验）、SQLServer（`OPENROWSET SINGLE_BLOB` 下载 / `sp_OACreate(ADODB.Stream)` Type=1 直写 varbinary 上传，临时表聚合分片，写后 datalength 验证）、Oracle（Java `SqliReadHex/SqliWriteBin/SqliFileSize` 分片 1500 字节）、ClickHouse（`file(...,'RawBLOB')+hex` 仅下载）、H2（`RAWTOHEX(FILE_READ)` / `FILE_WRITE(x'..')` 返回写入字节数天然验证）、SQLite（fileio 扩展 `readfile/writefile`，未加载时优雅降级提示）；HSQLDB/DB2/达梦明确不支持并在界面标注原因；GUI 提供「选择文件/保存到本地」按钮，CLI 用 `--file-method=二进制上传/二进制下载`；GET 通道单片约 1200 字节、POST 约 6000 字节自动分片 |
 
 ## 六、防护绕过增强
 

