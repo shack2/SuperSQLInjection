@@ -1,14 +1,12 @@
-﻿namespace SuperSQLInjectionV2.Tools.Http
+namespace SuperSQLInjectionV2.Tools.Http
 {
     public class HttpConst
     {
         public const char T = '\n';
         public const string ST = "\n";
         public const string CT = "\r\n";
-        public const string AutoGetEncoding = "自动识别";
         public const string DefaultEncoding = "UTF-8";
         public const string CTRL = "\r\n\r\n";
-        public const string Content_Length_Str = "content-length: ";
         public const string Content_Length_Str_M = "Content-Length: ";
         public const string Content_Length = "content-length";
         public const string Content_Encoding = "content-encoding";
@@ -20,10 +18,6 @@
         public const string ContentType = "content-type";
 
         public const string Content_Length_Zero = "Content-Length: 0";
-
-        public const string ConnectionClose = "connection: close";
-
-        public const int WaitTime = 5;
 
     }
 }

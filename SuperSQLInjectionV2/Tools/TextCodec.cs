@@ -14,24 +14,7 @@ namespace SuperSQLInjectionV2.Tools
 
             int c = TextCodec.UnicodeInt2UTF8Int(unicode);
             return TextCodec.unHex(Convert.ToString(c, 16), encoding);
-        
-        }
 
-        public static string hexToRaw(string str,string encoding){
-            if (str.Length % 2 == 0)
-            {
-                byte[] b = new byte[str.Length / 2];
-                int j = 0;  
-                for (int i = 0; i < str.Length; i += 2){
-                    byte by = Convert.ToByte(str.Substring(i, 2), 16);//取两个字符，转换成对应的字节
-                    b[j] = by;
-                    j++;
-                }
-                return Encoding.GetEncoding(encoding).GetString(b);
-            }
-            else{
-                throw new Exception("不能将该字符串转换成String类型!");
-            }
         }
 
         /// <summary>
@@ -63,17 +46,6 @@ namespace SuperSQLInjectionV2.Tools
             }
             Encoding chs = Encoding.GetEncoding(charset);
             return chs.GetString(bytes);
-        }
-
-        public static string StringToHexString(string s, Encoding encode)
-        {
-            byte[] b = encode.GetBytes(s);//按照指定编码将string编程字节数组
-            string result = string.Empty;
-            for (int i = 0; i < b.Length; i++)//逐字节变为16进制字符
-            {
-                result += Convert.ToString(b[i], 16);
-            }
-            return result;
         }
 
         public static string HexStringToString(string hs, string encodeStr)
@@ -123,7 +95,6 @@ namespace SuperSQLInjectionV2.Tools
                 }
                 return "0x" + sb.ToString();
 
-
             }
             catch (Exception e)
             {
@@ -147,7 +118,7 @@ namespace SuperSQLInjectionV2.Tools
                     {
                         sb.Append(s.ToString("x").PadLeft(2, '0'));
                     }
-                   
+
                 }
                 return sb.ToString();
             }
@@ -224,9 +195,9 @@ namespace SuperSQLInjectionV2.Tools
                         index++;
                     }
                     return Encoding.GetEncoding(encode).GetString(bs);
-                   
+
                 }
-                    
+
             }
             catch (Exception e)
             {
@@ -251,11 +222,6 @@ namespace SuperSQLInjectionV2.Tools
             return StrToChrOrChar(str, "char", "+", encode);
         }
 
-        public static string InformixStrToChr(string randstr)
-        {
-            return "to_char("+ randstr + ")";
-        }
-
         public static int UnicodeInt2UTF8Int(int UnicodeInt)
         {
             if (UnicodeInt < 128)
@@ -266,18 +232,6 @@ namespace SuperSQLInjectionV2.Tools
             int num2 = UnicodeInt >> 6 & 63;
             int num3 = UnicodeInt & 63;
             return (num + 224 << 16) + (num2 + 128 << 8) + (num3 + 128);
-        }
-
-        public static int UTF8Int2UnicodeInt(int UTF8Int)
-        {
-            if (UTF8Int < 128)
-            {
-                return UTF8Int;
-            }
-            int num = UTF8Int >> 16 & 15;
-            int num2 = UTF8Int >> 8 & 63;
-            int num3 = UTF8Int & 63;
-            return (num << 12) + (num2 << 6) + num3;
         }
 
         public static string StringToAscii(string str)

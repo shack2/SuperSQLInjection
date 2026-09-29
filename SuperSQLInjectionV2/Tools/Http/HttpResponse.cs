@@ -60,7 +60,6 @@ namespace SuperSQLInjectionV2.Tools.Http
             get => HeaderTxt+HttpConst.CTRL+BodyTxt;
         }
 
-     
         public long BodyLength => Body?.Length ?? 0;
 
         public long ContentLength { get; set; } = 0;
@@ -72,11 +71,6 @@ namespace SuperSQLInjectionV2.Tools.Http
         /// 状态码 (如 200, 404)
         /// </summary>
         public int StatusCode { get; set; } = 0;
-
-        /// <summary>
-        /// 原因短语 (如 OK, Not Found)
-        /// </summary>
-        public string StatusText { get; set; } = "";
 
         /// <summary>
         /// 响应头集合
@@ -99,7 +93,7 @@ namespace SuperSQLInjectionV2.Tools.Http
             {
                 if (Body == null) return null;
                 // 实际开发中应根据 Content-Type 中的 Charset 来选择编码，此处默认为 UTF-8
-             
+
                 Encoding encoding = Encoding.GetEncoding(HttpConst.DefaultEncoding);
 
                 if (AppConfig.AutoEncode&&!string.IsNullOrEmpty(PageEncoding))
@@ -182,7 +176,6 @@ namespace SuperSQLInjectionV2.Tools.Http
                 //响应头解析异常不阻断主流程，但记录便于排查畸形响应
                 SuperSQLInjectionV2.Tools.Log.SysLog("响应头解析异常：" + e.Message);
             }
-
 
         }
 
@@ -313,7 +306,7 @@ namespace SuperSQLInjectionV2.Tools.Http
             if (Headers.TryGetValue(HttpConst.ContentType, out string? value)) {
                 PageEncoding = getHTMLEncoding(value, "");
             }
-            
+
         }
 
         private void ParseHeaderLength()
@@ -357,19 +350,7 @@ namespace SuperSQLInjectionV2.Tools.Http
             }
             return encode.ToUpper();
 
-
         }
 
-
-
-        /// <summary>
-        /// 判断响应是否为重定向 (3xx)
-        /// </summary>
-        public bool IsRedirect => StatusCode >= 300 && StatusCode < 400;
-
-        /// <summary>
-        /// 判断响应是否成功 (2xx)
-        /// </summary>
-        public bool IsSuccess => StatusCode >= 200 && StatusCode < 300;
     }
 }

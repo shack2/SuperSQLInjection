@@ -18,14 +18,5 @@ namespace SuperSQLInjectionV2.Tools
             return Regex.IsMatch(ipStr, "[\\w\\-\\.]{1,100}[a-zA-Z]{1,8}");
         }
 
-        public static bool IsNumber(string ipStr)
-        {
-            return Regex.IsMatch(ipStr, @"[\d]{1,5}");
-        }
-        
-        public static bool CheckIsDomainOrIP(string str)
-        {
-            return (CheckIsDomain(str)|| CheckIsIP(str));
-        }
     }
 }

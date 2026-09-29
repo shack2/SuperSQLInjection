@@ -63,7 +63,5 @@ namespace SuperSQLInjectionV2.Models
             OnPropertyChanged(nameof(SourceText));
         }
 
-        /// <summary>是否存在可用上下文</summary>
-        public bool IsValid => Source != InjectContextSource.None && InjectType != InjectType.UnKnow;
     }
 }

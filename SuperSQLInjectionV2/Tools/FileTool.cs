@@ -11,24 +11,6 @@ namespace SuperSQLInjectionV2.Tools
 {
     class FileTool
     {
-        public static List<string> readAllDic(string dic)
-        {
-            List<string> fs = new List<string>();
-            try
-            {
-                DirectoryInfo din = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory + "/"+dic);
-                FileInfo[] files = din.GetFiles();
-                foreach (FileInfo f in files)
-                {
-                    fs.Add(f.Name);
-                }
-            }
-            catch
-            {
-                throw;
-            }
-            return fs;
-        }
         public static List<string> readFileToList(string path)
         {
             
@@ -110,80 +92,6 @@ namespace SuperSQLInjectionV2.Tools
             return list;
         }
 
-        public static HashSet<string> readDomainToList(string path,bool isCleanExists)
-        {
-
-            HashSet<string> list = new HashSet<string>();
-            FileStream? fs_dir = null;
-            StreamReader? reader = null;
-            try
-            {
-                fs_dir = new FileStream(path, FileMode.Open, FileAccess.Read);
-
-                reader = new StreamReader(fs_dir);
-
-                string? lineStr;
-
-                while ((lineStr = reader.ReadLine()) != null)
-                {
-                    if (!lineStr.Equals("", StringComparison.Ordinal)&&!lineStr.StartsWith("http", StringComparison.Ordinal)) {
-                        lineStr = "http://" + lineStr;
-                    }
-                    if (list.Contains(lineStr) && isCleanExists) {
-                        continue;
-                    }
-                    list.Add(lineStr);
-
-                }
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-                if (reader != null)
-                {
-                    reader.Close();
-                }
-                if (fs_dir != null)
-                {
-                    fs_dir.Close();
-                }
-            }
-            return list;
-        }
-
-        //读取文件
-        public static string readFileToString(string path)
-        {
-            string str = "";
-            FileStream? fs_dir = null;
-            StreamReader? reader = null;
-            try
-            {
-                fs_dir = new FileStream(AppDomain.CurrentDomain.BaseDirectory + "/" + path, FileMode.Open, FileAccess.Read);
-                reader = new StreamReader(fs_dir);
-                str = reader.ReadToEnd();
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-                if (reader != null)
-                {
-                    reader.Close();
-                }
-                if (fs_dir != null)
-                {
-                    fs_dir.Close();
-                }
-            }
-            return str;
-            
-        }
         //读取文件
         public static byte[] readFileToByte(string path,Encoding encode)
         {

@@ -11,9 +11,8 @@ using VYaml.Annotations;
 
 namespace SuperSQLInjectionV2.Models
 {
- 
-    public partial class ProxyConfig : ViewModelBase
 
+    public partial class ProxyConfig : ViewModelBase
 
     {
         [ObservableProperty] public partial bool ProxyEnable { get; set; } = true;
@@ -32,14 +31,7 @@ namespace SuperSQLInjectionV2.Models
         /// </summary>
         [ObservableProperty] public partial string CurrentProxyText { get; set; } = "未使用代理";
 
-
         public Random rd = new Random();
 
-        public Proxy getRandProxy()
-        {
-            return ProxyItems[rd.Next(ProxyItems.Count - 1)];
-
-        }
-      
     }
 }

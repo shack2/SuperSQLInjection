@@ -25,9 +25,6 @@ namespace SuperSQLInjectionV2.Tools.Http
             _buf = ArrayPool<byte>.Shared.Rent(capacity);
         }
 
-        /// <summary>缓冲区当前未消费字节数</summary>
-        public int BufferedCount => _len - _pos;
-
         private async ValueTask<int> FillMoreAsync(CancellationToken ct)
         {
             if (_pos > 0)

@@ -12,23 +12,6 @@ namespace SuperSQLInjection.tools.http
         public int CreatProxyUseTime = 0;
         public int ConectProxyUseTime = 0;
         private Stopwatch sw = new Stopwatch();
-        public TcpClient creatProxySocket(string host, int port,int timeout) {
-            //修复旧实现bug：原代码TimeOutSocket.Connect后又new TcpClient.Connect双连接，返回的还是无超时的那个
-            TcpClient client = new TcpClient();
-            long ts = Stopwatch.GetTimestamp();
-            try
-            {
-                using var cts = new System.Threading.CancellationTokenSource(timeout);
-                client.ConnectAsync(host, port, cts.Token).AsTask().GetAwaiter().GetResult();
-                CreatProxyUseTime = (int)Stopwatch.GetElapsedTime(ts).TotalMilliseconds;
-                return client;
-            }
-            catch
-            {
-                client.Close();
-                throw;
-            }
-        }
 
         /// <summary>异步版代理TCP连接：原生await ConnectAsync，不占线程池线程空等（请求热路径使用）</summary>
         public async System.Threading.Tasks.Task<TcpClient> CreatProxySocketAsync(string host, int port, int timeout, System.Threading.CancellationToken ct = default)
@@ -51,7 +34,7 @@ namespace SuperSQLInjection.tools.http
         }
 
         public byte[] GetLoginByte(string username,string password) {
-           
+
             byte[] bUser = Encoding.Default.GetBytes(username);
             byte[] bPass = Encoding.Default.GetBytes(password);
 
@@ -85,84 +68,6 @@ namespace SuperSQLInjection.tools.http
             data[8] = (byte)(port / 256);
             data[9] = (byte)(port % 256);
             return data;
-        }
-
-        /// <summary>
-        /// 测试连接代理服务器
-        /// </summary>
-        /// <param name="strRemoteHost"></param>
-        /// <param name="iRemotePort"></param>
-        /// <param name="sProxyServer"></param>
-        /// <returns></returns>
-        public bool ConnectProxyServer(string host, int port, TcpClient sProxyServer,string username,string password,int timeout)
-        {
-            try
-            {
-                sw.Start();
-                //构造Socks5代理服务器第一连接头(无用户名密码)
-                byte[] bySock5Receive = new byte[10];
-                int readCount = 0;
-                sProxyServer.ReceiveTimeout = Math.Max(1000, (timeout * 1000) - CreatProxyUseTime);
-                if (String.IsNullOrEmpty(username) && String.IsNullOrEmpty(password))
-                {
-                    sProxyServer.Client.Send(s5_hello, s5_hello.Length, SocketFlags.None);
-                }
-                else
-                {
-                    byte[] login = GetLoginByte(username, password);
-                    sProxyServer.Client.Send(login, login.Length, SocketFlags.None);
-                }
-                readCount = sProxyServer.Client.Receive(bySock5Receive, bySock5Receive.Length, SocketFlags.None);
-                if (readCount < 2)
-                {
-                    throw new Exception("不能获得代理服务器正确响应。");
-                }
-
-                else if (bySock5Receive[0] != 5 || (bySock5Receive[1] != 0 && bySock5Receive[1] != 2))
-                {
-                    throw new Exception("代理服务其返回的响应错误。");
-                }
-                else
-                {
-                    //用户验证  
-                    if (bySock5Receive[1] == 2)
-                    {
-                        if (String.IsNullOrEmpty(username) && String.IsNullOrEmpty(password))
-                        {
-                            throw new Exception("代理服务器需要进行身份确认,您未设置代理账号和密码。");
-                        }
-                    }
-
-                    if (bySock5Receive[1] == 0)
-                    {
-                        byte[] data = GetConectTargetByte(host, port);
-                        sProxyServer.Client.Send(data, data.Length, SocketFlags.None);
-                        byte[] readData = new byte[100];
-                        readCount = sProxyServer.Client.Receive(readData, readData.Length, SocketFlags.None);
-
-                        if (readCount >= 2 && readData[0] == 5 && readData[1] == 0)
-                        {
-                            return true;
-                        }
-                        else
-                        {
-                            //利用Socks5代理连接目标出错。
-                            return false;
-                        }
-                    }
-
-                }
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-            finally {
-                sw.Stop();
-                ConectProxyUseTime = (int)sw.ElapsedMilliseconds;
-                sw.Reset();
-            }
-            return false;
         }
 
         /// <summary>

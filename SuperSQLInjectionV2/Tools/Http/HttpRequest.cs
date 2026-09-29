@@ -26,7 +26,7 @@ namespace SuperSQLInjectionV2.Tools.Http
         private string? _poolKeySuffix;
         /// <summary>连接池键后缀（host:port:ssl），首次访问时计算并缓存，盲注高频发包免每请求字符串插值</summary>
         internal string PoolKeySuffix => _poolKeySuffix ??= Host + ":" + Port + ":" + IsSSL;
-      
+
         /// <summary>
         /// 请求方法 (如 GET, POST)
         /// </summary>
@@ -41,21 +41,6 @@ namespace SuperSQLInjectionV2.Tools.Http
         /// </summary>
         public string Version { get; set; } = "HTTP/1.1";
         private bool _hasBody=false;
-        public bool HasBody
-        {
-            get { return _hasBody; }
-            set
-            {
-                if (Body!=null&&Body.Length>0) // 在setter中添加验证逻辑
-                {
-                   value= true;
-                }
-                else
-                {
-                    value= false;
-                }
-            }
-        }
         private string _headerAndBody="";
         public string HeaderAndBody
         {
@@ -126,7 +111,7 @@ namespace SuperSQLInjectionV2.Tools.Http
         /// </summary>
         public int ContentLength => Body?.Length ?? 0;
         //public string _payload  = "";
-        
+
         public string ContentType { get; set; }="";
         /// <summary>
         /// 将HTTP请求报文文本转换为HttpRequest对象
@@ -135,7 +120,7 @@ namespace SuperSQLInjectionV2.Tools.Http
         /// <returns>解析后的HttpRequest对象</returns>
         public HttpRequest(AppConfig config):this(config,"")
         {
-            
+
         }
         /// <summary>轻量构造（仅CreateForSend用）：跳过全部解析，只挂配置</summary>
         private HttpRequest(AppConfig config, bool light)
@@ -181,7 +166,7 @@ namespace SuperSQLInjectionV2.Tools.Http
             if (string.IsNullOrWhiteSpace(requestTxt)) {
                 requestTxt=config.RequestTxt;
             }
-           
+
             if (string.IsNullOrWhiteSpace(requestTxt))
                 return;
             this.Host = config.Host;
@@ -507,6 +492,6 @@ namespace SuperSQLInjectionV2.Tools.Http
                     break;
             }
         }
-        
+
     }
 }

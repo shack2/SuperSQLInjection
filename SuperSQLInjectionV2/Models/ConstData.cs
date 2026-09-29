@@ -13,7 +13,6 @@ namespace SuperSQLInjectionV2.Models
 
         public const string StartPoint = "<Encode>";
         public const string EndPoint = "</Encode>";
-        public const char DBVers_Splite_Str = '：';
         public const string InjectStr = "$sql$";
 
         public const string RandStart = "<Rand>";        public const string RandEnd = "</Rand>";
@@ -37,11 +36,6 @@ namespace SuperSQLInjectionV2.Models
         
             return $"{StartPoint}{selectedText}{EndPoint}";
        }
-
-        public static string GetRandPoint(string selectedText)
-        {
-            return $"{RandStart}{selectedText}{RandEnd}";
-        }
 
         /// <summary>动态规则标记：有占位值（选区数据）时为 &lt;DRule&gt;标记名:占位值&lt;DRule&gt;，无占位值（光标处空标记）为 &lt;DRule&gt;标记名&lt;DRule&gt;；
         /// 标记名为空时留空（运行时取第一条启用的动态值规则）。占位值仅用于人读与剥离还原，发包时整块被动态值替换</summary>

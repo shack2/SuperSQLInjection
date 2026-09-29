@@ -94,7 +94,6 @@ namespace SuperSQLInjectionV2.Tools.Http
                 if (ssl != -1)
                 {
 
-
                     string cparams = datapack.Substring(ssl + 4, datapack.Length - ssl - 4);
                     datapack = datapack.Substring(0, ssl + 1);
                     int cys = datapack.IndexOf("Content-Type", StringComparison.Ordinal);
@@ -127,7 +126,7 @@ namespace SuperSQLInjectionV2.Tools.Http
                     }
                 }
             }
-            
+
             return datapack;
 
         }
@@ -829,17 +828,6 @@ namespace SuperSQLInjectionV2.Tools.Http
             return result;
         }
 
-        /// <summary>XML/SOAP体叶子元素文本展平为 路径键值对（注入检测/利用按路径定位）</summary>
-        public static Dictionary<string, string> GetXmlParams(string body)
-        {
-            var dict = new Dictionary<string, string>();
-            foreach (var e in TokenizeXmlLeaves(body))
-            {
-                dict[e.key] = e.value.Trim();
-            }
-            return dict;
-        }
-
         /// <summary>
         /// XML/SOAP请求体位置注入：按TokenizeXmlLeaves的路径key定位叶子元素，仅替换其文本切片（其余结构原样保留）。
         /// 注意：payload中的 &lt; &gt; &amp; 会破坏XML结构，必要时配合tamper/编码规则处理
@@ -863,20 +851,6 @@ namespace SuperSQLInjectionV2.Tools.Http
             return oldRequest;
         }
 
-        public static string ClearURLParams(string url)
-        {
-                int index = url.IndexOf('?', StringComparison.Ordinal);
-                if (index > 0)
-                {
-                    return url.Substring(0,index);
-
-                }
-                else {
-
-                    return url;
-                }
-        }
-
         public static string GetCurrentPath(string url)
         {
             int index =url.LastIndexOf('/');
@@ -890,80 +864,5 @@ namespace SuperSQLInjectionV2.Tools.Http
             }
         }
 
-        public static string GetRootDomain(string domain)
-        {
-            int index = domain.LastIndexOf('.');
-
-            if (index>0)
-            {
-                int index2 = domain.LastIndexOf(".", index - 1, StringComparison.Ordinal);
-                if (index2 != -1)
-                {
-                    return domain.Substring(index2+1);
-                }
-               
-            }
-            return domain;
-        }
-
-        public static string GetRequestURL(string header,bool isSSL,string ip,int port)
-        {
-            int start = header.IndexOf(' ', StringComparison.Ordinal);
-            string url = "";
-            if (start != -1) {
-                int end = header.IndexOf(' ', start);
-                if (end != -1) {
-                    string str = header.Substring(start, end - start);
-                    if (str.StartsWith('/'))
-                    {
-                        if (isSSL)
-                        {
-                            url = "https://" + ip + ":" + port + "/" + str;
-                        }
-                        else
-                        {
-                            url = "http://" + ip + ":" + port + "/" + str;
-                        }
-                    }
-                    else {
-                        url = str;
-                    }
-                }
-            }
-            return url;
-        }
-
-        public static string GetRequestURI(string header)
-        {
-            int start = header.IndexOf(' ', StringComparison.Ordinal);
-            string uri = "";
-            if (start != -1)
-            {
-                int end = header.IndexOf(' ', start + 1);
-                if (end != -1)
-                {
-                    string str = header.Substring(start + 1, end - start);
-                    if (str.StartsWith('/'))
-                    {
-                        int send = str.IndexOf('?', StringComparison.Ordinal);
-                        if (send != -1)
-                        {
-                            uri = str.Substring(0, send);
-                        }
-                        else
-                        {
-                            uri = str;
-                        }
-
-                    }
-                    else
-                    {
-                        Uri u = new Uri(str);
-                        uri = u.AbsolutePath;
-                    }
-                }
-            }
-            return uri;
-        }
     }
 }

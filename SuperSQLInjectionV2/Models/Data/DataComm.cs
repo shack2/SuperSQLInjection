@@ -853,12 +853,6 @@ namespace SuperSQLInjectionV2.Models.Data
 
         }
 
-        public static async Task<int> GetOrderLen(AppConfig config, string payload, int start, int end)
-        {
-
-            return await GetDataLen(config, payload, start, end).ConfigureAwait(false);
-        }
-
         public static async Task<int> GetValueLen(AppConfig config, string payload, int start, int end)
         {
             //DNS盲注类型：count类标量也走DNS外带取回再解析（避免逐位布尔猜解）

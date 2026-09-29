@@ -67,9 +67,6 @@ namespace SuperSQLInjectionV2.Models
         partial void OnKindChanged(int value) => OnPropertyChanged(nameof(KindName));
 
         [JsonIgnore]
-        public List<ScriptLang> LangList { get; set; } = Enum.GetValues<ScriptLang>().ToList();
-
-        [JsonIgnore]
         public List<ScriptScope> ScopeList { get; set; } = Enum.GetValues<ScriptScope>().ToList();
 
         /// <summary>类型展示文本（内置/JS），供表格列绑定</summary>

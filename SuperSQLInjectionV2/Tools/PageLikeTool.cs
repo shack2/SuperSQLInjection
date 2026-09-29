@@ -18,17 +18,5 @@ namespace SuperSQLInjectionV2.Tools
             return DiffLib.Ratio(a, b);
         }
 
-        /// <summary>
-        /// 检查两个页面是否相似
-        /// </summary>
-        /// <param name="originalContent">原始页面内容</param>
-        /// <param name="testContent">测试页面内容</param>
-        /// <param name="threshold">相似度阈值，默认0.98（与UPPER_RATIO_BOUND一致）</param>
-        /// <returns>是否相似</returns>
-        public static bool IsSimilar(string originalContent, string testContent, double threshold = 0.98)
-        {
-            double similarity = CalculateSimilarity(originalContent, testContent);
-            return similarity >= threshold;
-        }
     }
 }

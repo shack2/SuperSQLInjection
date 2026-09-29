@@ -25,7 +25,7 @@ namespace SuperSQLInjectionV2.Tools
         public static bool IsTrue(HttpResponse response,string key,bool reverKey,BoolInjectType keyType)
         {
             switch (keyType) {
-               
+
                 case BoolInjectType.KeyWord:
 
                     //用关键字判断
@@ -38,7 +38,7 @@ namespace SuperSQLInjectionV2.Tools
                         else {
                             return true;
                         }
-                       
+
                     }
                     else
                     {
@@ -86,7 +86,6 @@ namespace SuperSQLInjectionV2.Tools
                         }
                         return false;
                     }
-                
 
                 case BoolInjectType.Time:
                     //由于计数器有误差（可能客户端计数小于服务端，如果页面正常响应时间非常快，可能导致返回时间可能提前，所以考虑设置一个误差值）
@@ -166,69 +165,7 @@ namespace SuperSQLInjectionV2.Tools
 
             }
             return false;
-           
-        }
 
-        /// <summary>
-        /// 词集合相似度（对称Jaccard：|A∩B|/|A∪B|*100），
-        /// 旧实现为非对称 |A∩B|/|A|，页面只是多出一截时会误判为100%相同
-        /// </summary>
-        public static decimal GetLike(string body1, string body2)
-        {
-
-            String[] keys1 = Regex.Split(body1 ?? "", "[^\\u0080-\\uFFFF\\w\\-\\d]+");
-            String[] keys2 = Regex.Split(body2 ?? "", "[^\\u0080-\\uFFFF\\w\\-\\d]+");
-
-            HashSet<String> hash1 = new HashSet<String>();
-            HashSet<String> hash2 = new HashSet<String>();
-            foreach (string key in keys1)
-            {
-                if (key.Length > 0)
-                {
-                    hash1.Add(key);
-                }
-            }
-            foreach (string key in keys2)
-            {
-                if (key.Length > 0)
-                {
-                    hash2.Add(key);
-                }
-            }
-            if (hash1.Count == 0 && hash2.Count == 0)
-            {
-                return 100;
-            }
-            int count = 0;
-            foreach (string key in hash2)
-            {
-                if (hash1.Contains(key))
-                {
-                    count++;
-                }
-            }
-            int union = hash1.Count + hash2.Count - count;
-            if (union <= 0)
-            {
-                return 100;
-            }
-            decimal p = decimal.Round((decimal)count * 100 / union, 2);
-            return p;
-        }
-
-        public static decimal GetLike2(string body1, string body2)
-        {
-
-            String[] keys1 = Regex.Split(body1, "[^\\u0080-\\uFFFF\\w\\-\\d]+");
-            String[] keys2 = Regex.Split(body2, "[^\\u0080-\\uFFFF\\w\\-\\d]+");
-
-            decimal p = 0;
-            if (keys1.Length > 0)
-            {
-                decimal cc = (decimal)((float)keys2.Length * 100 / keys1.Length);
-                p = decimal.Round(cc, 2);
-            }
-            return p;
         }
 
         public static string FindKeyByStr(string? trueString, string? falseString, string? oldString)
@@ -239,7 +176,7 @@ namespace SuperSQLInjectionV2.Tools
                 string key = "";
 
                String[] Keys = Regex.Split(oldString, "[^\\u0080-\\uFFFF\\w\\d]+");
-             
+
                foreach (string ckey in Keys) {
                     if (!falseString.Contains(ckey, StringComparison.Ordinal) && trueString.Contains(ckey, StringComparison.Ordinal)) {
                         return ckey;
@@ -264,7 +201,7 @@ namespace SuperSQLInjectionV2.Tools
                             }
 
                         }
-                    
+
                 }
                 return key;
 
@@ -285,15 +222,6 @@ namespace SuperSQLInjectionV2.Tools
             }
             return 0;
 
-        }
-
-        public static int FindKeyByTime(int trueTime, int falseTime,int maxTime)
-        {
-            if (trueTime > maxTime&&falseTime<maxTime) {
-                return maxTime;
-            }
-   
-                return 0;
         }
 
         public static int FindKeyCount(string str,string key)

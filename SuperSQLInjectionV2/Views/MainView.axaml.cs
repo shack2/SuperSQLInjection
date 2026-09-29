@@ -68,7 +68,6 @@ public partial class MainView : UserControl
 
     }
 
-
     /// <summary>当前活动的请求编辑器（数据操作页-请求配置选项卡使用共享文档的第二编辑器）</summary>
     private TextEditor ActiveRequestEditor =>
         (_viewModel != null && _viewModel.NavPage4Visible && _viewModel.DataOpTabIndex == 0)
@@ -142,7 +141,6 @@ public partial class MainView : UserControl
             editor.Document.Insert(editor.CaretOffset, ConstData.GetEncodingPoint(""));
         }
 
-
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -163,7 +161,7 @@ public partial class MainView : UserControl
         //注入文件对话框回调，用于绕过模板与配置导入导出
         _viewModel.SaveFilePicker = PickSaveFile;
         _viewModel.OpenFilePicker = PickOpenFile;
-        
+
         WindowNotificationManager? notify = WindowNotificationManager.TryGetNotificationManager(topLevel, out var manager)
             ? manager
             : new WindowNotificationManager(topLevel);
@@ -380,24 +378,6 @@ public partial class MainView : UserControl
     }
 
     /// <summary>
-    /// GET与POST请求方式互相转换
-    /// </summary>
-    public void ChangeRequestMethodC(object? sender, RoutedEventArgs e)
-    {
-        TextEditor editor = ActiveRequestEditor;
-        string request = editor.Text;
-        if (string.IsNullOrEmpty(request))
-        {
-            return;
-        }
-        string newRequest = RequestRewriter.ChangeRequestMethod(request);
-        if (!request.Equals(newRequest, StringComparison.Ordinal))
-        {
-            editor.Document.Text = newRequest;
-        }
-    }
-
-    /// <summary>
     /// 请求报文格式转换：GET / POST表单 / POST JSON / POST multipart复杂格式
     /// </summary>
     public void ChangeRequestFormatC(object? sender, RoutedEventArgs e)
@@ -437,7 +417,6 @@ public partial class MainView : UserControl
         }
         ActiveRequestEditor.Document.Text = request;
     }
-
 
     /// <summary>
     /// 伴随请求规则列表双击：编辑选中规则
