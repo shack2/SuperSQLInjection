@@ -1,0 +1,275 @@
+[
+  {
+    "Key": "urlencode",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 0
+  },
+  {
+    "Key": "apostrophemask",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 1
+  },
+  {
+    "Key": "altcase",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 2
+  },
+  {
+    "Key": "apostrophenullencode",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 3
+  },
+  {
+    "Key": "base64encode",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 4
+  },
+  {
+    "Key": "between",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 5
+  },
+  {
+    "Key": "chardoubleencode",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 6
+  },
+  {
+    "Key": "charencode",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 7
+  },
+  {
+    "Key": "charunicodeencode",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 8
+  },
+  {
+    "Key": "commalessmid",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 9
+  },
+  {
+    "Key": "concat2concatws",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 10
+  },
+  {
+    "Key": "equaltolike",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 11
+  },
+  {
+    "Key": "escapequotes",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 12
+  },
+  {
+    "Key": "greatest",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 13
+  },
+  {
+    "Key": "halfversionedmorekeywords",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 14
+  },
+  {
+    "Key": "hex",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 15
+  },
+  {
+    "Key": "hexprepare",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 16
+  },
+  {
+    "Key": "hexpreparechar",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 17
+  },
+  {
+    "Key": "htmlencode",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 18
+  },
+  {
+    "Key": "ifnull2casewhenisnull",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 19
+  },
+  {
+    "Key": "ifnull2ifisnull",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 20
+  },
+  {
+    "Key": "includecomment",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 21
+  },
+  {
+    "Key": "lowercase",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 22
+  },
+  {
+    "Key": "modsecurityversioned",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 23
+  },
+  {
+    "Key": "multiplespaces",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 24
+  },
+  {
+    "Key": "percentage",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 25
+  },
+  {
+    "Key": "randomcase",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 26
+  },
+  {
+    "Key": "randomcomments",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 27
+  },
+  {
+    "Key": "space2comment",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 28
+  },
+  {
+    "Key": "space2dash",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 29
+  },
+  {
+    "Key": "space2hash",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 30
+  },
+  {
+    "Key": "space2mssqlblank",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 31
+  },
+  {
+    "Key": "space2plus",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 32
+  },
+  {
+    "Key": "space2randomblank",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 33
+  },
+  {
+    "Key": "symboliclogical",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 34
+  },
+  {
+    "Key": "unicode",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 35
+  },
+  {
+    "Key": "unionalltounion",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 36
+  },
+  {
+    "Key": "uppercase",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 37
+  },
+  {
+    "Key": "versionedmorekeywords",
+    "Enable": false,
+    "Scope": 0,
+    "DoCount": 1,
+    "Order": 38
+  }
+]

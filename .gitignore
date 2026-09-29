@@ -474,10 +474,3 @@ skills/*/assets/bin/
 
 # CLI 在仓库根目录运行产生的运行时状态（盲注进度/取值缓存）
 /config/sessions/
-
-# GUI/CLI 以源码目录为工作目录运行产生的运行时状态（界面配置/注入记录/规则库/会话缓存/命中统计，均可在运行时再生成）
-/SuperSQLInjectionV2/config/lastconfig.json
-/SuperSQLInjectionV2/config/inject_records.json
-/SuperSQLInjectionV2/config/injection/hit_count.json
-/SuperSQLInjectionV2/config/rules/
-/SuperSQLInjectionV2/config/sessions/

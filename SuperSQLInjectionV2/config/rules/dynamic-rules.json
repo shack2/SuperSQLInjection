@@ -1,0 +1,16 @@
+[
+  {
+    "Kind": 0,
+    "Name": "\u65B0\u89C4\u5219",
+    "TagName": "222",
+    "Enabled": true,
+    "SourceMode": 2,
+    "Url": "",
+    "Method": "GET",
+    "RequestTxt": "",
+    "UseScript": true,
+    "SubStart": "",
+    "SubEnd": "",
+    "ScriptName": "\u65B0\u52A8\u6001\u503C\u811A\u672C"
+  }
+]

@@ -1,0 +1,1 @@
+{"boolean_blind.xml|AND boolean-based blind - WHERE or HAVING clause":1,"error_based.xml|MySQL \u003E= 5.1 AND error-based - WHERE, HAVING, ORDER BY or GROUP BY clause (EXTRACTVALUE)":1,"union_query.xml|Generic UNION query ([CHAR]) - [COLSTART] to [COLSTOP] columns (custom)":1,"time_blind.xml|MySQL \u003E= 5.0.12 AND time-based blind (query SLEEP)":1}
