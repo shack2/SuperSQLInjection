@@ -554,8 +554,7 @@ namespace SuperSQLInjectionV2.Tools.Http
             HttpResponse response = new HttpResponse(config) { HttpRequest = request };
             //统一换行符（兼容LF-only粘贴报文）
             request.HeaderAndBody = request.HeaderAndBody.Replace(HttpConst.CT, HttpConst.ST, StringComparison.Ordinal).Replace(HttpConst.ST, HttpConst.CT, StringComparison.Ordinal);
-            Interlocked.Increment(ref config.RequestTmpCount);
-            string index = (Thread.CurrentThread.Name ?? "") + Interlocked.Read(ref config.RequestTmpCount);
+            string index = Interlocked.Increment(ref config.RequestTmpCount).ToString();
             long startTs = Stopwatch.GetTimestamp();
             int timeOutMs = config.TimeOut * 1000;
             PooledConnection? conn = null;
