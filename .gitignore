@@ -474,3 +474,6 @@ skills/*/assets/bin/
 
 # CLI 在仓库根目录运行产生的运行时状态（盲注进度/取值缓存）
 /config/sessions/
+
+# sqlite 靶场数据库文件（TestWebApp 运行时生成）
+sqli_test.db
