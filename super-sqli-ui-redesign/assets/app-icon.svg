@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="超级SQL注入工具 应用图标">
+  <title>超级SQL注入工具 · 应用图标</title>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0.82" y2="1">
+      <stop offset="0" stop-color="#4487F5"/>
+      <stop offset="0.48" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#1B49C4"/>
+    </linearGradient>
+    <radialGradient id="sheen" cx="0.32" cy="0.06" r="0.95">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.24"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cyl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E3ECFB"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0.32" y1="0.12" x2="0.72" y2="0.92">
+      <stop offset="0" stop-color="#FFDC78"/>
+      <stop offset="0.52" stop-color="#FFB020"/>
+      <stop offset="1" stop-color="#F08A00"/>
+    </linearGradient>
+    <filter id="boltShadow" x="-40%" y="-40%" width="180%" height="190%">
+      <feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#0C2054" flood-opacity="0.38"/>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0C2054" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <!-- 瓦片 -->
+  <rect x="0" y="0" width="512" height="512" rx="116" fill="url(#tile)"/>
+  <rect x="0" y="0" width="512" height="512" rx="116" fill="url(#sheen)"/>
+  <rect x="2.5" y="2.5" width="507" height="507" rx="113.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="5"/>
+
+  <!-- 数据库圆柱 -->
+  <g filter="url(#soft)">
+    <path d="M148 232 v126 a108 36 0 0 0 216 0 v-126 z" fill="url(#cyl)"/>
+    <ellipse cx="256" cy="358" rx="108" ry="36" fill="#DCE7FA"/>
+    <path d="M148 358 a108 36 0 0 0 216 0" fill="none" stroke="#2563EB" stroke-opacity="0.30" stroke-width="8"/>
+    <path d="M148 295 a108 36 0 0 0 216 0" fill="none" stroke="#2563EB" stroke-opacity="0.26" stroke-width="8"/>
+    <ellipse cx="256" cy="232" rx="108" ry="36" fill="#FFFFFF"/>
+    <ellipse cx="256" cy="232" rx="72" ry="21" fill="#2764DC"/>
+    <ellipse cx="256" cy="228" rx="72" ry="21" fill="#2E72EE"/>
+  </g>
+
+  <!-- 注入闪电 -->
+  <path d="M294 150 L196 294 L250 294 L226 388 L328 240 L270 240 Z"
+        fill="url(#bolt)" filter="url(#boltShadow)"/>
+  <path d="M294 150 L196 294 L250 294 L226 388 L328 240 L270 240 Z"
+        fill="none" stroke="#FFF3D6" stroke-opacity="0.55" stroke-width="4" stroke-linejoin="round"/>
+</svg>

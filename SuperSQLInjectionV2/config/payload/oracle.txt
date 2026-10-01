@@ -22,7 +22,7 @@ Substr:substr(({expr}),{start},{len})
 Concat:{startMark}||{split}||{cols}||{split}||{endMark}
 Length:length({expr})
 Cast:cast({expr} as varchar(4000))
-IfNull:nvl({expr},chr(32))
+IfNull:nvl(cast({expr} as varchar(4000)),chr(32))
 Ascii:ascii({expr})
 Hex:rawtohex({expr})
 DataValue:(select {cols} from (select sqli_t.*,rownum sqli_rn from (select * from {db}.{table}{where}) sqli_t where rownum<={rowIndex}) where sqli_rn={rowIndex})

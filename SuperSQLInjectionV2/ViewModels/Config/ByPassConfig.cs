@@ -18,7 +18,7 @@ namespace SuperSQLInjectionV2.Models
             Hook(ReplaceItems);
             Hook(EncodeTools);
             Hook(UaItemList);
-            //标量属性变更（Enable/DelayMs/HppEnabled...）同样使计划失效；Revision自身变更除外
+            //标量属性变更（Enable/DelayMs/RandomIpEnabled...）同样使计划失效；Revision自身变更除外
             PropertyChanged += (_, e) =>
             {
                 if (e.PropertyName != nameof(Revision))
@@ -129,10 +129,6 @@ namespace SuperSQLInjectionV2.Models
             set { Unhook(_encodeTools); _encodeTools = value; Hook(value); }
         }
 
-        /// <summary>添加面板当前选中的内置工具Key（UI"添加内置工具"ComboBox绑定）</summary>
-        [JsonIgnore]
-        [ObservableProperty] public partial Bypass.EncodeTool? AddBuiltinTool { get; set; }
-
         //---- 频率控制与请求指纹（延时/限速/随机UA）----
         /// <summary>每次HTTP请求前固定延时（毫秒，0=不延时）</summary>
         [ObservableProperty] public partial int DelayMs { get; set; } = 0;
@@ -157,16 +153,7 @@ namespace SuperSQLInjectionV2.Models
             return UaItemList.Where(x => x.IsSelected).Select(x => x.Ua).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
         }
 
-        /// <summary>HPP参数污染：把注入参数值按空格拆分到多个同名参数（用于绕过参数级WAF）</summary>
-        [ObservableProperty] public partial bool HppEnabled { get; set; } = false;
-
-        /// <summary>chunked分块发包：POST体按Transfer-Encoding: chunked发送（绕过长 body WAF检测）</summary>
-        [ObservableProperty] public partial bool ChunkedEnabled { get; set; } = false;
-
         /// <summary>随机源IP：伪造X-Forwarded-For/X-Real-IP/Client-IP头（绕过基于源IP的访问控制与频率限制）</summary>
         [ObservableProperty] public partial bool RandomIpEnabled { get; set; } = false;
-
-        /// <summary>参数名大小写混淆：注入参数名每请求随机大小写（绕过按参数名精确匹配的参数级WAF）</summary>
-        [ObservableProperty] public partial bool ParamCaseRandEnabled { get; set; } = false;
     }
 }

@@ -1,1 +1,175 @@
-{"IsRuning":false,"IsOpenHTTPLog":true,"RetryCount":1,"TimeOut":10,"FollowRedirect":false,"PoolSize":5,"MaxColumnCount":500,"RedirectDoGet":true,"SleepInjectMaxTime":2,"TestPayload":" and 1=2 union all select 65163\u002B1,65163\u002B2,65163\u002B3,65163\u002B4#","RequestCount":31,"IsSSL":false,"Host":"127.0.0.1","Port":8090,"AutoEncode":true,"AuthType":"","AuthUser":"","AuthPass":"","AuthDomain":"","EncodeConfig":{},"ProxyConfig":{"ProxyEnable":true,"SelectProxyType":1,"AddProxy":{"Host":"","Port":80,"proxyType":"","username":"","password":"","IsOk":false,"UseTime":0,"CheckTime":"","IsEnabled":false},"CurrentProxyText":"\u65E0\u53EF\u7528\u4EE3\u7406\uFF0C\u76F4\u8FDE"},"ByPassConfig":{"DelayMs":0,"SafeFreq":0,"RandomUa":true,"UaItemList":[{"Type":"Windows","Ua":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36","IsSelected":true},{"Type":"Windows","Ua":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0","IsSelected":true},{"Type":"Windows","Ua":"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0","IsSelected":true},{"Type":"Windows","Ua":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36","IsSelected":true},{"Type":"macOS","Ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36","IsSelected":true},{"Type":"macOS","Ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15","IsSelected":true},{"Type":"macOS","Ua":"Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15","IsSelected":true},{"Type":"Linux","Ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36","IsSelected":true},{"Type":"Linux","Ua":"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0","IsSelected":true},{"Type":"iPhone","Ua":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1","IsSelected":true},{"Type":"iPhone","Ua":"Mozilla/5.0 (iPhone; CPU iPhone OS 17_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.7 Mobile/15E148 Safari/604.1","IsSelected":true},{"Type":"Android","Ua":"Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36","IsSelected":true},{"Type":"Android","Ua":"Mozilla/5.0 (Linux; Android 15; SM-S9280) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36","IsSelected":true},{"Type":"Android","Ua":"Mozilla/5.0 (Linux; Android 14; 23113RKC6C Build/UKQ1.230917.001) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36","IsSelected":true},{"Type":"HarmonyOS","Ua":"Mozilla/5.0 (Linux; Android 12; HarmonyOS; ALN-AL00; HMSCore 6.15.0.300) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36","IsSelected":true},{"Type":"HarmonyOS","Ua":"Mozilla/5.0 (Phone; OpenHarmony 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36 ArkWeb/4.1.6.1","IsSelected":true}],"HppEnabled":false,"ChunkedEnabled":false,"RandomIpEnabled":false,"ParamCaseRandEnabled":false},"DataConfig":{"InjectParamName":"id","SelectedErrorMethod":"\u9ED8\u8BA4","SelectedDBType":"UnKnow","SelectedInjectType":"UnKnow","SumColumnCount":4,"ShowColumnIndex":2,"VersItems":[],"HashItems":[],"PrivItems":[],"SelectVers":[],"SelectBoolInject":"KeyWord","Reverse":false,"CheckValue":"JVApp","DbEncoding":"UTF-8","HexDecode":false,"BlindReadMode":"\u81EA\u52A8","DetectLevel":1,"DetectRisk":1,"SmartMode":false,"DetectExhaustive":false,"DetectParamParallel":false,"DetectDnsOob":false,"DnsLogDomain":"","DnsLogApiToken":"","DnsLogApiUrl":"http://api.ceye.io/v1/records?token={token}\u0026type=dns\u0026filter={domain}","DnsServerEnable":false,"DnsServerPort":53,"AccessTableDictPath":"","AccessColumnDictPath":"","DictGuessAll":false,"PredictOutput":true,"NgramOnlineLearn":true,"ChannelUpgrade":false,"UnionBatchRows":10,"ValueCache":true,"ValueCacheVerify":true},"ThreadSize":1,"PageEncoding":"GB2312","RequestTxt":"GET /JVApp/mysql.jsp?id=1\u003CEncode\u003E and $sql$#\u003C/Encode\u003E HTTP/1.1\r\nHost: 127.0.0.1:8090\r\nConnection: keep-alive\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36\r\nAccept: text/html,pplication/xhtml\u002Bxml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: zh-CN,zh;q=0.9,en;q=0.8\r\n\r\n","DetectRequestTxt":"GET /JVApp/mysql.jsp?id=1 HTTP/1.1\r\nHost: 127.0.0.1:8090\r\nConnection: keep-alive\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36\r\nAccept: text/html,pplication/xhtml\u002Bxml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: zh-CN,zh;q=0.9,en;q=0.8\r\n\r\n","RetryKeyItems":[],"Url":"http://127.0.0.1:8090/JVApp/mysql.jsp?id=1","UpdateCheckEnable":true,"UpdateSkipVersion":""}
+{
+  "IsRuning": false,
+  "IsOpenHTTPLog": true,
+  "RetryCount": 1,
+  "TimeOut": 10,
+  "FollowRedirect": false,
+  "PoolSize": 5,
+  "MaxColumnCount": 500,
+  "RedirectDoGet": true,
+  "SleepInjectMaxTime": 2,
+  "TestPayload": " and 1=2 union all select 65163+1,65163+2,65163+3,65163+4#",
+  "RequestCount": 2,
+  "IsSSL": false,
+  "Host": "127.0.0.1",
+  "Port": 8090,
+  "AutoEncode": true,
+  "AuthType": "",
+  "AuthUser": "",
+  "AuthPass": "",
+  "AuthDomain": "",
+  "EncodeConfig": {},
+  "ProxyConfig": {
+    "ProxyEnable": true,
+    "SelectProxyType": 1,
+    "AddProxy": {
+      "Host": "",
+      "Port": 80,
+      "proxyType": "",
+      "username": "",
+      "password": "",
+      "IsOk": false,
+      "UseTime": 0,
+      "CheckTime": "",
+      "IsEnabled": false
+    },
+    "CurrentProxyText": "无可用代理，直连"
+  },
+  "ByPassConfig": {
+    "DelayMs": 0,
+    "SafeFreq": 0,
+    "RandomUa": true,
+    "UaItemList": [
+      {
+        "Type": "Windows",
+        "Ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        "IsSelected": true
+      },
+      {
+        "Type": "Windows",
+        "Ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
+        "IsSelected": true
+      },
+      {
+        "Type": "Windows",
+        "Ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0",
+        "IsSelected": true
+      },
+      {
+        "Type": "Windows",
+        "Ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+        "IsSelected": true
+      },
+      {
+        "Type": "macOS",
+        "Ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        "IsSelected": true
+      },
+      {
+        "Type": "macOS",
+        "Ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15",
+        "IsSelected": true
+      },
+      {
+        "Type": "macOS",
+        "Ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+        "IsSelected": true
+      },
+      {
+        "Type": "Linux",
+        "Ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        "IsSelected": true
+      },
+      {
+        "Type": "Linux",
+        "Ua": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0",
+        "IsSelected": true
+      },
+      {
+        "Type": "iPhone",
+        "Ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1",
+        "IsSelected": true
+      },
+      {
+        "Type": "iPhone",
+        "Ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.7 Mobile/15E148 Safari/604.1",
+        "IsSelected": true
+      },
+      {
+        "Type": "Android",
+        "Ua": "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36",
+        "IsSelected": true
+      },
+      {
+        "Type": "Android",
+        "Ua": "Mozilla/5.0 (Linux; Android 15; SM-S9280) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36",
+        "IsSelected": true
+      },
+      {
+        "Type": "Android",
+        "Ua": "Mozilla/5.0 (Linux; Android 14; 23113RKC6C Build/UKQ1.230917.001) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Mobile Safari/537.36",
+        "IsSelected": true
+      },
+      {
+        "Type": "HarmonyOS",
+        "Ua": "Mozilla/5.0 (Linux; Android 12; HarmonyOS; ALN-AL00; HMSCore 6.15.0.300) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36",
+        "IsSelected": true
+      },
+      {
+        "Type": "HarmonyOS",
+        "Ua": "Mozilla/5.0 (Phone; OpenHarmony 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36 ArkWeb/4.1.6.1",
+        "IsSelected": true
+      }
+    ],
+    "RandomIpEnabled": false
+  },
+  "DataConfig": {
+    "InjectParamName": "id",
+    "SelectedErrorMethod": "默认",
+    "SelectedDBType": "UnKnow",
+    "SelectedInjectType": "UnKnow",
+    "SumColumnCount": 4,
+    "ShowColumnIndex": 2,
+    "VersItems": [],
+    "HashItems": [],
+    "PrivItems": [],
+    "SelectVers": [],
+    "SelectBoolInject": "KeyWord",
+    "Reverse": false,
+    "CheckValue": "JVApp",
+    "DbEncoding": "UTF-8",
+    "HexDecode": false,
+    "BlindReadMode": "自动",
+    "DetectLevel": 1,
+    "DetectRisk": 1,
+    "SmartMode": false,
+    "DetectExhaustive": false,
+    "DetectStopOnWaf": false,
+    "DetectStopOnNonDynamic": true,
+    "DetectParamParallel": false,
+    "DetectDnsOob": false,
+    "DnsLogDomain": "",
+    "DnsLogApiToken": "",
+    "DnsLogApiUrl": "http://api.ceye.io/v1/records?token={token}&type=dns&filter={domain}",
+    "DnsServerEnable": false,
+    "DnsServerPort": 53,
+    "AccessTableDictPath": "",
+    "AccessColumnDictPath": "",
+    "DictGuessAll": false,
+    "PredictOutput": true,
+    "NgramOnlineLearn": true,
+    "ChannelUpgrade": false,
+    "UnionBatchRows": 10,
+    "ValueCache": true,
+    "ValueCacheVerify": true
+  },
+  "ThreadSize": 1,
+  "PageEncoding": "GB2312",
+  "RequestTxt": "GET /JVApp/mysql.jsp?id=1<Encode> and $sql$#</Encode> HTTP/1.1\r\nHost: 127.0.0.1:8090\r\nConnection: keep-alive\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36\r\nAccept: text/html,pplication/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: zh-CN,zh;q=0.9,en;q=0.8\r\n\r\n",
+  "DetectRequestTxt": "GET /JVApp/mysql.jsp?id=1 HTTP/1.1\r\nHost: 127.0.0.1:8090\r\nConnection: keep-alive\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36\r\nAccept: text/html,pplication/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8\r\nAccept-Language: zh-CN,zh;q=0.9,en;q=<DRule>222:0.8<DRule>\r\n\r\n",
+  "RetryKeyItems": [],
+  "Url": "http://127.0.0.1:8090/JVApp/mysql.jsp?id=1",
+  "DetectMethod": "GET",
+  "UpdateCheckEnable": true,
+  "UpdateSkipVersion": ""
+}

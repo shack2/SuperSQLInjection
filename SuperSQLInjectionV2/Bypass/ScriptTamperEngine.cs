@@ -20,17 +20,15 @@ namespace SuperSQLInjectionV2.Bypass
 
     /// <summary>
     /// 统一tamper执行视图（P10：ScriptTamperModel动态值脚本与EncodeToolModel编码工具的执行入口收敛）。
-    /// 内置项统一按Key（兼容按Name）从EncodeToolRegistry解析C#实现，自定义项走QuickJS池化执行。
+    /// 统一QuickJS池化执行Code；Code为空（异常残留数据）时按Key/Name回落注册表内嵌JS实现兜底。
     /// </summary>
     public interface ITamperItem
     {
-        /// <summary>显示名（内置项兼容键）</summary>
+        /// <summary>显示名（兼容键）</summary>
         string Name { get; }
-        /// <summary>内置C#实现标识</summary>
-        bool Builtin { get; }
-        /// <summary>内置注册表键（EncodeToolModel持有；ScriptTamperModel恒null，回落Name匹配）</summary>
+        /// <summary>注册表键/脚本文件名主干（EncodeToolModel持有；ScriptTamperModel恒null，回落Name匹配）</summary>
         string? Key { get; }
-        /// <summary>自定义JS脚本内容</summary>
+        /// <summary>JS脚本内容</summary>
         string? Code { get; }
     }
 
@@ -67,12 +65,6 @@ namespace SuperSQLInjectionV2.Bypass
         private static readonly ConcurrentDictionary<string, PooledContext> _pool =
             new ConcurrentDictionary<string, PooledContext>();
 
-        /// <summary>内置编码工具解析（统一注册表EncodeToolRegistry；tamper/编码处理合并后的唯一内置事实源）</summary>
-        public static EncodeTool? FindBuiltinScript(string name)
-        {
-            return EncodeToolRegistry.TryGet(name, out EncodeTool t) ? t : null;
-        }
-
         //======== 统一执行入口（ITamperItem）：ScriptTamperModel/EncodeToolModel共用唯一实现 ========
 
         public static string Tamper(ITamperItem item, string payload)
@@ -99,7 +91,7 @@ namespace SuperSQLInjectionV2.Bypass
         }
 
         /// <summary>
-        /// 异步版tamper执行（请求热路径使用）：内置C#委托/QuickJS均为进程内同步执行（微秒~毫秒级），
+        /// 异步版tamper执行（请求热路径使用）：内置JS/自定义JS统一经QuickJS池化执行（进程内同步，微秒~毫秒级），
         /// 无异步IO，保持同步执行直接包装返回
         /// </summary>
         public static Task<string> TamperAsync(ITamperItem item, string payload, CancellationToken ct = default)
@@ -119,18 +111,20 @@ namespace SuperSQLInjectionV2.Bypass
             }
         }
 
-        /// <summary>统一分发：内置项按Key（兼容旧数据按Name）解析EncodeToolRegistry注册表C#委托（不经过QuickJS），自定义项走QuickJS池化执行</summary>
+        /// <summary>统一分发：脚本项直接执行Code；Code为空（异常残留/手工精简数据）按Key（兼容按Name）回落注册表内嵌JS实现兜底；
+        /// 编辑弹窗中验证执行的未保存代码（Code非空）直接执行Code</summary>
         private static string ExecuteItem(ITamperItem item, string payload)
         {
-            if (item.Builtin)
+            string code = item.Code ?? "";
+            if (string.IsNullOrWhiteSpace(code))
             {
                 string key = !string.IsNullOrEmpty(item.Key) ? item.Key! : item.Name;
                 if (EncodeToolRegistry.TryGet(key, out EncodeTool tool))
                 {
-                    return tool.Impl(payload);
+                    code = tool.JsCode;
                 }
             }
-            return Execute(item.Code ?? "", payload);
+            return Execute(code, payload);
         }
 
         private static string Execute(string code, string payload)

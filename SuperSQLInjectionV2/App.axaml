@@ -8,8 +8,11 @@
     <Application.Styles>
        
        
-         <StyleInclude Source="avares://SuperSQLInjectionV2/Style/MyStyle.xaml" />
+         <!--  AvaloniaEdit 基础 Fluent 主题必须先于 MyStyle.xaml 加载：后者末尾引用了
+              Semi.Avalonia.AvaloniaEdit 主题（SearchPanel 等按 Semi 令牌浅深色自适应），
+              后加载者覆盖先加载者，顺序反了搜索面板会回落 Fluent 默认配色  -->
          <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+         <StyleInclude Source="avares://SuperSQLInjectionV2/Style/MyStyle.xaml" />
         
         <StyleInclude Source="avares://SuperSQLInjectionV2/Assets/MyIcons.axaml" />
 

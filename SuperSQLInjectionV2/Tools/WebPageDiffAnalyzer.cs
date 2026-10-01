@@ -3,19 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using DiffPlex;
-using DiffPlex.DiffBuilder;
-using DiffPlex.DiffBuilder.Model;
 
 namespace SuperSQLInjectionV2.Tools
 {
     /// <summary>
-    /// 网页内容差异分析器（基于DiffPlex）
-    /// 对比多版本网页，提取变化特征并生成适配不同长度的正则表达式
+    /// 网页内容差异分析器（sqlmap findDynamicContent/removeDynamicContent 1:1移植）。
+    /// 基于 difflib 匹配块提取「前缀/后缀锚点对」标记动态区块，比对前双边剥离动态内容。
+    /// 另提供结构骨架（extractStructuralTokens移植）与 text-only（getFilteredPageContent移植）
+    /// 两级降级投影：字节不稳定但结构/文本稳定的页面仍可可靠比对。
     /// </summary>
     public partial class WebPageDiffAnalyzer
     {
-        /// <summary>动态特征正则编译缓存（特征由页面diff动态生成无法源生成；检测期每页比对都要跑，Compiled一次编译复用）</summary>
+        /// <summary>动态特征正则编译缓存（Compiled一次编译复用）</summary>
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Regex> _featureRegexCache
             = new System.Collections.Concurrent.ConcurrentDictionary<string, Regex>();
 
@@ -25,357 +24,328 @@ namespace SuperSQLInjectionV2.Tools
             {
                 _featureRegexCache.Clear();
             }
-            return _featureRegexCache.GetOrAdd(pattern, p => new Regex(p, RegexOptions.Compiled));
+            return _featureRegexCache.GetOrAdd(pattern, p => new Regex(p, RegexOptions.Compiled | RegexOptions.Singleline));
         }
 
-        /// <summary>UUID形态判定（常量模式源生成）</summary>
-        [GeneratedRegex(@"^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")]
-        private static partial Regex UuidRegex();
+        /// <summary>锚点边界长度（sqlmap DYNAMICITY_BOUNDARY_LENGTH）</summary>
+        private const int BoundaryLength = 20;
+        /// <summary>匹配块最小长度（sqlmap：剔除 ≤2*BoundaryLength 的过短匹配块，防锚定到重复短上下文）</summary>
+        private const int MinBlockSize = 2 * BoundaryLength;
+        /// <summary>标记提取的页面规模上限（字符级匹配块超出后耗时不可控；比对本身有截断保护不受影响）</summary>
+        private const int MaxPageForMarkings = 256 * 1024;
 
-        /// <summary>时间戳形态判定</summary>
-        [GeneratedRegex(@"^\d{10,13}$")]
-        private static partial Regex TimestampRegex();
+        /// <summary>结构骨架标签正则（sqlmap STRUCTURAL_TAG_REGEX）</summary>
+        [GeneratedRegex(@"<\s*([a-z][a-z0-9]*)((?:\s+[^<>]*)?)/?>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled)]
+        private static partial Regex StructuralTagRegex();
+        /// <summary>class属性正则（sqlmap STRUCTURAL_CLASS_REGEX）</summary>
+        [GeneratedRegex(@"\bclass\s*=\s*(?:""([^""]*)""|'([^']*)'|([^\s""'<>]+))", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled)]
+        private static partial Regex StructuralClassRegex();
+        /// <summary>id属性正则（sqlmap STRUCTURAL_ID_REGEX）</summary>
+        [GeneratedRegex(@"\bid\s*=\s*(?:""([^""]*)""|'([^']*)'|([^\s""'<>]+))", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled)]
+        private static partial Regex StructuralIdRegex();
+        /// <summary>script/style/注释剥离（骨架与text-only共用前置清洗）</summary>
+        [GeneratedRegex(@"<script.+?</script>|<!--.+?-->|<style.+?</style>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled)]
+        private static partial Regex ScriptStyleCommentRegex();
+        /// <summary>text-only：标签/制表/换行折叠为空格（sqlmap getFilteredPageContent onlyText同款）</summary>
+        [GeneratedRegex(@"<script.+?</script>|<!--.+?-->|<style.+?</style>|<[^>]+>|\t|\n|\r", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled)]
+        private static partial Regex TextOnlyStripRegex();
+        /// <summary>text-only：连续空格折叠</summary>
+        [GeneratedRegex(@" {2,}", RegexOptions.Compiled)]
+        private static partial Regex MultiSpaceRegex();
 
-        // 差异分析器实例
-        private static ISideBySideDiffBuilder _diffBuilder =new SideBySideDiffBuilder(new Differ());
-
-        // 最小变化片段长度（过滤极短噪声，如单个字符的偶然差异）
-        private const int MinChangeLength = 1; // 放宽到1，保留短字符识别
-        // 上下文截取长度（特征前后各取N个字符作为正则上下文）
-        private const int ContextLength = 8; // 增加上下文长度，提升匹配精准度
-        // 动态内容长度范围（适配常见动态内容长度）
-        private const int MinDynamicLength = 1;
-        private const int MaxDynamicLength = 100;
-
-      
         /// <summary>
-        /// 对比三个网页内容，提取变化特征并生成适配不同长度的正则
+        /// 对比三个网页提取动态特征：page1-page2 与 page1-page3 两对各自的动态标记合并去重（并集）。
+        /// 三次采样都稳定的内容不会入标记；任一采样对出现差异即标记为动态（剥离方向保守，宁多勿漏）。
         /// </summary>
-        /// <param name="page1">基准网页内容</param>
-        /// <param name="page2">对比网页1</param>
-        /// <param name="page3">对比网页2</param>
-        /// <returns>变化特征列表（含正则、位置、特征描述）</returns>
         public static List<ChangeFeature> AnalyzeThreePages(string page1, string page2, string page3)
         {
             if (string.IsNullOrEmpty(page1) || string.IsNullOrEmpty(page2) || string.IsNullOrEmpty(page3))
+            {
                 throw new ArgumentException("网页内容不能为空");
+            }
+            List<ChangeFeature> features = FindDynamicContent(page1, page2);
+            FindDynamicContent(page1, page3, features);
+            return features;
+        }
 
-            // 1. 分别对比page1-page2、page1-page3的差异
-            var diff1_2 = _diffBuilder.BuildDiffModel(page1, page2);
-            var diff1_3 = _diffBuilder.BuildDiffModel(page1, page3);
-
-            //2. 提取两个对比结果中共同的变化区域（以page1的位置为基准）
-            var commonChangeBlocks = GetCommonChangeBlocks(diff1_2.OldText.Lines, diff1_3.OldText.Lines);
-
-            // 3. 分析每个变化区块的特征，生成适配不同长度的正则
-            var changeFeatures = new List<ChangeFeature>();
-            foreach (var block in commonChangeBlocks)
+        /// <summary>
+        /// 动态特征增量学习（sqlmap findDynamicContent merge=True同款）：
+        /// 把新页面与基准页面的差异区块并入既有动态特征表（按正则去重）。
+        /// 仅用于"同一请求重发"的无注入页面——注入响应的差异学进特征会把真差异抹掉导致判定失真。
+        /// </summary>
+        public static List<ChangeFeature> MergeNewPage(List<ChangeFeature> existing, string basePage, string newPage)
+        {
+            if (string.IsNullOrEmpty(basePage) || string.IsNullOrEmpty(newPage))
             {
-                var feature = AnalyzeChangeBlock(page1, block.StartIndex, block.Length);
-                if (feature != null && !string.IsNullOrEmpty(feature.RegexPattern))
+                return existing ?? new List<ChangeFeature>();
+            }
+            return FindDynamicContent(basePage, newPage, existing ?? new List<ChangeFeature>());
+        }
+
+        /// <summary>
+        /// 清除动态文本（sqlmap removeDynamicContent同款）：按前缀/后缀锚点把动态区块整体替换回锚点，
+        /// 保留锚点本身使剥离后页面长度/结构稳定，比对不受动态区长度变化影响
+        /// </summary>
+        public static string ClearDynamicText(List<ChangeFeature> changeFeatures, string srcPage)
+        {
+            if (string.IsNullOrEmpty(srcPage) || changeFeatures == null)
+            {
+                return srcPage ?? "";
+            }
+            foreach (ChangeFeature feature in changeFeatures)
+            {
+                if (string.IsNullOrEmpty(feature.RegexPattern))
                 {
-                    changeFeatures.Add(feature);
+                    continue;
                 }
+                string replacement = feature.Replacement;
+                //MatchEvaluator返回字面替换串，规避$在替换串中的分组语义
+                srcPage = GetFeatureRegex(feature.RegexPattern).Replace(srcPage, m => replacement);
             }
-
-            return changeFeatures;
-        }
-
-        /// <summary>
-        /// 清除动态文本
-        /// </summary>
-        /// <param name="page1"></param>
-        /// <param name="page2"></param>
-        /// <param name="page3"></param>
-        /// <param name="srcPage">要清除动态特征的原始文本</param>
-        /// <returns></returns>
-        public static string ClearDynamicText(string page1, string page2, string page3,string srcPage)
-        {
-            // 分析三个网页的变化特征
-            var changeFeatures = AnalyzeThreePages(page1, page2, page3);
-
-            foreach (var feature in changeFeatures)
-            {
-                srcPage = GetFeatureRegex(feature.RegexPattern).Replace(srcPage, "");
-            }
-
             return srcPage;
         }
 
+        /// <summary>兼容旧签名：先提取三页特征再剥离</summary>
+        public static string ClearDynamicText(string page1, string page2, string page3, string srcPage)
+        {
+            return ClearDynamicText(AnalyzeThreePages(page1, page2, page3), srcPage);
+        }
 
         /// <summary>
-        /// 清除动态文本
+        /// 动态内容标记提取（sqlmap findDynamicContent 1:1移植）：
+        /// difflib匹配块→剔除过短块→相邻匹配块间隙即为动态区→取20字符前后缀锚点，
+        /// 动态区两端贴字母数字时按trimAlphaNum修剪锚点（避免锚点吃进动态值）。
+        /// mergeInto非空时按正则去重追加（merge=True语义）
         /// </summary>
-        /// <param name="page1"></param>
-        /// <param name="page2"></param>
-        /// <param name="page3"></param>
-        /// <param name="srcPage">要清除动态特征的原始文本</param>
-        /// <returns></returns>
-        public static string ClearDynamicText(List<ChangeFeature> changeFeatures,string srcPage)
+        public static List<ChangeFeature> FindDynamicContent(string firstPage, string secondPage, List<ChangeFeature>? mergeInto = null)
         {
-
-            foreach (var feature in changeFeatures)
+            List<ChangeFeature> markings = mergeInto ?? new List<ChangeFeature>();
+            if (string.IsNullOrEmpty(firstPage) || string.IsNullOrEmpty(secondPage)
+                || firstPage.Equals(secondPage, StringComparison.Ordinal)
+                || Math.Max(firstPage.Length, secondPage.Length) > MaxPageForMarkings)
             {
-                srcPage = GetFeatureRegex(feature.RegexPattern).Replace(srcPage, "");
+                return markings;
             }
 
-            return srcPage;
-        }
-
-        /// <summary>
-        /// 提取两个差异结果中共同的变化区块（基于基准文本的位置）
-        /// </summary>
-        private static List<ChangeBlock> GetCommonChangeBlocks(List<DiffPiece> diffLines1, List<DiffPiece> diffLines2)
-        {
-            // 第一步：从diffLines中提取所有变化的位置和长度
-            var changeBlocks1 = ExtractChangeBlocks(diffLines1);
-            var changeBlocks2 = ExtractChangeBlocks(diffLines2);
-            changeBlocks1.AddRange(changeBlocks2); // 合并两个列表，后续通过位置重叠来筛选共同变化
-           
-            //// 第二步：找两个集合中重叠的变化区块（共同变化的部分）
-
-            //            // 过滤过短的噪声（保留MinChangeLength及以上）
-            //            if (length >= MinChangeLength)
-            //            {
-            //                commonBlocks.Add(new ChangeBlock(start, length));
-            //            }
-            //        }
-            //    }
-            //}
-
-            //// 去重（合并重叠的区块）
-            return MergeOverlappingBlocks(changeBlocks1);
-        }
-
-        /// <summary>
-        /// 从DiffPlex的差异行中提取变化区块
-        /// </summary>
-        private static List<ChangeBlock> ExtractChangeBlocks(List<DiffPiece> diffLines)
-        {
-            var changeBlocks = new List<ChangeBlock>();
-            int currentPosition = 0;
-
-            foreach (var line in diffLines)
+            List<(int APos, int BPos, int Size)> blocks = DiffLib.GetMatchingBlocks(firstPage, secondPage);
+            blocks.RemoveAll(b => b.Size <= MinBlockSize);
+            if (blocks.Count == 0)
             {
-                if (line.Type == ChangeType.Deleted || line.Type == ChangeType.Modified)
+                return markings;
+            }
+
+            var seen = new HashSet<string>(markings.Select(m => m.RegexPattern), StringComparer.Ordinal);
+            //sqlmap：blocks首尾各插None后按相邻对遍历——(None,块0)…(块N-1,None)
+            int n = blocks.Count;
+            for (int i = -1; i < n; i++)
+            {
+                (int APos, int BPos, int Size)? prev = i >= 0 ? blocks[i] : null;
+                (int APos, int BPos, int Size)? next = i + 1 < n ? blocks[i + 1] : null;
+
+                string? prefix = prev.HasValue ? firstPage.Substring(prev.Value.APos, prev.Value.Size) : null;
+                string? suffix = next.HasValue ? firstPage.Substring(next.Value.APos, next.Value.Size) : null;
+
+                //首块起于页面开头：其前无动态区；末块止于页面末尾：其后无动态区
+                if (prefix == null && next!.Value.APos == 0)
                 {
-                    // 只处理基准文本中被修改/删除的部分（变化的核心）
-                    int lineLength = line.Text?.Length ?? 0;
-                    if (lineLength >= MinChangeLength)
+                    continue;
+                }
+                if (suffix == null && prev!.Value.APos + prev.Value.Size >= firstPage.Length)
+                {
+                    continue;
+                }
+
+                if (prefix != null && suffix != null)
+                {
+                    prefix = prefix.Length > BoundaryLength ? prefix.Substring(prefix.Length - BoundaryLength) : prefix;
+                    suffix = suffix.Length > BoundaryLength ? suffix.Substring(0, BoundaryLength) : suffix;
+
+                    //锚点贴字母数字时修剪（sqlmap：infix首/尾为alnum则trimAlphaNum锚点，防锚点吃进动态值一部分）
+                    string? infix = FindInfix(firstPage, prefix, suffix) ?? FindInfix(secondPage, prefix, suffix);
+                    if (!string.IsNullOrEmpty(infix))
                     {
-                        changeBlocks.Add(new ChangeBlock(currentPosition, lineLength));
+                        if (char.IsLetterOrDigit(infix[0]))
+                        {
+                            prefix = TrimAlphaNum(prefix);
+                        }
+                        if (char.IsLetterOrDigit(infix[infix.Length - 1]))
+                        {
+                            suffix = TrimAlphaNum(suffix);
+                        }
                     }
                 }
-                // 更新当前位置（无论是否变化，都累加长度，包含换行符）
-                currentPosition += line.Text?.Length ?? 0;
-                currentPosition += Environment.NewLine.Length;
-            }
 
-            return changeBlocks;
+                ChangeFeature? feature = MakeMarking(prefix, suffix);
+                if (feature != null && seen.Add(feature.RegexPattern))
+                {
+                    markings.Add(feature);
+                }
+            }
+            return markings;
         }
 
-        /// <summary>
-        /// 合并重叠/相邻的变化区块
-        /// </summary>
-        private static List<ChangeBlock> MergeOverlappingBlocks(List<ChangeBlock> blocks)
+        /// <summary>sqlmap trimAlphaNum：剔除字符串两端的字母数字</summary>
+        public static string TrimAlphaNum(string value)
         {
-            if (blocks.Count == 0) return new List<ChangeBlock>();
-
-            // 按起始位置排序
-            var sortedBlocks = blocks.OrderBy(b => b.StartIndex).ToList();
-            var merged = new List<ChangeBlock> { sortedBlocks[0] };
-
-            foreach (var block in sortedBlocks.Skip(1))
+            int start = 0, end = value.Length;
+            while (end > start && char.IsLetterOrDigit(value[end - 1]))
             {
-                var last = merged.Last();
-                // 检查是否重叠或相邻（包含相邻区块，避免拆分连续变化）
-                if (block.StartIndex <= last.StartIndex + last.Length + 1)
-                {
-                    // 合并区块
-                    int newStart = last.StartIndex;
-                    int newEnd = Math.Max(last.StartIndex + last.Length, block.StartIndex + block.Length);
-                    merged.Remove(last);
-                    merged.Add(new ChangeBlock(newStart, newEnd - newStart));
-                }
-                else
-                {
-                    merged.Add(block);
-                }
+                end--;
             }
-
-            return merged;
+            while (start < end && char.IsLetterOrDigit(value[start]))
+            {
+                start++;
+            }
+            return value.Substring(start, end - start);
         }
 
-        /// <summary>
-        /// 分析单个变化区块，提取特征并生成适配不同长度的正则表达式
-        /// </summary>
-        private static ChangeFeature? AnalyzeChangeBlock(string baseText, int startIndex, int length)
+        /// <summary>在page中查找prefix(.+?)suffix的动态区内容（用于锚点修剪判定）</summary>
+        private static string? FindInfix(string page, string prefix, string suffix)
         {
-            // 边界检查
-            if (startIndex < 0 || startIndex + length > baseText.Length)
+            if (prefix.Length == 0 || suffix.Length == 0)
+            {
                 return null;
-
-            // 1. 提取变化区域的文本和上下文（扩大上下文提升匹配稳定性）
-            string changeText = baseText.Substring(startIndex, length);
-            int contextStart = Math.Max(0, startIndex - ContextLength);
-            int contextEnd = Math.Min(baseText.Length, startIndex + length + ContextLength);
-            string leftContext = baseText.Substring(contextStart, startIndex - contextStart);
-            string rightContext = baseText.Substring(startIndex + length, contextEnd - (startIndex + length));
-
-            // 2. 分析变化文本的特征
-            var feature = new ChangeFeature
+            }
+            int pi = page.IndexOf(prefix, StringComparison.Ordinal);
+            if (pi < 0)
             {
-                StartIndex = startIndex,
-                EndIndex = startIndex + length - 1,
-                OriginalText = changeText,
-                LeftContext = leftContext,
-                RightContext = rightContext
+                return null;
+            }
+            int si = page.IndexOf(suffix, pi + prefix.Length, StringComparison.Ordinal);
+            if (si < 0)
+            {
+                return null;
+            }
+            return page.Substring(pi + prefix.Length, si - pi - prefix.Length);
+        }
+
+        /// <summary>由前后缀锚点生成移除正则与替换串（sqlmap removeDynamicContent三种形态）</summary>
+        private static ChangeFeature? MakeMarking(string? prefix, string? suffix)
+        {
+            if (string.IsNullOrEmpty(prefix))
+            {
+                prefix = null;
+            }
+            if (string.IsNullOrEmpty(suffix))
+            {
+                suffix = null;
+            }
+            if (prefix == null && suffix == null)
+            {
+                return null;
+            }
+            string pattern;
+            string replacement;
+            if (prefix == null)
+            {
+                //页面开头动态区：^.+?suffix
+                pattern = "\\A.+?" + Regex.Escape(suffix!);
+                replacement = suffix!;
+            }
+            else if (suffix == null)
+            {
+                //页面结尾动态区：prefix.+$
+                pattern = Regex.Escape(prefix) + ".+\\z";
+                replacement = prefix;
+            }
+            else
+            {
+                pattern = Regex.Escape(prefix) + ".+?" + Regex.Escape(suffix);
+                replacement = prefix + suffix;
+            }
+            return new ChangeFeature
+            {
+                Prefix = prefix,
+                Suffix = suffix,
+                RegexPattern = pattern,
+                Replacement = replacement,
+                FeatureDescription = "动态区块（锚点剥离）"
             };
-
-            // 3. 生成适配不同长度的正则表达式
-            string regexPattern = GenerateFlexibleRegexPattern(leftContext, changeText, rightContext);
-            feature.RegexPattern = regexPattern;
-            feature.FeatureDescription = GetFeatureDescription(changeText);
-
-            return feature;
         }
 
         /// <summary>
-        /// 生成适配不同长度的正则表达式（核心优化点）
+        /// 提取页面结构骨架（sqlmap extractStructuralTokens移植）：
+        /// 值无关的标签名/class/id令牌集合，排序后拼接——字节不稳定但结构稳定的页面按骨架比对，
+        /// 动态文本（结果行/广告位）不再干扰相似度，而结构变化（结果表出现/消失）仍能体现。
+        /// 返回null表示页面无可提取结构（无HTML标签），调用方应降级到其他比对方式
         /// </summary>
-        private static string GenerateFlexibleRegexPattern(string leftContext, string changeText, string rightContext)
+        public static string? ExtractStructuralTokens(string? page)
         {
-            // 转义上下文的特殊字符（避免正则语法冲突）
-            string escapedLeft = Regex.Escape(leftContext);
-            string escapedRight = Regex.Escape(rightContext);
-
-            // 根据变化文本的特征生成**动态长度**的匹配模式
-            string changePattern = GetFlexibleChangePattern(changeText);
-
-            // 拼接完整正则（上下文 + 动态长度变化模式），添加边界约束
-            return $"(?<={escapedLeft}){changePattern}(?={escapedRight})";
+            if (string.IsNullOrEmpty(page))
+            {
+                return null;
+            }
+            string cleaned = ScriptStyleCommentRegex().Replace(page, " ");
+            var tokens = new SortedSet<string>(StringComparer.Ordinal);
+            foreach (Match m in StructuralTagRegex().Matches(cleaned))
+            {
+                string tag = m.Groups[1].Value.ToLowerInvariant();
+                string attrs = m.Groups[2].Value;
+                tokens.Add("tag:" + tag);
+                foreach (Match cm in StructuralClassRegex().Matches(attrs))
+                {
+                    string cls = cm.Groups[1].Success ? cm.Groups[1].Value : cm.Groups[2].Success ? cm.Groups[2].Value : cm.Groups[3].Value;
+                    foreach (string v in cls.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        tokens.Add("cls:" + tag + "." + v);
+                    }
+                }
+                foreach (Match im in StructuralIdRegex().Matches(attrs))
+                {
+                    string id = (im.Groups[1].Success ? im.Groups[1].Value : im.Groups[2].Success ? im.Groups[2].Value : im.Groups[3].Value).Trim();
+                    if (id.Length > 0)
+                    {
+                        tokens.Add("id:" + tag + "#" + id);
+                    }
+                }
+            }
+            if (tokens.Count == 0)
+            {
+                return null;
+            }
+            StringBuilder sb = new StringBuilder();
+            foreach (string t in tokens)
+            {
+                sb.Append(t).Append('\n');
+            }
+            return sb.ToString();
         }
 
         /// <summary>
-        /// 根据变化文本的特征生成动态长度的匹配模式（取消固定长度限制）
+        /// text-only投影（sqlmap getFilteredPageContent(page, onlyText=True)移植）：
+        /// 剥script/style/注释/全部标签/制表换行，折叠空格——结构也不稳定时的终极兜底比对形态
         /// </summary>
-        private static string GetFlexibleChangePattern(string changeText)
+        public static string GetFilteredPageContent(string? page)
         {
-            // 判断字符类型，生成适配不同长度的正则
-            bool isAllDigit = changeText.All(char.IsDigit);
-            bool isAllLetter = changeText.All(char.IsLetter);
-            bool isAllLetterOrDigit = changeText.All(char.IsLetterOrDigit);
-            bool isUUID = UuidRegex().IsMatch(changeText);
-            bool isTimestamp = TimestampRegex().IsMatch(changeText);
-
-            if (isUUID)
+            if (string.IsNullOrEmpty(page))
             {
-                // UUID格式固定，保留精准匹配
-                return @"[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}";
+                return "";
             }
-            else if (isTimestamp)
-            {
-                // 时间戳匹配10-13位数字（适配常见的秒/毫秒级时间戳）
-                return @"\d{10,13}";
-            }
-            else if (isAllDigit)
-            {
-                // 纯数字：匹配1-100位数字（适配任意长度数字）
-                return $@"\d{{{MinDynamicLength},{MaxDynamicLength}}}";
-            }
-            else if (isAllLetter)
-            {
-                // 纯字母：匹配1-100位字母（大小写不敏感）
-                return $@"[a-zA-Z]{{{MinDynamicLength},{MaxDynamicLength}}}";
-            }
-            else if (isAllLetterOrDigit)
-            {
-                // 字母数字混合：匹配1-100位字母数字
-                return $@"[a-zA-Z0-9]{{{MinDynamicLength},{MaxDynamicLength}}}";
-            }
-            else
-            {
-                // 混合字符：匹配1-100位非空字符（排除换行符）
-                return $@".{{{MinDynamicLength},{MaxDynamicLength}}}";
-            }
-        }
-
-        /// <summary>
-        /// 生成变化特征的描述信息（包含长度适配说明）
-        /// </summary>
-        private static string GetFeatureDescription(string changeText)
-        {
-            if (UuidRegex().IsMatch(changeText))
-            {
-                return "UUID格式字符串（固定格式）";
-            }
-            else if (TimestampRegex().IsMatch(changeText))
-            {
-                return "时间戳（10-13位数字）";
-            }
-            else if (changeText.All(char.IsDigit))
-            {
-                return $"数字序列（适配长度：{MinDynamicLength}-{MaxDynamicLength}位）";
-            }
-            else if (changeText.All(char.IsLetter))
-            {
-                return $"字母序列（适配长度：{MinDynamicLength}-{MaxDynamicLength}位）";
-            }
-            else if (changeText.All(char.IsLetterOrDigit))
-            {
-                return $"字母数字混合序列（适配长度：{MinDynamicLength}-{MaxDynamicLength}位）";
-            }
-            else
-            {
-                return $"混合字符序列（适配长度：{MinDynamicLength}-{MaxDynamicLength}位）";
-            }
+            string text = TextOnlyStripRegex().Replace(page, " ");
+            text = MultiSpaceRegex().Replace(text, " ");
+            return System.Net.WebUtility.HtmlDecode(text.Trim());
         }
     }
 
     /// <summary>
-    /// 变化区块模型（记录位置和长度）
-    /// </summary>
-    public  class ChangeBlock
-    {
-        public int StartIndex { get; }
-        public int Length { get; }
-
-        public ChangeBlock(int startIndex, int length)
-        {
-            StartIndex = startIndex;
-            Length = length;
-        }
-    }
-
-    /// <summary>
-    /// 变化特征模型（含适配不同长度的正则、位置、描述）
+    /// 变化特征模型：前缀/后缀锚点对 + 移除正则与替换串（sqlmap dynamicMarkings项等价物）
     /// </summary>
     public class ChangeFeature
     {
-        // 位置信息
-        public int StartIndex { get; set; }
-        public int EndIndex { get; set; }
-        // 文本内容
-        public string OriginalText { get; set; } = "";
-        public string LeftContext { get; set; } = "";
-        public string RightContext { get; set; } = "";
-        // 特征信息
+        /// <summary>前锚点（动态区之前的稳定文本，null=动态区直达页面开头）</summary>
+        public string? Prefix { get; set; }
+        /// <summary>后锚点（动态区之后的稳定文本，null=动态区直达页面末尾）</summary>
+        public string? Suffix { get; set; }
+        /// <summary>动态区移除正则（含锚点，Singleline）</summary>
         public string RegexPattern { get; set; } = "";
+        /// <summary>替换串（保留锚点本身）</summary>
+        public string Replacement { get; set; } = "";
+        /// <summary>特征描述（日志用）</summary>
         public string FeatureDescription { get; set; } = "";
 
-        /// <summary>
-        /// 格式化输出特征信息（包含长度适配说明）
-        /// </summary>
         public override string ToString()
         {
-            return $"【变化特征】\n" +
-                   $"位置：{StartIndex}-{EndIndex}\n" +
-                   $"原始文本：{OriginalText}\n" +
-                   $"上下文：{LeftContext}[{OriginalText}]{RightContext}\n" +
-                   $"特征描述：{FeatureDescription}\n" +
-                   $"适配不同长度的正则：{RegexPattern}\n" +
-                   "------------------------";
+            return $"【动态标记】前缀：[{Prefix ?? "<页首>"}] 后缀：[{Suffix ?? "<页尾>"}]";
         }
     }
-
 }

@@ -90,20 +90,49 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                     await GuessAccessDictByBool(config, parent!, level.DictGuessIsTable).ConfigureAwait(false);
                     continue;
                 }
-                int count = await DataComm.GetValueLen(config, level.CountPayload(parent), 0, 1000).ConfigureAwait(false);
+                //常量模板短路（Access DBCount=1 / DBNames=Access 单文件库）：count为纯数字、名称为字面量时不发包
+                string countExpr = level.CountPayload(parent);
+                string namesExpr = level.NamesPayload(parent);
+                bool literalNames = IsLiteralNameTemplate(namesExpr);
+                int count;
+                if (int.TryParse(countExpr?.Trim(), out int constCount))
+                {
+                    count = constCount;
+                }
+                else if (string.IsNullOrWhiteSpace(countExpr))
+                {
+                    //未配置数量模板（不支持的数据库层级），视为0个
+                    count = 0;
+                }
+                else
+                {
+                    count = await DataComm.GetValueLen(config, countExpr, 0, 1000).ConfigureAwait(false);
+                }
                 ObservableCollection<DBStruct> container = parent == null ? config.DataDump.DBStructItems : parent.SubItems;
                 //清空子节点
                 container.Clear();
                 for (int i = 0; i < count; i++)
                 {
                     config.CheckStop();
-                    //多字节安全的盲注取值（hex/unicode/ascw），内部通过stp并行取字符
-                    string name = (await DataComm.GetStringByBool(config, level.NamePayloadAt(parent, i), 256).ConfigureAwait(false)) ?? "";
+                    string name;
+                    if (literalNames)
+                    {
+                        name = namesExpr.Trim();
+                    }
+                    else
+                    {
+                        //多字节安全的盲注取值（hex/unicode/ascw），内部通过stp并行取字符
+                        name = (await DataComm.GetStringByBool(config, level.NamePayloadAt(parent, i), 256).ConfigureAwait(false)) ?? "";
+                    }
                     //事件通知：取到名称后一次派发挂完整节点（原"先挂空节点再回填"每节点2次MaxValue派发，且空节点闪现）
                     UiNotifier.Post( ()=> container.Add(new DBStruct { Parent = parent!, Type = level.NodeType, Value = name }));
                 }
             }
         }
+
+        /// <summary>字面量名称模板判定：无括号/引号/空白即非SQL表达式（如 Access DBNames=Access），直接作为名称返回</summary>
+        private static bool IsLiteralNameTemplate(string? p) =>
+            !string.IsNullOrWhiteSpace(p) && !p.Any(c => c == '(' || c == '\'' || char.IsWhiteSpace(c));
 
         /// <summary>Union通道：聚合一次取回（截断回退逐行）→整批回填</summary>
         private static async Task EnumerateByUnion(AppConfig config, EnumLevel level)
@@ -111,9 +140,9 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             foreach (DBStruct? parent in EnumerateParents(config, level.NodeType))
             {
                 config.CheckStop();
-                if (level.SupportsDictGuess && config.DataConfig.DictGuessAll)
+                if (level.SupportsDictGuess && (config.DataConfig.SelectedDBType.Equals(DBType.Access) || config.DataConfig.DictGuessAll))
                 {
-                    //全库字典猜解：exists布尔判断通道逐词猜解，与当前注入类型无关
+                    //Access（Union通道同样需要已知表名才能枚举，exists布尔字典猜解与注入类型无关）/全库字典猜解模式
                     await GuessAccessDictByBool(config, parent!, level.DictGuessIsTable).ConfigureAwait(false);
                     continue;
                 }
@@ -156,8 +185,9 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             foreach (DBStruct? parent in EnumerateParents(config, level.NodeType))
             {
                 config.CheckStop();
-                if (level.SupportsDictGuess && config.DataConfig.DictGuessAll)
+                if (level.SupportsDictGuess && (config.DataConfig.SelectedDBType.Equals(DBType.Access) || config.DataConfig.DictGuessAll))
                 {
+                    //Access无元数据可读（与通道无关，统一exists布尔字典猜解）/字典猜解模式
                     await GuessAccessDictByBool(config, parent!, level.DictGuessIsTable).ConfigureAwait(false);
                     continue;
                 }

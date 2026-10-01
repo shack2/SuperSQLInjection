@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -182,13 +183,41 @@ namespace SuperSQLInjectionV2.Bypass.QuickJs
             }
         }
 
-        /// <summary>取出当前异常并转为消息文本（消费异常，避免泄漏）</summary>
+        /// <summary>取出当前异常并转为消息文本（消费异常，避免泄漏）；附带 JS 侧堆栈行号便于定位脚本错误行</summary>
         private string TakeExceptionMessage()
         {
             JSValue ex = QuickJsNative.JS_GetException(_ctx);
             try
             {
-                return ValueToString(ex);
+                string msg = ValueToString(ex);
+                //Error 对象的 stack 为自有数据属性（读取不执行脚本代码）：首行与 msg 重复，取后续 at 行（含行号）
+                byte[] nameBytes = ToUtf8ZeroTerminated("stack");
+                JSValue stack;
+                unsafe
+                {
+                    fixed (byte* pName = nameBytes)
+                    {
+                        stack = QuickJsNative.JS_GetPropertyStr(_ctx, ex, pName);
+                    }
+                }
+                try
+                {
+                    if (stack.HasRefCount) //字符串 tag 带引用计数；无 stack（undefined）时跳过
+                    {
+                        //QuickJS 的 stack 仅含 at 行（不含消息首行），剔除与消息重复的行后附加
+                        string[] lines = ValueToString(stack).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                        string at = string.Join("；", lines.Where(l => l != msg));
+                        if (!string.IsNullOrEmpty(at))
+                        {
+                            msg = msg + "（" + at + "）";
+                        }
+                    }
+                }
+                finally
+                {
+                    FreeValue(stack);
+                }
+                return msg;
             }
             finally
             {

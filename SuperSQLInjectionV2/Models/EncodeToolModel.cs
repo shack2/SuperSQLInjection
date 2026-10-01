@@ -11,8 +11,9 @@ namespace SuperSQLInjectionV2.Models
 {
     /// <summary>
     /// 统一编码工具配置项（编码处理/tamper合并后的唯一变换链节点）：
-    /// 内置项（Builtin=true）按Key从EncodeToolRegistry解析C#实现；自定义项（Builtin=false）为JS脚本（QuickJS执行，
-    /// 约定 function tamper(payload){...}）。Scope=Payload级在Encode块内执行，Scope=报文级在整份HTTP报文发送前执行（--eval语义）。
+    /// 所有项均为JS脚本（QuickJS执行，约定 function tamper(payload){...}），加载时从磁盘脚本文件物化代码到Code，
+    /// 无内置/自定义区分；Key=脚本文件名主干（scripts/&lt;key&gt;.js，保存时保持文件名不变）。
+    /// Scope=Payload级在Encode块内执行，Scope=报文级在整份HTTP报文发送前执行（--eval语义）。
     /// </summary>
     public partial class EncodeToolModel : ViewModelBase, ITamperItem
     {
@@ -20,15 +21,11 @@ namespace SuperSQLInjectionV2.Models
         [ObservableProperty]
         public partial string Name { get; set; } = "新编码工具";
 
-        /// <summary>内置注册表键（EncodeToolRegistry.Key；自定义项为空）</summary>
+        /// <summary>脚本文件名主干（scripts/&lt;key&gt;.js；注册表内置tamper与sqlmap同名；新建项保存时按名称生成并回填）</summary>
         [ObservableProperty]
         public partial string Key { get; set; } = "";
 
-        /// <summary>内置C#实现标识（true=按Key解析注册表，Code为空不可编辑）</summary>
-        [ObservableProperty]
-        public partial bool Builtin { get; set; } = false;
-
-        /// <summary>自定义JS脚本内容（内置项为空）</summary>
+        /// <summary>JS脚本内容（加载时从磁盘脚本物化；执行时为空才回退注册表内嵌实现）</summary>
         [ObservableProperty]
         public partial string Code { get; set; } = "";
 
@@ -36,45 +33,34 @@ namespace SuperSQLInjectionV2.Models
         [ObservableProperty]
         public partial ScriptScope Scope { get; set; } = ScriptScope.Payload;
 
-        /// <summary>执行次数（同一变换连续执行N次，如双重编码场景）</summary>
-        [ObservableProperty]
-        public partial int DoCount { get; set; } = 1;
-
         [ObservableProperty]
         public partial bool Enable { get; set; } = true;
+
+        /// <summary>功能描述（磁盘脚本 //@description 元数据；保存时非空才写回文件头）</summary>
+        [ObservableProperty]
+        public partial string Description { get; set; } = "";
 
         /// <summary>执行顺序号（链内 1 起始位置，序号列展示=加载/执行顺序；集合增删移动时由 ByPassConfig 自动重编号）</summary>
         [JsonIgnore]
         [ObservableProperty]
         public partial int Seq { get; set; }
 
-        /// <summary>类型展示文本（内置/自定义），供表格列绑定</summary>
-        [JsonIgnore]
-        public string TypeText => Builtin ? "内置" : "自定义";
-
-        /// <summary>功能描述（内置项取注册表说明，自定义项取代码首行注释）</summary>
+        /// <summary>功能描述展示（优先 //@description 元数据，空则取代码首行注释）</summary>
         [JsonIgnore]
         public string DescText
         {
             get
             {
-                if (Builtin && EncodeToolRegistry.TryGet(Key, out EncodeTool tool))
+                if (!string.IsNullOrWhiteSpace(Description))
                 {
-                    return tool.Description;
+                    return Description;
                 }
                 string first = (Code ?? "").TrimStart().Split('\n')[0].Trim();
-                return first.StartsWith("//", StringComparison.Ordinal) ? first.TrimStart('/').Trim (): "";
+                return first.StartsWith("//", StringComparison.Ordinal) ? first.TrimStart('/').Trim() : "";
             }
         }
 
-        [JsonIgnore]
-        public List<ScriptScope> ScopeList { get; set; } = Enum.GetValues<ScriptScope>().ToList();
-
-        [JsonIgnore]
-        public List<int> DoCountItems { get; set; } = new List<int> { 1, 2, 3 };
-
-        partial void OnBuiltinChanged(bool value) => OnPropertyChanged(nameof(TypeText));
-        partial void OnKeyChanged(string value) => OnPropertyChanged(nameof(DescText));
+        partial void OnDescriptionChanged(string value) => OnPropertyChanged(nameof(DescText));
         partial void OnCodeChanged(string value) => OnPropertyChanged(nameof(DescText));
     }
 }

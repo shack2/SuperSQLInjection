@@ -163,6 +163,172 @@ namespace SuperSQLInjectionV2.Tools.Http
         }
 
         /// <summary>
+        /// 按请求方式由URL生成请求报文：GET直接生成；POST先生成GET再整体迁移为表单urlencoded（参数移到body，值原样保留）。
+        /// URL非法返回空串。
+        /// </summary>
+        public static string BuildRequestFromUrl(string url, string method)
+        {
+            string get = BuildGetRequestFromUrl(url);
+            if (string.IsNullOrEmpty(get))
+            {
+                return "";
+            }
+            return string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase)
+                ? ChangeRequestFormat(get, RequestFormat.POST_FORM)
+                : get;
+        }
+
+        /// <summary>
+        /// 从请求报文反向提取（请求方式, URL）：解析请求行方法与路径 + Host头拼URL；
+        /// scheme按端口443推https，否则回落isSsl。报文不完整（缺请求行/Host头）返回(null, null)。
+        /// </summary>
+        public static (string? method, string? url) ExtractMethodAndUrl(string requestTxt, bool isSsl)
+        {
+            if (string.IsNullOrWhiteSpace(requestTxt))
+            {
+                return (null, null);
+            }
+            int lineEnd = requestTxt.IndexOf('\n', StringComparison.Ordinal);
+            string firstLine = (lineEnd > 0 ? requestTxt[..lineEnd] : requestTxt).TrimEnd('\r');
+            //请求行需完整三段（METHOD PATH HTTP/x），避免用户键入中途触发同步
+            var m = Regex.Match(firstLine, @"^([A-Za-z]+)\s+(\S+)\s+HTTP/\d");
+            if (!m.Success)
+            {
+                return (null, null);
+            }
+            string method = m.Groups[1].Value.ToUpperInvariant();
+            string path = m.Groups[2].Value;
+            var hm = Regex.Match(requestTxt, @"(?im)^Host:\s*(?<h>[^\r\n]+)");
+            if (!hm.Success)
+            {
+                return (method, null);
+            }
+            string host = hm.Groups["h"].Value.Trim();
+            //路径已是绝对URL（代理形态报文）时直接采用
+            if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return (method, path);
+            }
+            bool https = host.EndsWith(":443", StringComparison.Ordinal) || (!host.Contains(':') && isSsl);
+            string url = (https ? "https://" : "http://") + host + (path.StartsWith('/') ? path : "/" + path);
+            return (method, url);
+        }
+
+        /// <summary>
+        /// 宽松版提取：先按严格三段解析；失败（剥离标记后的请求行含未编码空格的注入payload）时
+        /// 按"方法 + 中间全部 + HTTP/x"抓取路径，保证标记报文也能回同步URL。报文不完整返回(null, null)。
+        /// </summary>
+        public static (string? method, string? url) ExtractMethodAndUrlLenient(string requestTxt, bool isSsl)
+        {
+            (string? method, string? url) = ExtractMethodAndUrl(requestTxt, isSsl);
+            if (url != null)
+            {
+                return (method, url);
+            }
+            if (string.IsNullOrWhiteSpace(requestTxt))
+            {
+                return (null, null);
+            }
+            int lineEnd = requestTxt.IndexOf('\n', StringComparison.Ordinal);
+            string firstLine = (lineEnd > 0 ? requestTxt[..lineEnd] : requestTxt).TrimEnd('\r');
+            var m = Regex.Match(firstLine, @"^([A-Za-z]+)\s+(.+)\s+HTTP/\d");
+            if (!m.Success)
+            {
+                return (null, null);
+            }
+            method = m.Groups[1].Value.ToUpperInvariant();
+            string path = m.Groups[2].Value.Trim();
+            var hm = Regex.Match(requestTxt, @"(?im)^Host:\s*(?<h>[^\r\n]+)");
+            if (!hm.Success)
+            {
+                return (method, null);
+            }
+            string host = hm.Groups["h"].Value.Trim();
+            if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return (method, path);
+            }
+            bool https = host.EndsWith(":443", StringComparison.Ordinal) || (!host.Contains(':') && isSsl);
+            return (method, (https ? "https://" : "http://") + host + (path.StartsWith('/') ? path : "/" + path));
+        }
+
+        /// <summary>
+        /// 原地重定向：保留原报文的请求方式、请求头（Cookie/UA等）与Body，仅把请求行路径与Host头改为新URL。
+        /// 用于URL栏变更后让定制报文跟随目标而不丢失人工配置的请求头。报文/URL不完整返回null。
+        /// </summary>
+        public static string? RetargetRequest(string requestTxt, string newUrl)
+        {
+            if (string.IsNullOrWhiteSpace(requestTxt) || string.IsNullOrWhiteSpace(newUrl)
+                || !Uri.TryCreate(newUrl, UriKind.Absolute, out Uri? uri))
+            {
+                return null;
+            }
+            int lineEnd = requestTxt.IndexOf('\n', StringComparison.Ordinal);
+            if (lineEnd <= 0)
+            {
+                return null;
+            }
+            string firstLine = requestTxt[..lineEnd].TrimEnd('\r');
+            if (!Regex.IsMatch(firstLine, @"^([A-Za-z]+)\s+(\S+)\s+HTTP/\d"))
+            {
+                return null;
+            }
+            //路径截取同BuildGetRequestFromUrl：从原始URL串手工截取，避免PathAndQuery重编码破坏标记
+            int schemeEnd = newUrl.IndexOf("://", StringComparison.Ordinal);
+            int pathStart = schemeEnd >= 0 ? newUrl.IndexOf('/', schemeEnd + 3) : -1;
+            string path = pathStart >= 0 ? newUrl.Substring(pathStart) : "/";
+            int frag = path.IndexOf('#', StringComparison.Ordinal);
+            if (frag >= 0)
+            {
+                path = path.Substring(0, frag);
+            }
+            if (string.IsNullOrEmpty(path))
+            {
+                path = "/";
+            }
+            string host = uri.IsDefaultPort ? uri.Host : $"{uri.Host}:{uri.Port}";
+            string newFirstLine = Regex.Replace(firstLine, @"^([A-Za-z]+)\s+\S+\s+(HTTP/\S+)\s*$", $"$1 {path} $2");
+            string body = newFirstLine + requestTxt.Substring(lineEnd);
+            if (Regex.IsMatch(body, @"(?im)^Host:"))
+            {
+                body = Regex.Replace(body, @"(?im)^Host:[^\r\n]*", "Host: " + host);
+            }
+            else
+            {
+                int eol = body.IndexOf('\n', StringComparison.Ordinal);
+                body = body.Insert(eol + 1, "Host: " + host + "\r\n");
+            }
+            return body;
+        }
+
+        /// <summary>
+        /// URL语义相等：按scheme/host/port/path/query分量比较（scheme与host大小写不敏感、默认端口归一），
+        /// 忽略尾部斜杠与大小写差异，避免双向联动时因字符串形态差异互相覆盖（如键入中途被回同步打断）。
+        /// </summary>
+        public static bool SameUrl(string? a, string? b)
+        {
+            if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
+            {
+                return string.Equals(a, b, StringComparison.Ordinal);
+            }
+            if (string.Equals(a, b, StringComparison.Ordinal))
+            {
+                return true;
+            }
+            if (!Uri.TryCreate(a, UriKind.Absolute, out Uri? ua) || !Uri.TryCreate(b, UriKind.Absolute, out Uri? ub))
+            {
+                return false;
+            }
+            return string.Equals(ua.Scheme, ub.Scheme, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(ua.Host, ub.Host, StringComparison.OrdinalIgnoreCase)
+                && ua.Port == ub.Port
+                && string.Equals(ua.AbsolutePath, ub.AbsolutePath, StringComparison.Ordinal)
+                && string.Equals(ua.Query, ub.Query, StringComparison.Ordinal);
+        }
+
+        /// <summary>
         /// 请求报文格式转换：把参数（query/form-urlencoded/JSON/multipart来源均可）整体迁移到目标格式。
         /// 参数值原样保留不做编解码，确保注入标记&lt;*&gt;、编码标记等不被破坏。
         /// </summary>
@@ -430,7 +596,7 @@ namespace SuperSQLInjectionV2.Tools.Http
                     _ => record.OrigValue ?? ""
                 };
                 string? bakedVector = record.Where == 3
-                    ? Inject.InjectDetectEngine.BakeVectorForRestore(record.VectorTemplate, record.OrigValue)
+                    ? Inject.InjectDetectEngine.BakeVectorForRestore(record.VectorTemplate, record.OrigValue, record.DBType)
                     : null;
                 string marked = Inject.InjectDetectEngine.BakeExploitMarkedValue(
                     baseValue, record.Prefix, record.Suffix, record.DBType, bakedVector);

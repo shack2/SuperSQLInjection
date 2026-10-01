@@ -265,7 +265,10 @@ namespace SuperSQLInjectionV2.Models.Data
         public static async Task<int> ProbeErrorChunkLen(AppConfig config)
         {
             DBType db = config.DataConfig.SelectedDBType;
-            if (db is not (DBType.MySQL or DBType.SQLServer or DBType.Oracle or DBType.DM))
+            //PG系也纳入探测：上游PG完整回显，但KingbaseES等衍生库实测会截断长值（约60字符），
+            //不探测直接按模板80步长会丢列（实测复现：金仓dump末列被截）
+            if (db is not (DBType.MySQL or DBType.SQLServer or DBType.Oracle or DBType.DM
+                or DBType.PostgreSQL or DBType.Kingbase or DBType.OpenGauss))
             {
                 return 0;
             }
@@ -292,6 +295,8 @@ namespace SuperSQLInjectionV2.Models.Data
                 {
                     DBType.MySQL => "(select repeat(0x35," + n + "))",
                     DBType.SQLServer => "(select replicate(char(53)," + n + "))",
+                    //PG系：repeat(chr(53),N)
+                    DBType.PostgreSQL or DBType.Kingbase or DBType.OpenGauss => "(select repeat(chr(53)," + n + "))",
                     //Oracle/DM：RPAD('5',N,'5')
                     _ => "(select rpad(chr(53)," + n + ",chr(53)) from dual)"
                 };

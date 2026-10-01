@@ -49,5 +49,18 @@ namespace SuperSQLInjectionV2.Payload
         string GetColumnCount(string dbName, string tableName);
 
         string GetDataCount(string dbName, string tableName, string where = "");
+
+        /// <summary>
+        /// MIN 值链分页（Access 专用）：Jet 标量子查询中 TOP+ORDER BY 对重复值按并列全部返回，
+        /// 触发 "At most one record can be returned by this subquery"，行索引分页不可用（实测）；
+        /// 改用 sqlmap 风格 MIN(col)>last 值链，逐列顺序取回 distinct 值
+        /// </summary>
+        bool MinValueChainPaging { get; }
+
+        /// <summary>MIN 值链取数表达式：lastValue=null 取首值（无链条件），否则取 &gt;lastValue 的最小值</summary>
+        string DataValueChain(DumpDataParam dp, string? lastValue);
+
+        /// <summary>distinct 计数（MIN 值链的行数口径，与 DataValueChain 的去重语义一致）</summary>
+        string DataCountDistinct(DumpDataParam dp);
     }
 }

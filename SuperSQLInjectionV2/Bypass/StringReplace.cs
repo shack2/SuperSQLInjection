@@ -22,10 +22,6 @@ namespace SuperSQLInjectionV2.Bypass
         [GeneratedRegex("\\<Sencond:(?<tag>[^>\\s]+)\\>[.\\s\\S]*?\\<\\/Sencond\\>")]
         private static partial Regex SencondDirectiveRegex();
 
-        /// <summary>版本注释包裹的标识符切分</summary>
-        [GeneratedRegex("[a-zA-Z_\\.\\(\\@]{2,50}")]
-        private static partial Regex VersionCommentTokenRegex();
-
         /// <summary>
         /// 按块在报文中的位置推断编码策略：
         /// 请求行（query/URI路径段）与urlencoded体=需URL编码（false）；头区（Cookie/各HTTP头）与JSON/XML/multipart体=保持原文（true）
@@ -92,17 +88,10 @@ namespace SuperSQLInjectionV2.Bypass
                     str = str.Replace(src, target, StringComparison.Ordinal);
                 }
 
-                //统一编码工具链（编码处理/tamper合并）：内置走C#委托，自定义走QuickJS；DoCount已在计划中展开
+                //统一编码工具链（编码处理/tamper合并）：全部经QuickJS池化执行（内置项按Key从注册表取JS实现）
                 foreach (BypassPlan.PayloadStep step in plan.PayloadSteps)
                 {
-                    if (step.Impl != null)
-                    {
-                        str = step.Impl(str);
-                    }
-                    else
-                    {
-                        str = await ScriptTamperEngine.TamperAsync(step.Js!, str).ConfigureAwait(false);
-                    }
+                    str = await ScriptTamperEngine.TamperAsync(step.Js, str).ConfigureAwait(false);
                 }
 
                 //兜底URL编码：仅编码位（请求行query/URI段、urlencoded体）且未显式启用UrlEncode项时默认编码一次，
@@ -156,7 +145,7 @@ namespace SuperSQLInjectionV2.Bypass
 
         /// <summary>
         /// 按当前body实际UTF8字节数重算Content-Length头。
-        /// 仅当报文已带Content-Length头且非chunked时修正（GET/无body不新增头；chunked由ApplyChunked剥离CL，不干预）。
+        /// 仅当报文已带Content-Length头且非chunked时修正（GET/无body不新增头；chunked报文由脚本层剥离CL，不干预）。
         /// 绕过链路的Encode块/Token/payload/报文脚本替换都会改变body长度，发送前必须调用本方法收敛。
         /// </summary>
         public static string FixContentLength(string headerAndBody)
@@ -183,35 +172,6 @@ namespace SuperSQLInjectionV2.Bypass
             string body = headerAndBody[(headEnd + 4)..];
             int len = Encoding.UTF8.GetByteCount(body);
             return string.Concat(head[..m.Index], "Content-Length: ", len.ToString(), head[(m.Index + m.Length)..], "\r\n\r\n", body);
-        }
-
-
-        /// <summary>标识符包裹MySQL内联执行注释（kw→/*!kw*/，includecomment内置工具的实现）。含@的标识符（@@系统变量等）跳过不包裹</summary>
-        public static string IncludeString(string str)
-        {
-            if (string.IsNullOrEmpty(str))
-            {
-                return str;
-            }
-            MatchCollection mc = VersionCommentTokenRegex().Matches(str);
-            if (mc.Count == 0)
-            {
-                return str;
-            }
-            StringBuilder sb = new StringBuilder(str.Length + mc.Count * 5);
-            int pos = 0;
-            foreach (Match m in mc)
-            {
-                if (m.Value.Contains('@', StringComparison.Ordinal))
-                {
-                    continue;
-                }
-                sb.Append(str, pos, m.Index - pos);
-                sb.Append("/*!").Append(m.Value).Append("*/");
-                pos = m.Index + m.Length;
-            }
-            sb.Append(str, pos, str.Length - pos);
-            return sb.ToString();
         }
 
     }

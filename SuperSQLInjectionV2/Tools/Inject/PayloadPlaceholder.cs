@@ -22,7 +22,14 @@ namespace SuperSQLInjectionV2.Tools.Inject
         public string RandStr1 { get; }
         public string RandStr2 { get; }
         /// <summary>
-        /// 报错注入分隔符（hex形式，如 0x7176726a71）
+        /// 报错注入分隔符原始随机串（如 qvxjka）：grep/解析侧使用。
+        /// SQL侧永不直接出现该文本——payload/vector中分隔符按库编码（hex/chr）发送，
+        /// 由服务端解码输出原始串，页面反射的payload只含编码形态，物理上不可能被grep误命中。
+        /// </summary>
+        public string RawDelimiterStart { get; }
+        public string RawDelimiterStop { get; }
+        /// <summary>
+        /// 报错注入分隔符（hex形式，如 0x7176726a71，由RawDelimiterStart派生；保留兼容，新代码用Raw+按库编码）
         /// </summary>
         public string DelimiterStart { get; }
         public string DelimiterStop { get; }
@@ -43,8 +50,10 @@ namespace SuperSQLInjectionV2.Tools.Inject
             RandStr = NextStr(6);
             RandStr1 = NextStr(5);
             RandStr2 = NextStr(5);
-            DelimiterStart = "0x" + NextHexStr(6);
-            DelimiterStop = "0x" + NextHexStr(6);
+            RawDelimiterStart = NextStr(6);
+            RawDelimiterStop = NextStr(6);
+            DelimiterStart = "0x" + HexOf(RawDelimiterStart);
+            DelimiterStop = "0x" + HexOf(RawDelimiterStop);
             GenericSqlComment = "-- " + NextStr(5);
             SleepTime = sleepTime;
         }
@@ -70,13 +79,13 @@ namespace SuperSQLInjectionV2.Tools.Inject
             return new string(chars);
         }
 
-        private static string NextHexStr(int len)
+        private static string HexOf(string s)
         {
-            //模拟随机字符串的hex形式
-            char[] chars = new char[len * 2];
-            for (int i = 0; i < len; i++)
+            //随机串的hex形式（与旧版NextHexStr输出同分布：小写字母→两字符hex）
+            char[] chars = new char[s.Length * 2];
+            for (int i = 0; i < s.Length; i++)
             {
-                byte b = (byte)LowerChars[_rand.Next(LowerChars.Length)];
+                byte b = (byte)s[i];
                 chars[i * 2] = HexChars[b >> 4];
                 chars[i * 2 + 1] = HexChars[b & 0xF];
             }
@@ -105,8 +114,8 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 .Replace("[RANDSTR1]", RandStr1, StringComparison.Ordinal)
                 .Replace("[RANDSTR2]", RandStr2, StringComparison.Ordinal)
                 .Replace("[RANDSTR]", RandStr, StringComparison.Ordinal)
-                .Replace("[DELIMITER_START]", DelimiterStart, StringComparison.Ordinal)
-                .Replace("[DELIMITER_STOP]", DelimiterStop, StringComparison.Ordinal)
+                .Replace("[DELIMITER_START]", RawDelimiterStart, StringComparison.Ordinal)
+                .Replace("[DELIMITER_STOP]", RawDelimiterStop, StringComparison.Ordinal)
                 .Replace("[GENERIC_SQL_COMMENT]", GenericSqlComment, StringComparison.Ordinal)
                 .Replace("[SLEEPTIME]", SleepTime.ToString(), StringComparison.Ordinal)
                 .Replace("[DELAYED]", SleepTime.ToString(), StringComparison.Ordinal)
@@ -114,6 +123,25 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 .Replace("[HASH_REPLACE]", "#", StringComparison.Ordinal)
                 .Replace("[DOLLAR_REPLACE]", "$", StringComparison.Ordinal)
                 .Replace("[AT_REPLACE]", "@", StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// SQL上下文渲染（payload/vector）：引号包裹的分隔符占位符（'[DELIMITER_START]'）整体替换为
+        /// 按库编码表达式（MySQL=0x hex字面量、Oracle/PG/DB2=chr()||、MSSQL=char()+、SQLite/H2=char()||、
+        /// Access=chr()&amp;、未知库=引号原文回退），服务端解码输出原始随机串；
+        /// 页面反射的payload只含编码形态，grep（匹配原始串）物理上不可能误命中反射。
+        /// 编码器与取数方言（DialectFactory.MarkerEncoder）同源，由调用方按库选择。
+        /// </summary>
+        public string ReplaceSql(string? template, SuperSQLInjectionV2.Payload.LiteralEncoder enc)
+        {
+            if (string.IsNullOrEmpty(template))
+            {
+                return template ?? "";
+            }
+            string t = template
+                .Replace("'[DELIMITER_START]'", SuperSQLInjectionV2.Payload.TemplateDialect.Encode(RawDelimiterStart, enc), StringComparison.Ordinal)
+                .Replace("'[DELIMITER_STOP]'", SuperSQLInjectionV2.Payload.TemplateDialect.Encode(RawDelimiterStop, enc), StringComparison.Ordinal);
+            return Replace(t);
         }
     }
 }

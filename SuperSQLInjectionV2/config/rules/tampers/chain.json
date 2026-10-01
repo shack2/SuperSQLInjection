@@ -1,0 +1,472 @@
+[
+  {
+    "Script": "urlencode.js",
+    "Enable": false,
+    "Order": 0
+  },
+  {
+    "Script": "0eunion.js",
+    "Enable": false,
+    "Order": 1
+  },
+  {
+    "Script": "altcase.js",
+    "Enable": false,
+    "Order": 2
+  },
+  {
+    "Script": "apostrophemask.js",
+    "Enable": false,
+    "Order": 3
+  },
+  {
+    "Script": "apostrophenullencode.js",
+    "Enable": false,
+    "Order": 4
+  },
+  {
+    "Script": "appendnullbyte.js",
+    "Enable": false,
+    "Order": 5
+  },
+  {
+    "Script": "base64encode.js",
+    "Enable": false,
+    "Order": 6
+  },
+  {
+    "Script": "between.js",
+    "Enable": false,
+    "Order": 7
+  },
+  {
+    "Script": "binary.js",
+    "Enable": false,
+    "Order": 8
+  },
+  {
+    "Script": "blindbinary.js",
+    "Enable": false,
+    "Order": 9
+  },
+  {
+    "Script": "bluecoat.js",
+    "Enable": false,
+    "Order": 10
+  },
+  {
+    "Script": "castprefix.js",
+    "Enable": false,
+    "Order": 11
+  },
+  {
+    "Script": "chardoubleencode.js",
+    "Enable": false,
+    "Order": 12
+  },
+  {
+    "Script": "charencode.js",
+    "Enable": false,
+    "Order": 13
+  },
+  {
+    "Script": "charunicodeencode.js",
+    "Enable": false,
+    "Order": 14
+  },
+  {
+    "Script": "charunicodeescape.js",
+    "Enable": false,
+    "Order": 15
+  },
+  {
+    "Script": "chunked\u5206\u5757\u53D1\u5305_\u793A\u4F8B_.js",
+    "Enable": false,
+    "Order": 16
+  },
+  {
+    "Script": "commalesslimit.js",
+    "Enable": false,
+    "Order": 17
+  },
+  {
+    "Script": "commalessmid.js",
+    "Enable": false,
+    "Order": 18
+  },
+  {
+    "Script": "commentbeforeparentheses.js",
+    "Enable": false,
+    "Order": 19
+  },
+  {
+    "Script": "concat2concatws.js",
+    "Enable": false,
+    "Order": 20
+  },
+  {
+    "Script": "decentities.js",
+    "Enable": false,
+    "Order": 21
+  },
+  {
+    "Script": "dollarquote.js",
+    "Enable": false,
+    "Order": 22
+  },
+  {
+    "Script": "dunion.js",
+    "Enable": false,
+    "Order": 23
+  },
+  {
+    "Script": "equaltolike.js",
+    "Enable": false,
+    "Order": 24
+  },
+  {
+    "Script": "equaltorlike.js",
+    "Enable": false,
+    "Order": 25
+  },
+  {
+    "Script": "escapequotes.js",
+    "Enable": false,
+    "Order": 26
+  },
+  {
+    "Script": "greatest.js",
+    "Enable": false,
+    "Order": 27
+  },
+  {
+    "Script": "halfversionedmorekeywords.js",
+    "Enable": false,
+    "Order": 28
+  },
+  {
+    "Script": "hex.js",
+    "Enable": false,
+    "Order": 29
+  },
+  {
+    "Script": "hex2char.js",
+    "Enable": false,
+    "Order": 30
+  },
+  {
+    "Script": "hexentities.js",
+    "Enable": false,
+    "Order": 31
+  },
+  {
+    "Script": "hexprepare.js",
+    "Enable": false,
+    "Order": 32
+  },
+  {
+    "Script": "hexpreparechar.js",
+    "Enable": false,
+    "Order": 33
+  },
+  {
+    "Script": "HPP\u53C2\u6570\u6C61\u67D3_\u793A\u4F8B_.js",
+    "Enable": false,
+    "Order": 34
+  },
+  {
+    "Script": "htmlencode.js",
+    "Enable": false,
+    "Order": 35
+  },
+  {
+    "Script": "if2case.js",
+    "Enable": false,
+    "Order": 36
+  },
+  {
+    "Script": "ifnull2casewhenisnull.js",
+    "Enable": false,
+    "Order": 37
+  },
+  {
+    "Script": "ifnull2ifisnull.js",
+    "Enable": false,
+    "Order": 38
+  },
+  {
+    "Script": "includecomment.js",
+    "Enable": false,
+    "Order": 39
+  },
+  {
+    "Script": "informationschemacomment.js",
+    "Enable": false,
+    "Order": 40
+  },
+  {
+    "Script": "infoschema2innodb.js",
+    "Enable": false,
+    "Order": 41
+  },
+  {
+    "Script": "least.js",
+    "Enable": false,
+    "Order": 42
+  },
+  {
+    "Script": "lowercase.js",
+    "Enable": false,
+    "Order": 43
+  },
+  {
+    "Script": "luanginx.js",
+    "Enable": false,
+    "Order": 44
+  },
+  {
+    "Script": "luanginxmore.js",
+    "Enable": false,
+    "Order": 45
+  },
+  {
+    "Script": "mid2leftright.js",
+    "Enable": false,
+    "Order": 46
+  },
+  {
+    "Script": "misunion.js",
+    "Enable": false,
+    "Order": 47
+  },
+  {
+    "Script": "modsecurityversioned.js",
+    "Enable": false,
+    "Order": 48
+  },
+  {
+    "Script": "modsecurityzeroversioned.js",
+    "Enable": false,
+    "Order": 49
+  },
+  {
+    "Script": "mssqlnosemicolon.js",
+    "Enable": false,
+    "Order": 50
+  },
+  {
+    "Script": "multiplespaces.js",
+    "Enable": false,
+    "Order": 51
+  },
+  {
+    "Script": "odbcbrace.js",
+    "Enable": false,
+    "Order": 52
+  },
+  {
+    "Script": "oraclequote.js",
+    "Enable": false,
+    "Order": 53
+  },
+  {
+    "Script": "ord2ascii.js",
+    "Enable": false,
+    "Order": 54
+  },
+  {
+    "Script": "overlongutf8.js",
+    "Enable": false,
+    "Order": 55
+  },
+  {
+    "Script": "overlongutf8more.js",
+    "Enable": false,
+    "Order": 56
+  },
+  {
+    "Script": "percentage.js",
+    "Enable": false,
+    "Order": 57
+  },
+  {
+    "Script": "plus2concat.js",
+    "Enable": false,
+    "Order": 58
+  },
+  {
+    "Script": "plus2fnconcat.js",
+    "Enable": false,
+    "Order": 59
+  },
+  {
+    "Script": "quote2ltat.js",
+    "Enable": false,
+    "Order": 60
+  },
+  {
+    "Script": "randomcase.js",
+    "Enable": false,
+    "Order": 61
+  },
+  {
+    "Script": "randomcomments.js",
+    "Enable": false,
+    "Order": 62
+  },
+  {
+    "Script": "schemasplit.js",
+    "Enable": false,
+    "Order": 63
+  },
+  {
+    "Script": "scientific.js",
+    "Enable": false,
+    "Order": 64
+  },
+  {
+    "Script": "sign.js",
+    "Enable": false,
+    "Order": 65
+  },
+  {
+    "Script": "sleep2getlock.js",
+    "Enable": false,
+    "Order": 66
+  },
+  {
+    "Script": "sleep2hex.js",
+    "Enable": false,
+    "Order": 67
+  },
+  {
+    "Script": "space2comment.js",
+    "Enable": false,
+    "Order": 68
+  },
+  {
+    "Script": "space2dash.js",
+    "Enable": false,
+    "Order": 69
+  },
+  {
+    "Script": "space2hash.js",
+    "Enable": false,
+    "Order": 70
+  },
+  {
+    "Script": "space2morecomment.js",
+    "Enable": false,
+    "Order": 71
+  },
+  {
+    "Script": "space2morehash.js",
+    "Enable": false,
+    "Order": 72
+  },
+  {
+    "Script": "space2mssqlblank.js",
+    "Enable": false,
+    "Order": 73
+  },
+  {
+    "Script": "space2mssqlhash.js",
+    "Enable": false,
+    "Order": 74
+  },
+  {
+    "Script": "space2mysqlblank.js",
+    "Enable": false,
+    "Order": 75
+  },
+  {
+    "Script": "space2mysqldash.js",
+    "Enable": false,
+    "Order": 76
+  },
+  {
+    "Script": "space2plus.js",
+    "Enable": false,
+    "Order": 77
+  },
+  {
+    "Script": "space2randomblank.js",
+    "Enable": false,
+    "Order": 78
+  },
+  {
+    "Script": "sp_password.js",
+    "Enable": false,
+    "Order": 79
+  },
+  {
+    "Script": "substring2leftright.js",
+    "Enable": false,
+    "Order": 80
+  },
+  {
+    "Script": "symboliclogical.js",
+    "Enable": false,
+    "Order": 81
+  },
+  {
+    "Script": "unicode.js",
+    "Enable": false,
+    "Order": 82
+  },
+  {
+    "Script": "unionalltounion.js",
+    "Enable": false,
+    "Order": 83
+  },
+  {
+    "Script": "uniontable.js",
+    "Enable": false,
+    "Order": 84
+  },
+  {
+    "Script": "unionvalues.js",
+    "Enable": false,
+    "Order": 85
+  },
+  {
+    "Script": "unionvaluesrow.js",
+    "Enable": false,
+    "Order": 86
+  },
+  {
+    "Script": "unmagicquotes.js",
+    "Enable": false,
+    "Order": 87
+  },
+  {
+    "Script": "uppercase.js",
+    "Enable": false,
+    "Order": 88
+  },
+  {
+    "Script": "varnish.js",
+    "Enable": false,
+    "Order": 89
+  },
+  {
+    "Script": "versionedkeywords.js",
+    "Enable": false,
+    "Order": 90
+  },
+  {
+    "Script": "versionedmorekeywords.js",
+    "Enable": false,
+    "Order": 91
+  },
+  {
+    "Script": "xforwardedfor.js",
+    "Enable": false,
+    "Order": 92
+  },
+  {
+    "Script": "\u53C2\u6570\u540D\u5927\u5C0F\u5199\u6DF7\u6DC6_\u793A\u4F8B_.js",
+    "Enable": false,
+    "Order": 93
+  }
+]

@@ -22,7 +22,7 @@ Substr:substring(({expr}),{start},{len})
 Concat:{startMark}+{split}+{cols}+{split}+{endMark}
 Length:len({expr})
 Cast:cast({expr} as varchar(8000))
-IfNull:isnull({expr},char(32))
+IfNull:isnull(cast({expr} as varchar(8000)),char(32))
 Ascii:ascii({expr})
 Hex:master.dbo.fn_varbintohexstr(cast({expr} as varbinary))
 DataValue:(select top 1 {cols} from (select top {rowIndex} * from [{db}]..[{table}]{where} order by 1) t order by 1 desc)

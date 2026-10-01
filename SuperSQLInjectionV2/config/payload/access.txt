@@ -21,7 +21,7 @@ Concat:{startMark}&{split}&{cols}&{split}&{endMark}
 Length:len({expr})
 Cast:cstr({expr})
 IfNull:iif(isnull({expr}),chr(32),{expr})
-Ascii:ascw({expr})
+Ascii:iif(ascw({expr})<0,ascw({expr})+65536,ascw({expr}))
 Hex:hex({expr})
 DataValue:(select top 1 {cols} from (select top {rowIndex} {cols} from {table}{where} order by 1) t order by 1 desc)
 DataCount:(select count(1) from {table}{where})

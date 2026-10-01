@@ -1,16 +1,16 @@
 [
   {
     "Kind": 0,
-    "Name": "\u65B0\u89C4\u5219",
-    "TagName": "222",
+    "Name": "\u6D4B\u8BD5\u52A8\u6001\u503C\u5904\u7406",
+    "TagName": "Test",
     "Enabled": true,
     "SourceMode": 2,
     "Url": "",
     "Method": "GET",
     "RequestTxt": "",
-    "UseScript": true,
+    "UseScript": false,
     "SubStart": "",
     "SubEnd": "",
-    "ScriptName": "\u65B0\u52A8\u6001\u503C\u811A\u672C"
+    "ScriptName": "\u52A8\u6001\u503C\u751F\u6210demo"
   }
 ]

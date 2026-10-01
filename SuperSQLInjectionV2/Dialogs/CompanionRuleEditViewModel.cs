@@ -155,7 +155,10 @@ public partial class CompanionRuleEditViewModel : ObservableObject, IDialogConte
         TestResult = "";
         try
         {
+            //计时反馈抓取/脚本执行耗时（毫秒）
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             (string token, string? error) = await BypassPipeline.FetchTokenAsync(_config, Rule, "测试获取动态值");
+            sw.Stop();
             if (error != null)
             {
                 TestStatus = "失败：" + error;
@@ -166,7 +169,7 @@ public partial class CompanionRuleEditViewModel : ObservableObject, IDialogConte
             }
             else
             {
-                TestStatus = "获取成功";
+                TestStatus = $"获取成功（耗时 {sw.ElapsedMilliseconds} 毫秒）";
                 TestResult = token;
             }
         }

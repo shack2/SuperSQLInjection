@@ -77,19 +77,7 @@ namespace SuperSQLInjectionV2.Tools
                 SysLog(msg, LogLevel.Info);
                 return;
             }
-            // 检查当前线程状态
-            if (!Dispatcher.UIThread.CheckAccess())
-            {
-                Dispatcher.UIThread.Post( ()=>
-                {
-                    NotificationManager?.Show(msg);
-
-                }, DispatcherPriority.Normal); // 可设置优先级
-            }
-            else
-            {
-                NotificationManager?.Show(msg);
-            }
+            //普通信息不弹通知（注入检测期间Show高频调用会刷屏），仅Warning/Error弹窗
             SysLog(msg, LogLevel.Info);
         }
 

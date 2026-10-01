@@ -235,6 +235,17 @@ namespace SuperSQLInjectionV2.Models
         /// <summary>穷举模式（G2）：某技术命中后继续测完其余技术，注入记录给出完整画像；默认关（命中即跳到下一技术省时）</summary>
         [ObservableProperty] public partial bool DetectExhaustive { get; set; } = false;
 
+        /// <summary>WAF拦截停止：检测过程中被拦截（HTTP 401/403/406/429/501）累计5次即停止整个检测，避免持续触发防护/封禁；默认关</summary>
+        [ObservableProperty] public partial bool DetectStopOnWaf { get; set; } = false;
+
+        /// <summary>非动态参数停止：动态性预检判定参数为非动态（页面不随参数值变化）时跳过该参数全部检测（省时）；默认开；
+        /// 注意头注入/写入型注入（页面不随参数变化但SQL在后台执行）会被跳过，此类目标请关闭该开关重测</summary>
+        [ObservableProperty] public partial bool DetectStopOnNonDynamic { get; set; } = true;
+
+        /// <summary>检出即停（sqlmap「keep testing the others」默认N同款）：某参数检出注入后停止其余参数的检测（省时）；默认开；
+        /// 需要完整画像（所有参数×所有技术）时关闭本开关或配合穷举模式使用</summary>
+        [ObservableProperty] public partial bool DetectStopOnHit { get; set; } = true;
+
         /// <summary>多参数并行检测：多参数目标按线程数并发执行单参数多技术检测（参数间上下文天然隔离）；默认关（串行逐个检测）</summary>
         [ObservableProperty] public partial bool DetectParamParallel { get; set; } = false;
 

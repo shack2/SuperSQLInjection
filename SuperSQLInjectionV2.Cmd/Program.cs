@@ -94,6 +94,18 @@ public static class Program
         {
             return await Run(opt);
         }
+        catch (SuperSQLInjectionV2.Tools.Http.TargetUnreachableException e)
+        {
+            //目标不可达（连接拒绝/DNS失败/代理不可用）：快速失败，独立退出码便于脚本区分
+            Log.Error("目标无法连接，终止检测: " + e.Message);
+            return 4;
+        }
+        catch (OperationCanceledException e)
+        {
+            //用户停止/WAF拦截达阈值等主动中断：按正常结束处理（告警已在抛出前输出）
+            Log.Warning("检测已中断: " + e.Message);
+            return 2;
+        }
         catch (Exception e)
         {
             Log.Error("运行异常: " + e.Message);
@@ -119,6 +131,12 @@ public static class Program
         config.DataConfig.DetectRisk = Math.Clamp(opt.Risk, 1, 3);
         config.DataConfig.SmartMode = opt.Smart;
         config.DataConfig.DetectExhaustive = opt.Exhaustive;
+        config.DataConfig.DetectStopOnWaf = opt.StopOnWaf;
+        //非动态停止默认开：显式 --no-stop-non-dynamic 才关；--stop-non-dynamic 为兼容保留（等同默认）
+        if (opt.NoStopOnNonDynamic) config.DataConfig.DetectStopOnNonDynamic = false;
+        else if (opt.StopOnNonDynamic) config.DataConfig.DetectStopOnNonDynamic = true;
+        //检出即停默认开：--keep-testing 关闭（完整画像场景）
+        config.DataConfig.DetectStopOnHit = !opt.KeepTesting;
         config.DataConfig.HexDecode = opt.HexDecode;
         config.DataDump.DumpNoCast = opt.NoCast;
         if (!string.IsNullOrWhiteSpace(opt.Where)) config.DataDump.DumpWhere = opt.Where!;
@@ -148,7 +166,14 @@ public static class Program
         if (!string.IsNullOrWhiteSpace(opt.Tamper)) ApplyTamper(config, opt.Tamper!);
         if (!string.IsNullOrWhiteSpace(opt.Proxy)) ApplyProxy(config, opt.Proxy!);
 
-        Log.Highlight($"目标: {config.Host}:{config.Port}{(config.IsSSL ? " (SSL)" : "")}");
+        //日志标注检测目标URL（-u 直接用原始URL；-r 报文模式由Host头+请求行重构）
+        string displayUrl = !string.IsNullOrWhiteSpace(opt.Url) ? opt.Url!
+            : (config.IsSSL ? "https" : "http") + "://" + config.Host
+              + (config.Port is 80 or 443 ? "" : ":" + config.Port)
+              + (requestTxt.Split("\r\n")[0].Split(' ') is { Length: >= 2 } rl ? rl[1] : "/");
+        //回写config.Url：取数配置摘要等共享逻辑读取该字段，否则显示持久化配置里的旧目标
+        config.Url = displayUrl;
+        Log.Highlight($"目标URL: {displayUrl}");
         Log.Show($"检测配置: Level={config.DataConfig.DetectLevel} Risk={config.DataConfig.DetectRisk}" +
                  $"{(opt.Smart ? " Smart" : "")}{(string.IsNullOrWhiteSpace(opt.Technique) ? "" : " Technique=" + opt.Technique)}");
 
@@ -162,6 +187,8 @@ public static class Program
         Log.Show($"待检测参数: {string.Join(", ", candidates.Select(c => c.Name + "(" + c.Place + ")"))}");
 
         // ---------- 注入检测 ----------
+        //检测日志全程带目标URL前缀（多目标/多参数并行日志归属一目了然；keepChannel保持原日志通道）
+        IDisposable logScope = Log.PushScope(new PrefixLogSink("[" + displayUrl + "] ", Log.Sink, keepChannel: true));
         var allHits = new List<InjectPoint>();
         if (opt.Parallel && candidates.Count > 1)
         {
@@ -169,14 +196,21 @@ public static class Program
             int maxPar = Math.Clamp(opt.Threads, 1, 10);
             Log.Show($"多参数并行检测已开启（并发={maxPar}）");
             using var gate = new SemaphoreSlim(maxPar);
+            //检出即停（并行模式）：命中置位后，尚未启动的参数检测直接跳过；在飞参数自然跑完
+            int parHitFound = 0;
             var tasks = candidates.Select(async c =>
             {
                 await gate.WaitAsync().ConfigureAwait(false);
                 try
                 {
+                    if (config.DataConfig.DetectStopOnHit && Volatile.Read(ref parHitFound) == 1)
+                    {
+                        return (c.Name, Hits: new List<InjectPoint>());
+                    }
                     Log.Highlight($"▶ 检测参数 {c.Name} ...");
                     var hits = await InjectDetectEngine.DetectParam(config, requestTxt, c.Name, c.Value, c.Place, c.Header, c.UriIdx).ConfigureAwait(false) ?? [];
                     foreach (var h in hits) h.PName ??= c.Name;
+                    if (hits.Count > 0) Volatile.Write(ref parHitFound, 1);
                     return (c.Name, Hits: hits);
                 }
                 finally { gate.Release(); }
@@ -205,6 +239,12 @@ public static class Program
                     foreach (var h in hits) h.PName ??= name;
                     allHits.AddRange(hits);
                     Log.Success($"参数 {name} 检出 {hits.Count} 个注入类型");
+                    //检出即停（sqlmap同款默认行为）：已检出注入，停止其余参数检测
+                    if (config.DataConfig.DetectStopOnHit)
+                    {
+                        Log.Show("已检出注入点，按「检出即停」设置停止对其余参数的检测（--keep-testing 可关闭）！");
+                        break;
+                    }
                 }
                 else
                 {
@@ -212,6 +252,7 @@ public static class Program
                 }
             }
         }
+        logScope.Dispose();
 
         // --technique 过滤
         if (!string.IsNullOrWhiteSpace(opt.Technique))
@@ -287,6 +328,8 @@ public static class Program
 
     private static async Task RunActions(CliOptions opt, AppConfig config, DBType dbType, InjectPoint hit)
     {
+        //取数动作前输出当前生效配置摘要（与GUI EnsureDataOpReady 成功路径同一实现，保持双端日志一致）
+        MainViewViewModel.LogDataOpConfig(config, hit.InjectType);
         bool echo = hit.InjectType is InjectType.Union or InjectType.Error;
 
         async Task<string> GetData(string expr, int maxLen = 1024) => (hit.InjectType switch
@@ -310,7 +353,8 @@ public static class Program
             var priv = new ObservableCollection<VersModel>();
             VersTools.ReadVersByDBType(dbType, vers, hash, priv);
             IEnumerable<VersModel> picked;
-            if (opt.AllEnv) picked = vers;
+            //--env 语义为"全部环境条目"：vers/hash/priv 三个分流集合合并执行，与 GUI 三个选项卡全选对齐
+            if (opt.AllEnv) picked = vers.Concat(hash).Concat(priv).Distinct().ToList();
             else
             {
                 var list = new List<VersModel>();
@@ -344,10 +388,19 @@ public static class Program
         {
             Console.WriteLine();
             Log.Highlight("========== 数据库列表 ==========");
-            var dbs = await EnumerateNames(config, hit, GetData, GetCount,
-                PayloadFactory.BasePayload.DBCount,
-                PayloadFactory.BasePayload.DBNames,
-                i => PayloadFactory.BPTool.GetDBName(i));
+            List<string> dbs;
+            if (IsLiteralPayload(PayloadFactory.BasePayload.DBNames))
+            {
+                //字面量库名模板（如 Access 单文件库 DBNames=Access）：无需发包直接返回
+                dbs = [PayloadFactory.BasePayload.DBNames.Trim()];
+            }
+            else
+            {
+                dbs = await EnumerateNames(config, hit, GetData, GetCount,
+                    PayloadFactory.BasePayload.DBCount,
+                    PayloadFactory.BasePayload.DBNames,
+                    i => PayloadFactory.BPTool.GetDBName(i));
+            }
             foreach (var d in dbs) Console.WriteLine("  " + d);
             Log.Success($"共 {dbs.Count} 个库");
         }
@@ -358,10 +411,13 @@ public static class Program
             string db = RequireDb(opt, "--tables");
             Console.WriteLine();
             Log.Highlight($"========== 表列表（{db}） ==========");
-            var tables = await EnumerateNames(config, hit, GetData, GetCount,
-                PayloadFactory.BPTool.GetTableCount(db),
-                PayloadFactory.BPTool.GetTableNames(db),
-                i => PayloadFactory.BPTool.GetTableName(db, i));
+            //Access 无元数据可读（msysobjects 默认拒绝）：走 exists 布尔字典猜解
+            var tables = dbType == DBType.Access
+                ? await DictGuessByBool(config, isTable: true)
+                : await EnumerateNames(config, hit, GetData, GetCount,
+                    PayloadFactory.BPTool.GetTableCount(db),
+                    PayloadFactory.BPTool.GetTableNames(db),
+                    i => PayloadFactory.BPTool.GetTableName(db, i));
             foreach (var t in tables) Console.WriteLine("  " + t);
             Log.Success($"共 {tables.Count} 张表");
         }
@@ -377,10 +433,13 @@ public static class Program
                 Console.WriteLine();
                 Log.Highlight($"========== 字段列表（{db}.{table}） ==========");
             }
-            dumpCols = await EnumerateNames(config, hit, GetData, GetCount,
-                PayloadFactory.BPTool.GetColumnCount(db, table),
-                PayloadFactory.BPTool.GetColumnNames(db, table),
-                i => PayloadFactory.BPTool.GetColumnName(db, table, i));
+            //Access：字段名同样走 exists 布尔字典猜解
+            dumpCols = dbType == DBType.Access
+                ? await DictGuessByBool(config, isTable: false, table)
+                : await EnumerateNames(config, hit, GetData, GetCount,
+                    PayloadFactory.BPTool.GetColumnCount(db, table),
+                    PayloadFactory.BPTool.GetColumnNames(db, table),
+                    i => PayloadFactory.BPTool.GetColumnName(db, table, i));
             if (opt.Columns)
             {
                 foreach (var c in dumpCols) Console.WriteLine("  " + c);
@@ -570,6 +629,47 @@ public static class Program
         return names;
     }
 
+    /// <summary>字面量模板判定：无括号/引号/空白即非SQL表达式（如 Access DBNames=Access），可直接作为结果返回</summary>
+    private static bool IsLiteralPayload(string? p) =>
+        !string.IsNullOrWhiteSpace(p) && !p.Any(c => c == '(' || c == '\'' || char.IsWhiteSpace(c));
+
+    /// <summary>
+    /// Access 表名/字段名字典猜解（GUI DBStructTools.GuessAccessDictByBool 的 CLI 对应实现）：
+    /// msysobjects 默认无读权限，用字典逐项构造 exists 子查询做布尔存在性判断。
+    /// 字典：config/dict/access_tables.txt / access_columns.txt
+    /// </summary>
+    private static async Task<List<string>> DictGuessByBool(AppConfig config, bool isTable, string? table = null)
+    {
+        string dictFile = isTable ? "access_tables.txt" : "access_columns.txt";
+        List<string> words = File.ReadAllLines(
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config", "dict", dictFile), Encoding.UTF8)
+            .Select(w => w.Trim())
+            .Where(w => w.Length > 0 && !w.StartsWith('#'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (words.Count == 0)
+        {
+            Log.Warning($"Access{(isTable ? "表名" : "字段")}字典为空或读取失败：config/dict/{dictFile}");
+            return [];
+        }
+        string template = PayloadFactory.BasePayload.Get(isTable ? "exists_table" : "exists_column");
+        Log.Show($"Access无元数据可读，启用{(isTable ? "表名" : "字段")}字典猜解{(isTable ? "" : $"（表 {table}）")}：字典 {words.Count} 项……");
+        var hits = new System.Collections.Concurrent.ConcurrentBag<string>();
+        await WorkRunner.RunAsync(words, config, async w =>
+        {
+            config.CheckStop();
+            string condition = isTable
+                ? TemplateRenderer.Render(template, ("table", w))
+                : TemplateRenderer.Render(template, ("cols", w), ("table", table ?? ""));
+            if (await DataComm.CheckCondition(config, condition).ConfigureAwait(false))
+            {
+                hits.Add(w);
+                Log.Show($"  命中: {w}");
+            }
+        }).ConfigureAwait(false);
+        return hits.OrderBy(h => h, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     // ================== 注入点选择/应用 ==================
 
     private static InjectPoint PickBest(List<InjectPoint> hits, CliOptions opt)
@@ -646,10 +746,9 @@ public static class Program
                 || string.Equals(s.Name, best.AutoTamper, StringComparison.OrdinalIgnoreCase));
             if (item == null)
             {
-                var found = ScriptTamperEngine.FindBuiltinScript(best.AutoTamper);
-                if (found != null)
+                item = RuleStore.LoadToolByKey(best.AutoTamper);
+                if (item != null)
                 {
-                    item = new EncodeToolModel { Name = found.Name, Key = found.Key, Scope = ScriptScope.Payload, Builtin = true, Enable = false };
                     config.ByPassConfig.EncodeTools.Add(item);
                 }
             }
@@ -794,9 +893,7 @@ public static class Program
                 || string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
             if (item == null)
             {
-                var found = ScriptTamperEngine.FindBuiltinScript(name);
-                if (found != null)
-                    item = new EncodeToolModel { Name = found.Name, Key = found.Key, Scope = ScriptScope.Payload, Builtin = true };
+                item = RuleStore.LoadToolByKey(name);
             }
             if (item == null)
             {

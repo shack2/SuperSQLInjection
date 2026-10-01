@@ -16,7 +16,8 @@ namespace SuperSQLInjectionV2.Bypass
     /// ApplyOnceAsync（每逻辑请求一次，产物可被多轮重试复用）：
     ///   Stage1 Token替换 → Stage2 payload/Encode块处理（StringReplace，计划快照驱动）→ Stage3 报文级脚本（eval语义）
     /// ApplyPerRetryAsync（每轮重试执行，作用于Stage产物副本，改写不叠加）：
-    ///   Stage4 限速（--delay/--safe-freq）→ Stage5 随机UA（--random-agent）→ Stage6 HPP/chunked
+    ///   Stage4 限速（--delay/--safe-freq）→ Stage5 随机UA（--random-agent）→ Stage5.5 随机源IP
+    /// HPP/参数名混淆/chunked等协议级绕过已由脚本层实现（脚本库内置示例脚本，Stage3报文级脚本执行）。
     /// 认证/Digest/重试循环/二次注入仍由HTTPTool负责（属于传输语义，非绕过变换）。
     /// 全部Stage读取BypassPlan快照（P0-2），配置变更经Revision失效重建，热路径零集合拷贝。
     /// </summary>
@@ -28,9 +29,6 @@ namespace SuperSQLInjectionV2.Bypass
         /// <summary>User-Agent头匹配（[^\r\n]* 避免吃掉行尾\r）</summary>
         [GeneratedRegex("(?im)^User-Agent:[^\r\n]*")]
         private static partial Regex UserAgentHeaderRegex();
-        /// <summary>chunked改造时剔除Content-Length头</summary>
-        [GeneratedRegex("(?im)^Content-Length:.*\r?\n?")]
-        private static partial Regex ContentLengthStripRegex();
         /// <summary>
         /// 每逻辑请求执行一次的绕过变换链。isSubRequest为true（Token/二次注入子请求）时跳过Token替换防递归。
         /// 返回处理后的新请求（原request不被Stage2/3改写后的内容污染）。
@@ -68,10 +66,6 @@ namespace SuperSQLInjectionV2.Bypass
             ApplyRandomUa(request, plan);
             //Stage5.5：随机源IP头伪造
             ApplyRandomIp(request, plan);
-            //Stage6：HPP参数污染、参数名大小写混淆与chunked分块发包
-            ApplyHpp(request, plan);
-            ApplyParamCaseRand(request, plan);
-            ApplyChunked(request, plan);
         }
 
         /// <summary>清空Token缓存（测试/重置场景用；状态为AppConfig实例字段，按配置维度清理）</summary>
@@ -132,6 +126,11 @@ namespace SuperSQLInjectionV2.Bypass
                     return ("", "请求中存在<DRule>标记，但未配置动态值截取规则（开始/结束字符至少填一项）！");
                 }
                 return (MyTools.Substr(tokenResponse.BodyTxt, before.SubStart, before.SubEnd) ?? "", null);
+            }
+            catch (SuperSQLInjectionV2.Tools.Http.TargetUnreachableException)
+            {
+                //目标不可达：上抛快速终止，不降级为「动态值获取失败」让主请求继续空跑
+                throw;
             }
             catch (Exception e)
             {
@@ -346,119 +345,5 @@ namespace SuperSQLInjectionV2.Bypass
             request.HeaderAndBody = string.Concat(head, "\r\n\r\n", txt[(headEnd + 4)..]);
         }
 
-        //---- Stage6：HPP / 参数名混淆 / chunked ----
-
-        /// <summary>HPP正则键控缓存（注入参数名一轮任务内固定，避免每请求现场拼接模式串重建正则）</summary>
-        private static readonly ConcurrentDictionary<string, Regex> _hppRegexCache = new(StringComparer.Ordinal);
-
-        /// <summary>HPP参数污染：注入参数值按%20拆分到多个同名参数（hpp 能力，用于绕过参数级WAF）。
-        /// [?&amp;\n]前缀同时覆盖Query参数与Body参数位（\n兼容body首参数）；body被改长后收敛Content-Length</summary>
-        private static void ApplyHpp(HttpRequest request, BypassPlan plan)
-        {
-            if (!plan.HppEnabled)
-            {
-                return;
-            }
-            string pname = request.AppConfig.DataConfig?.InjectParamName ?? "";
-            if (string.IsNullOrEmpty(pname))
-            {
-                return;
-            }
-            string txt = request.HeaderAndBody;
-            Regex hppRegex = _hppRegexCache.GetOrAdd(pname,
-                static p => new Regex("(?<pre>[?&\n]" + Regex.Escape(p) + "=)(?<val>[^&\\s]*)", RegexOptions.CultureInvariant | RegexOptions.Compiled));
-            Match m = hppRegex.Match(txt);
-            if (m.Success && m.Groups["val"].Value.Contains("%20", StringComparison.OrdinalIgnoreCase))
-            {
-                string[] segs = Regex.Split(m.Groups["val"].Value, "%20", RegexOptions.IgnoreCase);
-                if (segs.Length > 1)
-                {
-                    string rebuilt = string.Join("&" + pname + "=", segs);
-                    txt = txt[..m.Groups["val"].Index] + rebuilt + txt[(m.Groups["val"].Index + m.Groups["val"].Length)..];
-                    //body位发生替换会改变body长度，收敛Content-Length（无此头时FixContentLength为空操作）
-                    request.HeaderAndBody = StringReplace.FixContentLength(txt);
-                }
-            }
-        }
-
-        /// <summary>参数名大小写混淆正则键控缓存（注入参数名一轮任务内固定）</summary>
-        private static readonly ConcurrentDictionary<string, Regex> _caseRandRegexCache = new(StringComparer.Ordinal);
-
-        /// <summary>参数名大小写混淆：注入参数名逐字符随机大小写（绕过按参数名精确匹配的参数级WAF；
-        /// [?&amp;\n]前缀兼容Query与Body首参数位，IgnoreCase保证命中已混淆形态，每轮重试重新随机）</summary>
-        private static void ApplyParamCaseRand(HttpRequest request, BypassPlan plan)
-        {
-            if (!plan.ParamCaseRandEnabled)
-            {
-                return;
-            }
-            string pname = request.AppConfig.DataConfig?.InjectParamName ?? "";
-            if (string.IsNullOrEmpty(pname))
-            {
-                return;
-            }
-            Regex caseRegex = _caseRandRegexCache.GetOrAdd(pname,
-                static p => new Regex("(?<pre>[?&\n])(?<name>" + Regex.Escape(p) + ")=", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled));
-            string txt = request.HeaderAndBody;
-            if (!caseRegex.IsMatch(txt))
-            {
-                return;
-            }
-            request.HeaderAndBody = caseRegex.Replace(txt, static m =>
-            {
-                string name = m.Groups["name"].Value;
-                char[] chars = name.ToCharArray();
-                for (int i = 0; i < chars.Length; i++)
-                {
-                    chars[i] = Random.Shared.Next(2) == 0 ? char.ToLowerInvariant(chars[i]) : char.ToUpperInvariant(chars[i]);
-                }
-                return m.Groups["pre"].Value + new string(chars) + "=";
-            });
-        }
-
-        /// <summary>chunked随机分块大小下限（字节，字符数近似——按字符切片、按字节计长）</summary>
-        private const int ChunkMinSize = 10;
-        /// <summary>chunked随机分块大小上限</summary>
-        private const int ChunkMaxSize = 50;
-
-        /// <summary>chunked分块发包：POST体按Transfer-Encoding: chunked发送（绕过长body WAF检测）。
-        /// 随机大小多块（WAF需逐块重组才能检测，切点可落在SQL关键字中间，比单块绕过能力强一档）</summary>
-        private static void ApplyChunked(HttpRequest request, BypassPlan plan)
-        {
-            if (!plan.ChunkedEnabled)
-            {
-                return;
-            }
-            string txt = request.HeaderAndBody;
-            int headEnd = txt.IndexOf(HttpConst.CTRL, StringComparison.Ordinal);
-            if (headEnd > 0 && txt.Length > headEnd + HttpConst.CTRL.Length)
-            {
-                string head = txt[..headEnd];
-                string body = txt[(headEnd + HttpConst.CTRL.Length)..];
-                if (body.Length > 0 && !head.Contains("Transfer-Encoding:", StringComparison.OrdinalIgnoreCase))
-                {
-                    //去掉Content-Length，改chunked编码：随机多块+结束符
-                    head = ContentLengthStripRegex().Replace(head, "");
-                    head += "\r\nTransfer-Encoding: chunked";
-                    StringBuilder sb = new StringBuilder(head.Length + body.Length + 128);
-                    sb.Append(head).Append(HttpConst.CTRL);
-                    int i = 0;
-                    while (i < body.Length)
-                    {
-                        int take = Math.Min(Random.Shared.Next(ChunkMinSize, ChunkMaxSize + 1), body.Length - i);
-                        //切片点对齐字符边界：末尾落在高代理项上时多带一个字符，不拆代理项对
-                        if (i + take < body.Length && char.IsHighSurrogate(body[i + take - 1]))
-                        {
-                            take++;
-                        }
-                        string chunk = body.Substring(i, take);
-                        sb.Append(Encoding.UTF8.GetByteCount(chunk).ToString("x")).Append("\r\n").Append(chunk).Append("\r\n");
-                        i += take;
-                    }
-                    sb.Append("0\r\n\r\n");
-                    request.HeaderAndBody = sb.ToString();
-                }
-            }
-        }
     }
 }

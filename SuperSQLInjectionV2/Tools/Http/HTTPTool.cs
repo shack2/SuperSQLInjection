@@ -122,6 +122,12 @@ namespace SuperSQLInjectionV2.Tools.Http
                 {
                     throw;
                 }
+                catch (TargetUnreachableException tue)
+                {
+                    //目标不可达：重试无意义，记一次日志后直接上抛，由检测编排层终止当前目标
+                    Log.SysLog(tue.Message + "，放弃重试！");
+                    throw;
+                }
                 catch (Exception e)
                 {
                     if (LogTools.Headless)
@@ -327,10 +333,21 @@ namespace SuperSQLInjectionV2.Tools.Http
                     await ssl.AuthenticateAsClientAsync(opts, sslCts.Token).ConfigureAwait(false);
                     return new PooledConnection { Client = client, Stream = ssl, Key = poolKey };
                 }
+                catch (TargetUnreachableException)
+                {
+                    //目标/代理不可达（连接拒绝、DNS失败等）：重试TLS协议链无意义，直接上抛终止
+                    try { client?.Close(); } catch { }
+                    throw;
+                }
                 catch (Exception e) when (!ct.IsCancellationRequested)
                 {
                     lastError = e;
                     try { client?.Close(); } catch { }
+                    if (IsUnreachableError(e))
+                    {
+                        Log.SysLog("主机：" + request.Host + ":" + request.Port + "无法连接！");
+                        throw new TargetUnreachableException(request.Host, request.Port, e);
+                    }
                     if (request.IsSSL && i < attempts - 1)
                     {
                         Log.SysLog("TLS握手失败（" + TlsFallbackChain[i] + "），重建连接尝试兼容老协议：" + e.Message);
@@ -339,6 +356,31 @@ namespace SuperSQLInjectionV2.Tools.Http
             }
             Log.SysLog("主机：" + request.Host + ":" + request.Port + "无法连接！");
             throw lastError ?? new Exception("连接失败");
+        }
+
+        /// <summary>
+        /// 判断异常链根因是否为「目标不可达」：连接被拒绝/DNS解析失败/网络或主机不可达。
+        /// 超时不算——可能是WAF丢包或慢响应，仍需走重试
+        /// </summary>
+        private static bool IsUnreachableError(Exception e)
+        {
+            for (Exception? cur = e; cur != null; cur = cur.InnerException)
+            {
+                if (cur is SocketException se)
+                {
+                    switch (se.SocketErrorCode)
+                    {
+                        case SocketError.ConnectionRefused:
+                        case SocketError.HostNotFound:
+                        case SocketError.HostUnreachable:
+                        case SocketError.HostDown:
+                        case SocketError.NetworkUnreachable:
+                        case SocketError.NetworkDown:
+                            return true;
+                    }
+                }
+            }
+            return false;
         }
 
         /// <summary>
@@ -353,13 +395,13 @@ namespace SuperSQLInjectionV2.Tools.Http
                 TcpClient? client = await sp.CreatProxySocketAsync(cproxy.Host, cproxy.Port, timeOutMs, ct).ConfigureAwait(false);
                 if (client == null)
                 {
-                    throw new Exception("Socks5代理" + cproxy.Host + ":" + cproxy.Port + "连接失败");
+                    throw new TargetUnreachableException("Socks5代理" + cproxy.Host + ":" + cproxy.Port + "连接失败");
                 }
                 bool isok = await sp.ConnectProxyServerAsync(request.Host, request.Port, client, cproxy.username, cproxy.password, config.TimeOut, ct).ConfigureAwait(false);
                 if (!isok)
                 {
                     client.Close();
-                    throw new Exception("Socks5代理" + cproxy.Host + ":" + cproxy.Port + "握手失败");
+                    throw new TargetUnreachableException("Socks5代理" + cproxy.Host + ":" + cproxy.Port + "握手失败");
                 }
                 return client;
             }
@@ -701,9 +743,13 @@ namespace SuperSQLInjectionV2.Tools.Http
             {
                 throw; //用户停止信号，向上传播中断整个任务
             }
+            catch (TargetUnreachableException)
+            {
+                throw; //目标不可达：不包装成普通发包错误，保留类型供上层快速终止
+            }
             catch (Exception e)
             {
-                throw new Exception("HTTPS发包错误！错误消息：" + e.Message + "----发包编号：" + index);
+                throw new Exception("HTTP发包错误！错误消息：" + e.Message + "----发包编号：" + index);
             }
             finally
             {

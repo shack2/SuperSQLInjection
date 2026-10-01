@@ -26,7 +26,14 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         public static void ReadVersByDBType(DBType dbType, ObservableCollection<VersModel> vers, ObservableCollection<VersModel>? hash, ObservableCollection<VersModel>? priv = null)
         {
            if (dbType.Equals(DBType.UnKnow)) return;
-           List<string> list=FileTool.readFileToList("/config/vers/" + dbType.ToString().ToLower()+".txt");
+           string versPath = "/config/vers/" + dbType.ToString().ToLower() + ".txt";
+           //无取数模板的数据库（如 Access 无环境变量函数）：提示不支持而不是抛文件不存在异常
+           if (!System.IO.File.Exists(AppDomain.CurrentDomain.BaseDirectory + versPath))
+           {
+               Log.Show($"当前数据库（{dbType}）不支持环境变量读取！");
+               return;
+           }
+           List<string> list=FileTool.readFileToList(versPath);
            list.ForEach(x => {
                string[] data=x.Split("：");
                if (data.Length == 2) {

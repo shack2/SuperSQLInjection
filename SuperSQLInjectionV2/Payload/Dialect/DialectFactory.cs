@@ -25,6 +25,9 @@ namespace SuperSQLInjectionV2.Payload
                         ConcatOp = "+",
                         JoinWithMarker = true,
                         SingleColumnCast = true,
+                        //库/表枚举模板（[{db}]..[sysobjects]、object_id('{db}..{table}')）均为标识符/限定名上下文，
+                        //不能用默认Hex编码（0x...会被当成字面库名导致枚举为空）
+                        IdentEncoder = LiteralEncoder.None,
                         DataIndexOffset = 1
                     };
                 case DBType.Oracle:
@@ -34,6 +37,12 @@ namespace SuperSQLInjectionV2.Payload
                         MarkerEncoder = LiteralEncoder.Chr,
                         ConcatOp = "||",
                         JoinWithMarker = true,
+                        //枚举模板（owner={db}）为字符串上下文，Oracle/DM无0x十六进制字面量，
+                        //默认Hex会编成0x535953...导致owner匹配失败（表/列枚举为空）
+                        IdentEncoder = LiteralEncoder.Chr,
+                        //数据字典中的owner/table_name均为大写存储，用户输入小写时枚举会落空
+                        UpperDbName = true,
+                        UpperTableName = true,
                         DataIndexOffset = 1
                     };
                 case DBType.PostgreSQL:
@@ -74,7 +83,8 @@ namespace SuperSQLInjectionV2.Payload
                         ConcatOp = "&",
                         JoinWithMarker = true,
                         TableIndexOffset = 1,
-                        DataIndexOffset = 1
+                        DataIndexOffset = 1,
+                        MinValueChain = true
                     };
                 case DBType.SQLite:
                     return new DialectOptions

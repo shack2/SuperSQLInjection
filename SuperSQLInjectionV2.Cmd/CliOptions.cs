@@ -22,6 +22,10 @@ public sealed class CliOptions
     public bool Smart;                     // --smart
     public bool Exhaustive;                // --exhaustive 穷举模式
     public bool Parallel;                  // --parallel 多参数并行检测
+    public bool StopOnWaf;                 // --stop-waf WAF拦截5次停止检测
+    public bool StopOnNonDynamic;          // --stop-non-dynamic 非动态参数停止检测（默认已开，保留兼容）
+    public bool NoStopOnNonDynamic;        // --no-stop-non-dynamic 关闭「非动态参数停止检测」（头注入/写入型注入目标用）
+    public bool KeepTesting;               // --keep-testing 检出注入后仍继续检测其余参数（关闭默认开启的检出即停）
     public string? DnsDomain;              // --dns-domain（DNS外带）
     public string? DnsToken;               // --dns-token
 
@@ -107,6 +111,10 @@ public sealed class CliOptions
                     case "--smart": o.Smart = true; break;
                     case "--exhaustive": o.Exhaustive = true; break;
                     case "--parallel": o.Parallel = true; break;
+                    case "--stop-waf": o.StopOnWaf = true; break;
+                    case "--stop-non-dynamic": o.StopOnNonDynamic = true; break;
+                    case "--no-stop-non-dynamic": o.NoStopOnNonDynamic = true; break;
+                    case "--keep-testing": o.KeepTesting = true; break;
                     case "--dns-domain": o.DnsDomain = Val(); break;
                     case "--dns-token": o.DnsToken = Val(); break;
                     case "--proxy": o.Proxy = Val(); break;
@@ -197,6 +205,10 @@ public sealed class CliOptions
           --smart                 智能模式（无迹象参数快速跳过）
           --exhaustive            穷举模式（同技术测完全部用例）
           --parallel              多参数并行检测（并发度取 --threads，上限 10）
+          --stop-waf              WAF 拦截累计 5 次即停止检测（防持续触发封禁）
+          --stop-non-dynamic      非动态参数停止检测（默认已开启，该参数仅为兼容保留）
+          --no-stop-non-dynamic   关闭「非动态参数停止检测」（头注入/写入型注入目标用）
+          --keep-testing          检出注入后仍继续检测其余参数（默认检出即停，sqlmap同款）
           --dns-domain=D          DNS 外带接收域名（配合 --dns-token）
 
         请求:

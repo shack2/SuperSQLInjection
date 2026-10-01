@@ -74,5 +74,8 @@ namespace SuperSQLInjectionV2.Payload
 
         /// <summary>报错 payload 派生表改写（ClickHouse：toInt32 必须推进派生表内作用于物化列）</summary>
         public bool DerivedTableError;
+
+        /// <summary>MIN 值链分页（Access：TOP 并列语义导致行索引分页在标量子查询中不可用）</summary>
+        public bool MinValueChain;
     }
 }

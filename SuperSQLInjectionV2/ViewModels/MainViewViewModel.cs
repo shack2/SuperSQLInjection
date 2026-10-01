@@ -35,6 +35,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using Ursa.Controls;
@@ -118,6 +119,73 @@ public partial class MainViewViewModel : ViewModelBase
 
             Clipboard.SetTextAsync((string)AppConfig.RequestLog.SelectItem.Payload);
         }
+    }
+
+    /// <summary>请求日志：导出全部记录为CSV（含完整请求/响应报文，UTF-8 BOM头Excel可直接打开）</summary>
+    [RelayCommand]
+    private async Task ExportRequestLogs()
+    {
+        if (AppConfig.RequestLog.Items.Count == 0)
+        {
+            NotificationManager?.Show("请求日志为空，无数据可导出！");
+            return;
+        }
+        if (RequestLogSaveFilePicker == null)
+        {
+            return;
+        }
+        string? path = await RequestLogSaveFilePicker();
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+        try
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("序号,时间,Payload,主机,端口,代理,状态码,用时(ms),响应长度,请求包,响应包");
+            foreach (RequestLog item in AppConfig.RequestLog.Items)
+            {
+                sb.Append(item.index).Append(',')
+                    .Append(item.Time).Append(',')
+                    .Append(CsvCell(item.Payload)).Append(',')
+                    .Append(item.Request?.Host).Append(',')
+                    .Append(item.Request?.Port ?? 0).Append(',')
+                    .Append(CsvCell(item.Proxy)).Append(',')
+                    .Append(item.Response?.StatusCode ?? 0).Append(',')
+                    .Append(item.UseTime).Append(',')
+                    .Append(item.Response?.BodyLength ?? 0).Append(',')
+                    .Append(CsvCell(TruncCell(item.Request?.HeaderAndBody))).Append(',')
+                    .Append(CsvCell(TruncCell(item.Response?.HeaderAndBody))).AppendLine();
+            }
+            //不用ConfigureAwait(false)：后续NotificationManager.Show必须回到UI线程，否则Dispatcher.VerifyAccess崩
+            await File.WriteAllTextAsync(path, sb.ToString(), new UTF8Encoding(true));
+            Log.Show("请求日志已导出：" + path + "（共" + AppConfig.RequestLog.Items.Count + "条记录）");
+            NotificationManager?.Show("请求日志已导出：" + path);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("请求日志导出异常：" + ex.Message);
+        }
+    }
+
+    /// <summary>CSV单元格：引号包裹+内部引号双写（报文含逗号/换行/引号，必须转义）</summary>
+    private static string CsvCell(string? v)
+    {
+        if (string.IsNullOrEmpty(v))
+        {
+            return "";
+        }
+        return "\"" + v.Replace("\"", "\"\"") + "\"";
+    }
+
+    /// <summary>Excel单元格上限32767字符，超长报文截断防导入失败</summary>
+    private static string TruncCell(string? v)
+    {
+        if (v != null && v.Length > 32000)
+        {
+            return v.Substring(0, 32000) + "……[超长截断]";
+        }
+        return v ?? "";
     }
 
     private async Task GetVersInfo()
@@ -328,7 +396,22 @@ public partial class MainViewViewModel : ViewModelBase
 
         }
         //获取原始的页面信息
-        HttpResponse coserver = await HTTPTool.SendRequestRetryAsync(request);
+        HttpResponse coserver;
+        try
+        {
+            coserver = await HTTPTool.SendRequestRetryAsync(request);
+        }
+        catch (SuperSQLInjectionV2.Tools.Http.TargetUnreachableException tue)
+        {
+            //目标不可达：检测尚未开始，直接终止，不再进入后续阶段空跑
+            Log.Error("目标主机无法连接，注入检测未开始！" + tue.Message + "请确认目标服务/代理可用后重试。");
+            return;
+        }
+        catch (OperationCanceledException)
+        {
+            Log.Show("已停止注入检测！");
+            return;
+        }
 
 
         //判断是否有编码设置
@@ -351,7 +434,36 @@ public partial class MainViewViewModel : ViewModelBase
 
     }
 
-   
+    /// <summary>
+    /// 批量检测：弹窗导入一批URL多线程检测（检测配置与当前界面一致），
+    /// 命中点经AddBatchInjectRecord写入注入记录（不切换当前注入上下文）
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenBatchDetect()
+    {
+        if (AppConfig.IsRuning)
+        {
+            Log.Warning("大侠，单目标检测进行中，请先停止或等待完成后再批量检测！");
+            return;
+        }
+        var vm = new Dialogs.BatchDetectViewModel(AppConfig, AddBatchInjectRecord, OpenFilePicker);
+        var options = new OverlayDialogOptions
+        {
+            FullScreen = false,
+            HorizontalAnchor = HorizontalPosition.Center,
+            VerticalAnchor = VerticalPosition.Center,
+            HorizontalOffset = 0,
+            VerticalOffset = 0,
+            Mode = DialogMode.None,
+            Buttons = DialogButton.None,
+            Title = "批量注入检测",
+            CanLightDismiss = false,
+            CanDragMove = true,
+            IsCloseButtonVisible = true,
+            CanResize = true,
+        };
+        await OverlayDialog.ShowStandardAsync<Dialogs.BatchDetectView, Dialogs.BatchDetectViewModel>(vm, options: options);
+    }
 
     [RelayCommand]
     private void AddProxy()
@@ -365,65 +477,8 @@ public partial class MainViewViewModel : ViewModelBase
         }
     }
 
-    /// <summary>编码工具编辑弹窗（添加/编辑共用）</summary>
-    private async Task<bool> ShowScriptTamperEditDialog(ScriptTamperEditViewModel vm, string title)
-    {
-        var options = new OverlayDialogOptions
-        {
-            FullScreen = false,
-            HorizontalAnchor = HorizontalPosition.Center,
-            VerticalAnchor = VerticalPosition.Center,
-            HorizontalOffset = 0,
-            VerticalOffset = 0,
-            Mode = DialogMode.None,
-            Buttons = DialogButton.None,
-            Title = title,
-            CanLightDismiss = true,
-            CanDragMove = true,
-            IsCloseButtonVisible = true,
-            CanResize = true,
-        };
-        await OverlayDialog.ShowStandardAsync<ScriptTamperEditView, ScriptTamperEditViewModel>(vm, options: options);
-        return vm.Confirmed;
-    }
-
-    [RelayCommand]
-    private async Task AddCustomEncodeTool()
-    {
-        var vm = ScriptTamperEditViewModel.FromModel(null);
-        if (await ShowScriptTamperEditDialog(vm, "添加自定义编码工具"))
-        {
-            AppConfig.ByPassConfig.EncodeTools.Add(vm.ToModel());
-            NotificationManager?.Show("添加成功！");
-        }
-    }
-
-    [RelayCommand]
-    private async Task EditEncodeTool(EncodeToolModel item)
-    {
-        if (item == null || item.Builtin) //内置规则不可编辑（操作列按钮已禁用，此处命令层防御）
-        {
-            return;
-        }
-        var vm = ScriptTamperEditViewModel.FromModel(item);
-        if (await ShowScriptTamperEditDialog(vm, "编辑编码工具"))
-        {
-            vm.ApplyTo(item);
-            NotificationManager?.Show("保存成功！");
-        }
-    }
-
-    [RelayCommand]
-    private void RemoveEncodeTool(EncodeToolModel item)
-    {
-        if (item != null && !item.Builtin && AppConfig.ByPassConfig.EncodeTools.Contains(item)) //内置规则不可删除（命令层防御）
-        {
-            AppConfig.ByPassConfig.EncodeTools.Remove(item);
-        }
-    }
-
-    /// <summary>编码处理页 TableView 当前选中行（上移/下移按钮与行拖拽排序的操作目标）</summary>
-    [ObservableProperty] private EncodeToolModel? _selectedEncodeTool;
+    /// <summary>脚本库页 TableView 当前选中行（编辑/上移/下移按钮与行拖拽排序的操作目标）</summary>
+    [ObservableProperty] private Models.ScriptLibRow? _selectedScriptRow;
 
     /// <summary>编码工具移动到指定序号位置（上移/下移按钮与行拖拽共用；越界自动收敛，移动后保持选中）</summary>
     public void MoveEncodeTool(EncodeToolModel? item, int newIndex)
@@ -443,38 +498,46 @@ public partial class MainViewViewModel : ViewModelBase
         {
             col.Move(old, newIndex);
         }
-        SelectedEncodeTool = item;
+        //集合Move触发脚本库视图重建（行实例换新），按底层模型重新选中
+        SelectedScriptRow = FilteredScriptLib.FirstOrDefault(r => r.Tool == item);
     }
 
     [RelayCommand]
     private void MoveEncodeToolUp()
     {
-        if (SelectedEncodeTool == null)
+        if (SelectedScriptRow == null)
         {
             NotificationManager?.Show("请先选中要上移的行！");
             return;
         }
-        MoveEncodeTool(SelectedEncodeTool, AppConfig.ByPassConfig.EncodeTools.IndexOf(SelectedEncodeTool) - 1);
+        if (!SelectedScriptRow.IsTransform)
+        {
+            NotificationManager?.Show("动态值脚本不参与编码链排序！");
+            return;
+        }
+        MoveEncodeTool(SelectedScriptRow.Tool, AppConfig.ByPassConfig.EncodeTools.IndexOf(SelectedScriptRow.Tool!) - 1);
     }
 
     [RelayCommand]
     private void MoveEncodeToolDown()
     {
-        if (SelectedEncodeTool == null)
+        if (SelectedScriptRow == null)
         {
             NotificationManager?.Show("请先选中要下移的行！");
             return;
         }
-        MoveEncodeTool(SelectedEncodeTool, AppConfig.ByPassConfig.EncodeTools.IndexOf(SelectedEncodeTool) + 1);
+        if (!SelectedScriptRow.IsTransform)
+        {
+            NotificationManager?.Show("动态值脚本不参与编码链排序！");
+            return;
+        }
+        MoveEncodeTool(SelectedScriptRow.Tool, AppConfig.ByPassConfig.EncodeTools.IndexOf(SelectedScriptRow.Tool!) + 1);
     }
 
-    #region 动态值脚本管理（防护绕过-动态规则页脚本管理选项卡；请求抓取=输入抓取响应报文，自主生成=输入主请求报文，输出动态值）
+    #region 脚本库管理（防护绕过-脚本库页：内置/自定义编码链脚本 + 动态值脚本统一管理）
 
     /// <summary>防护绕过页选项卡索引（"管理脚本"入口跳转定位用）</summary>
     [ObservableProperty] private int _bypassTabIndex;
-
-    /// <summary>动态规则页内嵌选项卡索引（0=动态规则，1=脚本管理）</summary>
-    [ObservableProperty] private int _dynRuleTabIndex;
 
     private async Task<bool> ShowTokenScriptEditDialog(TokenScriptEditViewModel vm, string title)
     {
@@ -497,76 +560,138 @@ public partial class MainViewViewModel : ViewModelBase
         return vm.Confirmed;
     }
 
+    /// <summary>脚本库统一添加：4种用途可选；payload/request保存为编码链自定义节点（默认不启用，需开启启用开关入链），extract/generate保存为动态值脚本</summary>
     [RelayCommand]
     private async Task AddTokenScript()
     {
-        var vm = TokenScriptEditViewModel.FromModel(null);
-        if (await ShowTokenScriptEditDialog(vm, "添加动态值脚本"))
+        var vm = TokenScriptEditViewModel.FromUsage(null);
+        if (await ShowTokenScriptEditDialog(vm, "添加脚本"))
         {
-            ScriptTamperModel item = vm.ToModel();
-            AppConfig.TokenScripts.Add(item);
-            RefreshTokenScriptFilter();
-            //新脚本自动设为当前生效前置规则的抓取脚本
-            if (AppConfig.ActiveCompanionBefore != null)
+            if (vm.IsTransformUsage)
             {
-                AppConfig.ActiveCompanionBefore.ScriptName = item.Name;
+                AppConfig.ByPassConfig.EncodeTools.Add(vm.ToEncodeTool());
             }
+            else
+            {
+                ScriptTamperModel item = vm.ToModel();
+                AppConfig.TokenScripts.Add(item);
+                //新脚本自动设为当前生效前置规则的抓取脚本
+                if (AppConfig.ActiveCompanionBefore != null)
+                {
+                    AppConfig.ActiveCompanionBefore.ScriptName = item.Name;
+                }
+            }
+            RefreshScriptLibFilter();
             NotificationManager?.Show("添加成功！");
         }
     }
 
     [RelayCommand]
-    private async Task EditTokenScript(ScriptTamperModel? item)
+    private async Task EditTokenScript(Models.ScriptLibRow? row)
     {
         //优先选中行，无选中行时回落到第一条勾选行（勾选框点击不触发行选中）
-        item ??= SelectedTokenScript ?? AppConfig.TokenScripts.FirstOrDefault(s => s.RowChecked);
-        if (item == null)
+        row ??= SelectedScriptRow ?? FilteredScriptLib.FirstOrDefault(s => s.RowChecked);
+        if (row == null)
         {
             NotificationManager?.Show("请先选择或勾选要编辑的脚本！");
             return;
         }
-        string oldName = item.Name;
-        var vm = TokenScriptEditViewModel.FromModel(item);
-        if (await ShowTokenScriptEditDialog(vm, "编辑动态值脚本"))
+        //全部脚本走统一编辑弹窗（4种用途）：内置项限定变换类用途、代码保存写磁盘脚本文件；
+        //自定义项保存时按所选用途在编码链/动态值集合间迁移
+        var vm = row.IsTransform
+            ? TokenScriptEditViewModel.FromEncodeTool(row.Tool!)
+            : TokenScriptEditViewModel.FromUsage(row.Token);
+        if (!await ShowTokenScriptEditDialog(vm, "编辑脚本"))
         {
-            vm.ApplyTo(item);
-            //改名时同步所有引用该脚本的伴随规则（按Name解析）
-            foreach (Models.CompanionRequestConfig rule in AppConfig.CompanionRules)
+            return;
+        }
+        string oldName = row.Name;
+        if (vm.IsTransformUsage)
+        {
+            if (row.IsTransform)
             {
-                if (rule.ScriptName == oldName)
+                //变换→变换：原地更新（内置项代码写磁盘脚本文件）
+                vm.ApplyToEncodeTool(row.Tool!);
+            }
+            else
+            {
+                //动态值→变换：从动态值集合移除（清空伴随规则引用），加入编码链（默认停用）
+                ClearTokenScriptRefs(oldName);
+                AppConfig.TokenScripts.Remove(row.Token!);
+                AppConfig.ByPassConfig.EncodeTools.Add(vm.ToEncodeTool());
+            }
+        }
+        else
+        {
+            if (row.IsTransform)
+            {
+                //变换→动态值：从编码链移除，加入动态值脚本集合
+                AppConfig.ByPassConfig.EncodeTools.Remove(row.Tool!);
+                AppConfig.TokenScripts.Add(vm.ToModel());
+            }
+            else
+            {
+                //动态值→动态值：原地更新，改名时同步所有引用该脚本的伴随规则（按Name解析）
+                vm.ApplyTo(row.Token!);
+                foreach (Models.CompanionRequestConfig rule in AppConfig.CompanionRules)
                 {
-                    rule.ScriptName = item.Name;
+                    if (rule.ScriptName == oldName)
+                    {
+                        rule.ScriptName = row.Token!.Name;
+                    }
                 }
             }
-            RefreshTokenScriptFilter();
-            NotificationManager?.Show("保存成功！");
+        }
+        RefreshScriptLibFilter();
+        NotificationManager?.Show("保存成功！");
+    }
+
+    /// <summary>清空引用指定动态值脚本的伴随规则（脚本删除/迁移出动态值集合时调用）</summary>
+    private void ClearTokenScriptRefs(string scriptName)
+    {
+        foreach (Models.CompanionRequestConfig rule in AppConfig.CompanionRules)
+        {
+            if (rule.ScriptName == scriptName)
+            {
+                rule.ScriptName = "";
+            }
         }
     }
 
     [RelayCommand]
-    private void RemoveTokenScript(ScriptTamperModel? item)
+    private void RemoveTokenScript(Models.ScriptLibRow? row)
     {
-        if (item != null && AppConfig.TokenScripts.Contains(item))
+        if (row == null)
+        {
+            return;
+        }
+        if (row.IsTransform)
+        {
+            if (row.Tool != null && AppConfig.ByPassConfig.EncodeTools.Contains(row.Tool))
+            {
+                AppConfig.ByPassConfig.EncodeTools.Remove(row.Tool);
+            }
+            return;
+        }
+        if (row.Token != null && AppConfig.TokenScripts.Contains(row.Token))
         {
             foreach (Models.CompanionRequestConfig rule in AppConfig.CompanionRules)
             {
-                if (rule.ScriptName == item.Name)
+                if (rule.ScriptName == row.Token.Name)
                 {
                     rule.ScriptName = "";
                 }
             }
-            AppConfig.TokenScripts.Remove(item);
-            RefreshTokenScriptFilter();
+            AppConfig.TokenScripts.Remove(row.Token);
         }
     }
 
-    /// <summary>数据管理页"管理脚本"入口：跳转防护绕过页并定位到随机值脚本选项卡（第4个，索引3）</summary>
+    /// <summary>数据管理页/动态规则页"管理脚本"入口：跳转防护绕过页并定位到脚本库选项卡（第3个，索引2）</summary>
     [RelayCommand]
     private void ManageTokenScripts()
     {
         SelectedNavIndex = 6;
-        BypassTabIndex = 3;
-        DynRuleTabIndex = 1;
+        BypassTabIndex = 2;
     }
 
     #endregion
@@ -576,30 +701,44 @@ public partial class MainViewViewModel : ViewModelBase
     /// <summary>动态规则列表当前选中项</summary>
     [ObservableProperty] private Models.CompanionRequestConfig? _selectedCompanionRule;
 
-    /// <summary>脚本管理列表当前选中项</summary>
-    [ObservableProperty] private ScriptTamperModel? _selectedTokenScript;
-
     /// <summary>动态规则搜索关键字（名称/标记名/类型/来源/摘要模糊匹配，空=全部）</summary>
     [ObservableProperty] private string _dynRuleSearchKeyword = "";
 
-    /// <summary>脚本管理搜索关键字（名称/类型模糊匹配，空=全部）</summary>
-    [ObservableProperty] private string _tokenScriptSearchKeyword = "";
+    /// <summary>脚本库搜索关键字（名称/用途模糊匹配，空=全部）</summary>
+    [ObservableProperty] private string _scriptLibSearchKeyword = "";
 
     /// <summary>动态规则过滤视图（TableView绑定源；搜索筛选后的AppConfig.CompanionRules子集，对象引用同源）</summary>
     public ObservableCollection<Models.CompanionRequestConfig> FilteredCompanionRules { get; } = new();
 
-    /// <summary>动态值脚本过滤视图（TableView绑定源）</summary>
-    public ObservableCollection<ScriptTamperModel> FilteredTokenScripts { get; } = new();
+    /// <summary>脚本库过滤视图（TableView绑定源：内置/自定义编码链脚本 + 动态值脚本统一展示，按用途区分）</summary>
+    public ObservableCollection<Models.ScriptLibRow> FilteredScriptLib { get; } = new();
 
     partial void OnDynRuleSearchKeywordChanged(string value) => RefreshDynRuleFilter();
 
-    partial void OnTokenScriptSearchKeywordChanged(string value) => RefreshTokenScriptFilter();
+    partial void OnScriptLibSearchKeywordChanged(string value) => RefreshScriptLibFilter();
 
     /// <summary>配置整体替换（导入/启动加载）后同步两个过滤视图</summary>
     partial void OnAppConfigChanged(AppConfig value)
     {
         RefreshDynRuleFilter();
-        RefreshTokenScriptFilter();
+        RefreshScriptLibFilter();
+    }
+
+    /// <summary>配置替换时退订旧集合并订阅新集合：编码链/动态值脚本集合增删后脚本库视图同步刷新</summary>
+    partial void OnAppConfigChanged(AppConfig? oldValue, AppConfig newValue)
+    {
+        if (oldValue != null)
+        {
+            oldValue.TokenScripts.CollectionChanged -= ScriptSourcesChanged;
+            oldValue.ByPassConfig.EncodeTools.CollectionChanged -= ScriptSourcesChanged;
+        }
+        newValue.TokenScripts.CollectionChanged += ScriptSourcesChanged;
+        newValue.ByPassConfig.EncodeTools.CollectionChanged += ScriptSourcesChanged;
+    }
+
+    private void ScriptSourcesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        RefreshScriptLibFilter();
     }
 
     private static bool DynRuleHit(Models.CompanionRequestConfig r, string kw)
@@ -626,19 +765,43 @@ public partial class MainViewViewModel : ViewModelBase
         }
     }
 
-    /// <summary>按搜索关键字重建脚本过滤视图</summary>
-    public void RefreshTokenScriptFilter()
+    private static bool ScriptLibHit(Models.ScriptLibRow row, string kw)
     {
-        string kw = TokenScriptSearchKeyword ?? "";
-        FilteredTokenScripts.Clear();
-        foreach (var s in AppConfig.TokenScripts)
+        return string.IsNullOrWhiteSpace(kw)
+            || row.Name.Contains(kw, StringComparison.OrdinalIgnoreCase)
+            || row.UsageName.Contains(kw, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>按搜索关键字重建脚本库过滤视图（编码链脚本含内置项按链序在前，动态值脚本在后；重建时保留勾选与选中状态）</summary>
+    public void RefreshScriptLibFilter()
+    {
+        string kw = ScriptLibSearchKeyword ?? "";
+        var checkedKeys = FilteredScriptLib.Where(r => r.RowChecked).Select(r => (r.IsTransform, r.Name)).ToHashSet();
+        var selectedKey = SelectedScriptRow != null ? (SelectedScriptRow.IsTransform, SelectedScriptRow.Name) : ((bool, string)?)null;
+        FilteredScriptLib.Clear();
+        foreach (var t in AppConfig.ByPassConfig.EncodeTools)
         {
-            if (string.IsNullOrWhiteSpace(kw)
-                || (s.Name?.Contains(kw, StringComparison.OrdinalIgnoreCase) == true)
-                || s.KindName.Contains(kw, StringComparison.OrdinalIgnoreCase))
+            var row = Models.ScriptLibRow.FromTool(t);
+            if (ScriptLibHit(row, kw))
             {
-                FilteredTokenScripts.Add(s);
+                row.RowChecked = checkedKeys.Contains((true, row.Name));
+                FilteredScriptLib.Add(row);
             }
+        }
+        int tokenBase = AppConfig.ByPassConfig.EncodeTools.Count; //动态值脚本序号接续编码链（全库连续编号，搜索过滤时序号稳定）
+        for (int si = 0; si < AppConfig.TokenScripts.Count; si++)
+        {
+            var row = Models.ScriptLibRow.FromToken(AppConfig.TokenScripts[si]);
+            row.TokenSeq = tokenBase + si + 1;
+            if (ScriptLibHit(row, kw))
+            {
+                row.RowChecked = checkedKeys.Contains((false, row.Name));
+                FilteredScriptLib.Add(row);
+            }
+        }
+        if (selectedKey != null)
+        {
+            SelectedScriptRow = FilteredScriptLib.FirstOrDefault(r => (r.IsTransform, r.Name) == selectedKey);
         }
     }
 
@@ -667,36 +830,46 @@ public partial class MainViewViewModel : ViewModelBase
         Log.Success("已删除 " + checkedRules.Count + " 条动态规则");
     }
 
-    /// <summary>工具栏"删除选中"：弹窗确认后批量删除勾选行的动态值脚本（同步清理规则引用）</summary>
+    /// <summary>工具栏"删除选中"：弹窗确认后批量删除勾选行的脚本（动态值类同步清理规则引用，变换类从编码链移除）</summary>
     [RelayCommand]
     private async Task RemoveCheckedTokenScripts()
     {
-        var checkedItems = AppConfig.TokenScripts.Where(s => s.RowChecked).ToList();
-        if (checkedItems.Count == 0)
+        var checkedRows = FilteredScriptLib.Where(s => s.RowChecked).ToList();
+        if (checkedRows.Count == 0)
         {
             NotificationManager?.Show("请先勾选要删除的脚本！");
             return;
         }
         var result = await OverlayMessageBox.ShowAsync(
-            "确认删除勾选的 " + checkedItems.Count + " 个动态值脚本？引用这些脚本的规则将清空脚本设置。",
+            "确认删除勾选的 " + checkedRows.Count + " 个脚本？引用这些脚本的规则将清空脚本设置。",
             "删除确认", button: MessageBoxButton.YesNo);
         if (!MessageBoxResult.Yes.Equals(result))
         {
             return;
         }
-        foreach (var item in checkedItems)
+        foreach (var row in checkedRows)
         {
-            foreach (Models.CompanionRequestConfig rule in AppConfig.CompanionRules)
+            if (row.IsTransform)
             {
-                if (rule.ScriptName == item.Name)
+                if (row.Tool != null)
                 {
-                    rule.ScriptName = "";
+                    AppConfig.ByPassConfig.EncodeTools.Remove(row.Tool);
                 }
             }
-            AppConfig.TokenScripts.Remove(item);
+            else if (row.Token != null)
+            {
+                foreach (Models.CompanionRequestConfig rule in AppConfig.CompanionRules)
+                {
+                    if (rule.ScriptName == row.Token.Name)
+                    {
+                        rule.ScriptName = "";
+                    }
+                }
+                AppConfig.TokenScripts.Remove(row.Token);
+            }
         }
-        RefreshTokenScriptFilter();
-        Log.Success("已删除 " + checkedItems.Count + " 个动态值脚本");
+        RefreshScriptLibFilter();
+        Log.Success("已删除 " + checkedRows.Count + " 个脚本");
     }
 
     private async Task<bool> ShowCompanionRuleEditDialog(CompanionRuleEditViewModel vm, string title)
@@ -1488,9 +1661,219 @@ public partial class MainViewViewModel : ViewModelBase
 
     #endregion
 
+    /// <summary>URL/方式⇄报文联动防循环标志（程序内改写报文/URL时置位，另一方向跳过）</summary>
+    private bool _requestSyncGuard;
+
+    /// <summary>上一条由URL自动生成的报文（判断当前报文是否被人工定制的基准）</summary>
+    private string _lastAutoRequest = "";
+
+    /// <summary>上一条由URL自动生成的取数页报文（数据管理页联动基准，与检测页互不影响）</summary>
+    private string _lastAutoDataRequest = "";
+
+    /// <summary>
+    /// URL/请求方式 → 检测报文：空报文/上一条自动生成时按URL重新生成；
+    /// 定制报文（人工粘贴/修改）在URL变更时原地重定向（RetargetRequest保留Cookie等请求头与Body，
+    /// 仅改请求行路径与Host头），报文不完整才回落全量重建；
+    /// 含注入/编码/动态规则标记的报文一律不覆盖；切换请求方式且报文被人工定制时，
+    /// 用ChangeRequestFormat原地转换（参数迁移、请求头保留）
+    /// </summary>
+    private void RegenerateDetectRequest(bool methodSwitched)
+    {
+        if (_requestSyncGuard)
+        {
+            return;
+        }
+        string current = AppConfig.TxtDetectRequest.Text;
+        bool isAutoOrEmpty = current.Length == 0 || current == _lastAutoRequest;
+        if (!isAutoOrEmpty && methodSwitched)
+        {
+            //定制报文原地转换请求方式（参数迁移、请求头保留），与右键"转换数据报文"同一实现
+            string converted = RequestRewriter.ChangeRequestFormat(current,
+                string.Equals(AppConfig.DetectMethod, "POST", StringComparison.OrdinalIgnoreCase)
+                    ? RequestFormat.POST_FORM : RequestFormat.GET);
+            if (!string.IsNullOrEmpty(converted) && converted != current)
+            {
+                _requestSyncGuard = true;
+                try
+                {
+                    AppConfig.TxtDetectRequest.Text = converted;
+                    _lastAutoRequest = "";
+                }
+                finally
+                {
+                    _requestSyncGuard = false;
+                }
+            }
+            return;
+        }
+        if (!isAutoOrEmpty)
+        {
+            //含注入/编码/动态规则标记的报文不覆盖，保护已标记配置
+            if (current.Contains(ConstData.InjectStr, StringComparison.Ordinal)
+                || current.Contains("<Encode>", StringComparison.Ordinal)
+                || current.Contains("<DRule>", StringComparison.Ordinal))
+            {
+                return;
+            }
+            //报文URL与目标语义一致（如报文回同步触发）无需变动；
+            //不一致说明用户切换了目标：原地重定向（保留请求头/Cookie/Body），报文不完整再回落全量重建
+            (_, string? curUrl) = RequestRewriter.ExtractMethodAndUrl(current, AppConfig.IsSSL);
+            if (RequestRewriter.SameUrl(curUrl, AppConfig.DetectUrl))
+            {
+                return;
+            }
+            string? retargeted = RequestRewriter.RetargetRequest(current, AppConfig.DetectUrl);
+            if (!string.IsNullOrEmpty(retargeted) && retargeted != current)
+            {
+                _requestSyncGuard = true;
+                try
+                {
+                    AppConfig.TxtDetectRequest.Text = retargeted;
+                    _lastAutoRequest = "";
+                }
+                finally
+                {
+                    _requestSyncGuard = false;
+                }
+                return;
+            }
+        }
+        string req = RequestRewriter.BuildRequestFromUrl(AppConfig.DetectUrl, AppConfig.DetectMethod);
+        if (string.IsNullOrEmpty(req))
+        {
+            return;
+        }
+        _requestSyncGuard = true;
+        try
+        {
+            AppConfig.TxtDetectRequest.Text = req;
+            _lastAutoRequest = req;
+        }
+        finally
+        {
+            _requestSyncGuard = false;
+        }
+    }
+
+    /// <summary>检测报文 → 请求方式/检测URL：解析请求行与Host头回同步（报文不完整或程序内改写时跳过）</summary>
+    private void SyncUrlFromDetectRequest()
+    {
+        if (_requestSyncGuard)
+        {
+            return;
+        }
+        (string? method, string? url) = RequestRewriter.ExtractMethodAndUrl(AppConfig.TxtDetectRequest.Text, AppConfig.IsSSL);
+        _requestSyncGuard = true;
+        try
+        {
+            if ((method == "GET" || method == "POST") && method != AppConfig.DetectMethod)
+            {
+                AppConfig.DetectMethod = method;
+            }
+            if (url != null && !RequestRewriter.SameUrl(url, AppConfig.DetectUrl))
+            {
+                AppConfig.DetectUrl = url;
+            }
+        }
+        finally
+        {
+            _requestSyncGuard = false;
+        }
+    }
+
+    /// <summary>
+    /// URL → 取数页报文（数据管理页联动）：空报文/上一条自动生成时按URL重建（请求方式沿用当前报文，默认GET）；
+    /// 定制报文在URL变更时原地重定向（RetargetRequest保留请求头与Body），报文不完整才回落全量重建；
+    /// 含注入/编码/动态规则标记的报文一律不覆盖——标记只能由注入记录加载或手工配置改变
+    /// </summary>
+    private void RegenerateDataRequest()
+    {
+        if (_requestSyncGuard)
+        {
+            return;
+        }
+        string current = AppConfig.TxtRequest.Text;
+        //含注入/编码/动态规则标记的报文不覆盖，保护已标记配置（记录加载/手工标记的注入点）
+        if (current.Contains(ConstData.InjectStr, StringComparison.Ordinal)
+            || current.Contains("<Encode>", StringComparison.Ordinal)
+            || current.Contains("<DRule>", StringComparison.Ordinal))
+        {
+            return;
+        }
+        bool isAutoOrEmpty = current.Length == 0 || current == _lastAutoDataRequest;
+        if (!isAutoOrEmpty)
+        {
+            //报文URL与目标语义一致无需变动；不一致说明用户切换了目标：原地重定向，报文不完整再回落全量重建
+            (_, string? curUrl) = RequestRewriter.ExtractMethodAndUrl(current, AppConfig.IsSSL);
+            if (RequestRewriter.SameUrl(curUrl, AppConfig.Url))
+            {
+                return;
+            }
+            string? retargeted = RequestRewriter.RetargetRequest(current, AppConfig.Url);
+            if (!string.IsNullOrEmpty(retargeted) && retargeted != current)
+            {
+                _requestSyncGuard = true;
+                try
+                {
+                    AppConfig.TxtRequest.Text = retargeted;
+                    _lastAutoDataRequest = "";
+                }
+                finally
+                {
+                    _requestSyncGuard = false;
+                }
+                return;
+            }
+        }
+        //请求方式沿用当前报文（取数页无方式下拉框），提取失败默认GET
+        (string? curMethod, _) = RequestRewriter.ExtractMethodAndUrl(current, AppConfig.IsSSL);
+        string req = RequestRewriter.BuildRequestFromUrl(AppConfig.Url,
+            string.IsNullOrEmpty(curMethod) ? "GET" : curMethod);
+        if (string.IsNullOrEmpty(req))
+        {
+            return;
+        }
+        _requestSyncGuard = true;
+        try
+        {
+            AppConfig.TxtRequest.Text = req;
+            _lastAutoDataRequest = req;
+        }
+        finally
+        {
+            _requestSyncGuard = false;
+        }
+    }
+
+    /// <summary>取数页报文 → URL：剥离标记后解析请求行与Host头回同步（报文不完整或程序内改写时跳过）</summary>
+    private void SyncUrlFromDataRequest()
+    {
+        if (_requestSyncGuard)
+        {
+            return;
+        }
+        //标记报文请求行可能含<Encode>等字面量与未编码空格的payload，先剥离再用宽松版提取URL
+        string clean = RequestRewriter.StripRequestMarks(AppConfig.TxtRequest.Text);
+        (_, string? url) = RequestRewriter.ExtractMethodAndUrlLenient(clean, AppConfig.IsSSL);
+        if (url != null && !RequestRewriter.SameUrl(url, AppConfig.Url))
+        {
+            _requestSyncGuard = true;
+            try
+            {
+                AppConfig.Url = url;
+            }
+            finally
+            {
+                _requestSyncGuard = false;
+            }
+        }
+    }
+
     private async Task CheckInject()
     {
         IsRuning = true;
+        //检测日志全程带目标URL前缀（多次/批量检测日志归属一目了然；keepChannel保持原日志通道与颜色，finally释放）
+        IDisposable logScope = Log.PushScope(new PrefixLogSink("[" + AppConfig.DetectUrl + "] ", Log.Sink, keepChannel: true));
         try
         {
             //剥离人工/自动标记（$sql$/<Encode>/<DRule>），避免标记字面量混入参数值污染检测探针；
@@ -1500,21 +1883,15 @@ public partial class MainViewViewModel : ViewModelBase
             {
                 Log.Show("检测到报文含注入/编码标记，已自动剥离后进行检测……");
             }
-            //新一轮检测=新目标：把干净报文同步到取数页文档，覆盖旧目标残留的标记报文（取数页与检测页文档已分离，互不污染）
-            //覆盖保护：取数页报文含注入标记（$sql$）时说明用户正在利用已标记注入点，跳过覆盖避免丢失人工/记录恢复的标记配置
-            if (AppConfig.TxtRequest.Text.Contains(ConstData.InjectStr, StringComparison.Ordinal))
-            {
-                Log.Show("取数页报文含注入标记（$sql$），本次检测不同步覆盖取数页，标记配置保持不变……");
-            }
-            else if (!AppConfig.TxtRequest.Text.Equals(cleanRequestTxt, StringComparison.Ordinal))
-            {
-                AppConfig.TxtRequest.Text = cleanRequestTxt;
-            }
+            //取数页报文与检测流程完全隔离：只能由注入记录加载或手工配置改变，检测不再覆盖
             HttpRequest request = new HttpRequest(AppConfig, cleanRequestTxt);
-           
+
+            //日志标注本次检测目标URL（批量/多次检测时可据此区分日志归属）
+            Log.Highlight("本次检测目标URL：" + AppConfig.DetectUrl);
+
             //获取原始的页面信息
             HttpResponse coserver = await HTTPTool.SendRequestRetryAsync(request);
-        
+
             //拆分参数,存放到集合，方便后面从新拼接组合参数
             Log.Show("报告大侠，发现" + request.Params.Count + "个参数，请稍候正在对每一个参数进行注入测试！");
 
@@ -1522,6 +1899,8 @@ public partial class MainViewViewModel : ViewModelBase
             _detectHitFound = false;
             _detectHitCount = 0;
             _lastHitRequestTxt = null;
+            //检出即停标记：某参数命中后停止其余参数与扩展位置检测
+            bool stopTesting = false;
 
             foreach (KeyValuePair<string, string> paramNameAndData in request.Params)
             {
@@ -1556,6 +1935,13 @@ public partial class MainViewViewModel : ViewModelBase
                     {
                         Log.Show("该参数共发现" + inpList.Count + "种注入类型，已全部记录到注入记录列表，可在注入记录中切换利用！");
                     }
+                    //检出即停（sqlmap「keep testing the others」默认N同款）：已检出注入，停止其余参数检测
+                    if (inpList.Count > 0 && AppConfig.DataConfig.DetectStopOnHit)
+                    {
+                        Log.Show("已检出注入点，按「检出即停」设置停止对其余参数/扩展位置的检测（需完整画像请关闭该开关）！");
+                        stopTesting = true;
+                        break;
+                    }
                     continue;
                 }
 
@@ -1567,7 +1953,7 @@ public partial class MainViewViewModel : ViewModelBase
 
 
             //扩展注入位置（level 扩展行为）：JSON请求体任意level；level>=2测Cookie键值；level>=3测User-Agent/Referer头
-            if (SuperSQLInjectionV2.Tools.Inject.InjectPayloadLoader.IsAvailable())
+            if (!stopTesting && SuperSQLInjectionV2.Tools.Inject.InjectPayloadLoader.IsAvailable())
             {
                 await CheckExtendedPlaces(request, cleanRequestTxt);
             }
@@ -1589,12 +1975,18 @@ public partial class MainViewViewModel : ViewModelBase
         {
             Log.Show("已停止注入检测！");
         }
+        catch (SuperSQLInjectionV2.Tools.Http.TargetUnreachableException)
+        {
+            //引擎内已记Error日志，这里只补一条结果提示，不再重复堆异常详情
+            Log.Show("目标主机无法连接，本次注入检测已终止！请确认目标服务/代理可用后重试。");
+        }
         catch (Exception e)
         {
             Log.Show("识别注入发生异常！" + e.Message);
         }
         finally
         {
+            logScope.Dispose();
             IsRuning = false;
         }
 
@@ -1619,12 +2011,23 @@ public partial class MainViewViewModel : ViewModelBase
             int maxPar = Math.Max(1, Math.Min(AppConfig.ThreadSize, 10));
             Log.Show("报告大侠，发现" + targets.Count + "个参数，多参数并行检测已开启（并发=" + maxPar + "），正在同时对所有参数进行注入测试（Level=" + level + "）！");
             using SemaphoreSlim gate = new SemaphoreSlim(maxPar);
+            //检出即停（并行模式）：命中置位后，尚未启动的参数检测直接跳过；在飞参数自然跑完（语义近似sqlmap默认N）
+            int parHitFound = 0;
             var tasks = targets.Select(async t =>
             {
                 await gate.WaitAsync().ConfigureAwait(false);
                 try
                 {
-                    return await SuperSQLInjectionV2.Tools.Inject.InjectDetectEngine.DetectParam(AppConfig, requestTxt, t.name, t.value, t.place, t.header, t.uriIdx).ConfigureAwait(false);
+                    if (AppConfig.DataConfig.DetectStopOnHit && Volatile.Read(ref parHitFound) == 1)
+                    {
+                        return new List<InjectPoint>();
+                    }
+                    List<InjectPoint> hits = await SuperSQLInjectionV2.Tools.Inject.InjectDetectEngine.DetectParam(AppConfig, requestTxt, t.name, t.value, t.place, t.header, t.uriIdx).ConfigureAwait(false);
+                    if (hits.Count > 0)
+                    {
+                        Volatile.Write(ref parHitFound, 1);
+                    }
+                    return hits;
                 }
                 finally
                 {
@@ -1648,6 +2051,12 @@ public partial class MainViewViewModel : ViewModelBase
             foreach (InjectPoint inp in hits)
             {
                 UpdateData(inp);
+            }
+            //检出即停：已检出注入，停止其余扩展位置参数检测
+            if (hits.Count > 0 && AppConfig.DataConfig.DetectStopOnHit)
+            {
+                Log.Show("已检出注入点，按「检出即停」设置停止对其余扩展位置参数的检测（需完整画像请关闭该开关）！");
+                return;
             }
         }
     }
@@ -1972,10 +2381,29 @@ public partial class MainViewViewModel : ViewModelBase
     /// </summary>
     private void AddInjectRecord(InjectPoint inp)
     {
+        InjectRecord record = BuildInjectRecord(inp, AppConfig.Host, AppConfig.Port);
+        //每注入点生成随机回显标记（防固定短串与页面内容冲突），随记录持久化并立即生效
+        Payload.EchoMarkers.Use(record, Payload.PayloadFactory.BasePayload);
+        UpsertInjectRecord(record, AppConfig.Host, AppConfig.Port, true);
+    }
+
+    /// <summary>
+    /// 批量检测命中写入注入记录（BatchDetectViewModel回调，UI线程执行）：
+    /// 只落记录与通道注册表，不切换当前注入上下文、不改动全局回显标记（其他目标仍在并发检测，避免互相污染）
+    /// </summary>
+    public void AddBatchInjectRecord(InjectPoint inp, string host, int port)
+    {
+        InjectRecord record = BuildInjectRecord(inp, host, port);
+        UpsertInjectRecord(record, host, port, false);
+    }
+
+    /// <summary>由命中点构造注入记录（含随机回显标记生成；Target取调用方给定的主机/端口）</summary>
+    private InjectRecord BuildInjectRecord(InjectPoint inp, string host, int port)
+    {
         InjectRecord record = new InjectRecord
         {
             Time = DateTime.Now,
-            Target = AppConfig.Host + ":" + AppConfig.Port,
+            Target = host + ":" + port,
             PName = inp.PName ?? "",
             DBType = inp.DBType,
             InjectType = inp.InjectType,
@@ -2001,9 +2429,14 @@ public partial class MainViewViewModel : ViewModelBase
             UriIndex = inp.UriIndex,
             Clause = inp.Clause ?? ""
         };
-        //每注入点生成随机回显标记（防固定短串与页面内容冲突），随记录持久化并立即生效
+        //每注入点生成随机回显标记（防固定短串与页面内容冲突），随记录持久化
         (record.StartMark, record.EndMark, record.SplitMark) = Payload.EchoMarkers.Generate();
-        Payload.EchoMarkers.Use(record, Payload.PayloadFactory.BasePayload);
+        return record;
+    }
+
+    /// <summary>注入记录去重落库（同参数/类型/目标/报文替换，否则置顶插入）+ 通道注册表登记；updateContext=true时同步建立注入上下文</summary>
+    private void UpsertInjectRecord(InjectRecord record, string host, int port, bool updateContext)
+    {
         InjectRecord? exist = InjectRecords.FirstOrDefault(r =>
             r.PName == record.PName && r.InjectType == record.InjectType && r.BoolInjectType == record.BoolInjectType
             && r.Target == record.Target && r.RequestTxt == record.RequestTxt);
@@ -2018,9 +2451,13 @@ public partial class MainViewViewModel : ViewModelBase
         }
         SaveInjectRecords();
         //登记通道注册表：取数自动通道升级用（盲注/时间取数前探测同参数Union/Error）
-        InjectChannelRegistry.Register(AppConfig.Host, AppConfig.Port, record);
+        InjectChannelRegistry.Register(host, port, record);
         Log.Success("已记录注入点到注入记录列表：" + record.PName + "（" + record.InjectTypeDesc + "，" + record.DBType + "）");
 
+        if (!updateContext)
+        {
+            return;
+        }
         //检测命中 → 建立注入上下文（来源：自动检测）
         CurrentContext.Source = InjectContextSource.AutoDetect;
         CurrentContext.SourceDetail = record.Target;
@@ -2117,7 +2554,7 @@ public partial class MainViewViewModel : ViewModelBase
         AppConfig.DataConfig.TrueCode = record.TrueCode;
         AppConfig.DataConfig.FalseCode = record.FalseCode;
         AppConfig.DataConfig.SawUnexpectedCode = false;
-        //检测期自动适配的编码工具随记录恢复：自动启用对应工具（内置注册表解析）
+        //检测期自动适配的编码工具随记录恢复：自动启用对应工具（磁盘脚本优先，注册表兜底）
         if (!string.IsNullOrEmpty(record.AutoTamper))
         {
             try
@@ -2127,11 +2564,9 @@ public partial class MainViewViewModel : ViewModelBase
                     || string.Equals(s.Name, record.AutoTamper, StringComparison.OrdinalIgnoreCase));
                 if (item == null)
                 {
-                    //解析统一编码工具注册表（EncodeToolRegistry，C#内置实现）
-                    var found = Bypass.ScriptTamperEngine.FindBuiltinScript(record.AutoTamper);
-                    if (found != null)
+                    item = Bypass.RuleStore.LoadToolByKey(record.AutoTamper);
+                    if (item != null)
                     {
-                        item = new EncodeToolModel { Name = found.Name, Key = found.Key, Scope = ScriptScope.Payload, Builtin = true, Enable = false };
                         AppConfig.ByPassConfig.EncodeTools.Add(item);
                     }
                 }
@@ -2474,7 +2909,39 @@ public partial class MainViewViewModel : ViewModelBase
         {
             return DataOpBlock("DNS盲注需要先配置DNSLog域名！\n请在网络设置中配置DNSLog域名（如 abc.ceye.io）。");
         }
+        //配置检查通过：输出当前生效配置摘要（取数/文件/命令/自定义SQL统一入口），便于核对与问题定位
+        LogDataOpConfig(config, type);
         return true;
+    }
+
+    /// <summary>数据操作前的配置摘要日志：目标/库/注入类型/参数/通道关键参数/编码链/网络参数（GUI/Cmd 共用）</summary>
+    public static void LogDataOpConfig(AppConfig config, InjectType type)
+    {
+        DataConfig dc = config.DataConfig;
+        var sb = new StringBuilder("当前配置：目标=");
+        sb.Append(config.Url)
+          .Append("，数据库=").Append(dc.SelectedDBType)
+          .Append("，注入类型=").Append(type)
+          .Append("，注入参数=").Append(string.IsNullOrWhiteSpace(dc.InjectParamName) ? "-" : dc.InjectParamName);
+        if (type == InjectType.Union)
+        {
+            sb.Append("，Union列数=").Append(dc.SumColumnCount).Append("/显示位=").Append(dc.ShowColumnIndex);
+        }
+        if (type is InjectType.Blind or InjectType.Time or InjectType.Stacked or InjectType.Dns)
+        {
+            sb.Append("，判断值=").Append(dc.CheckValue).Append(dc.Reverse ? "（取反）" : "");
+        }
+        if (type == InjectType.Dns)
+        {
+            sb.Append("，DNSLog=").Append(dc.DnsLogDomain);
+        }
+        string chain = string.Join("→", config.ByPassConfig.EncodeTools
+            .Where(t => t.Enable).OrderBy(t => t.Seq).Select(t => t.Name));
+        sb.Append("，编码链=").Append(chain.Length == 0 ? "无" : chain)
+          .Append("，超时=").Append(config.TimeOut).Append("s")
+          .Append("，线程=").Append(config.ThreadSize)
+          .Append("，重试=").Append(config.RetryCount);
+        Log.Show(sb.ToString());
     }
 
     /// <summary>配置检查不通过：红色日志 + 弹窗提示（无UI环境只记日志），并阻断后续操作</summary>
@@ -3082,6 +3549,11 @@ public partial class MainViewViewModel : ViewModelBase
     public Func<Task<string?>>? SaveFilePicker { get; set; }
 
     /// <summary>
+    /// 请求日志导出保存文件选择回调，由View注入（建议文件名request_log.csv）
+    /// </summary>
+    public Func<Task<string?>>? RequestLogSaveFilePicker { get; set; }
+
+    /// <summary>
     /// 打开文件选择回调，由View注入
     /// </summary>
     public Func<Task<string?>>? OpenFilePicker { get; set; }
@@ -3132,35 +3604,6 @@ public partial class MainViewViewModel : ViewModelBase
             }
         }
         Log.Show(added > 0 ? "已导入内置UA " + added + " 条！" : "内置UA已全部在池中，无需导入！");
-    }
-
-    /// <summary>内置编码工具列表（编码处理页"添加内置"下拉数据源，统一注册表可见项）</summary>
-    public System.Collections.Generic.IReadOnlyList<Bypass.EncodeTool> BuiltinEncodeTools => Bypass.EncodeToolRegistry.VisibleTools;
-
-    /// <summary>编码处理页：添加选中的内置工具到链路（同名/同键去重，默认启用）</summary>
-    [RelayCommand]
-    private void AddBuiltinEncodeTool()
-    {
-        Bypass.EncodeTool? tool = AppConfig.ByPassConfig.AddBuiltinTool;
-        if (tool == null)
-        {
-            NotificationManager?.Show("请先选择要添加的内置工具！");
-            return;
-        }
-        if (AppConfig.ByPassConfig.EncodeTools.Any(s => string.Equals(s.Key, tool.Key, StringComparison.OrdinalIgnoreCase)))
-        {
-            NotificationManager?.Show("该内置工具已在列表中！");
-            return;
-        }
-        AppConfig.ByPassConfig.EncodeTools.Add(new EncodeToolModel
-        {
-            Name = tool.Name,
-            Key = tool.Key,
-            Scope = ScriptScope.Payload,
-            Builtin = true,
-            Enable = true
-        });
-        NotificationManager?.Show("添加成功！");
     }
 
     #region 字典管理（网络设置·字典管理页：字典猜解词表的查看/增删，去重忽略大小写）
@@ -3535,19 +3978,48 @@ public partial class MainViewViewModel : ViewModelBase
         AppConfig =ReadConfig();
         //规则与状态分离：lastconfig.json 只含界面状态与基础配置，五类规则从 config/rules/ 独立加载
         Bypass.RuleStore.LoadAll(AppConfig);
-        //LoadAll 回填规则发生在 AppConfig 赋值（OnAppConfigChanged 刷新过滤视图）之后，此处补刷新，否则动态规则/脚本页显示空快照
+        //LoadAll 回填规则发生在 AppConfig 赋值（OnAppConfigChanged 刷新过滤视图）之后，此处补刷新，否则动态规则/脚本库页显示空快照
         RefreshDynRuleFilter();
-        RefreshTokenScriptFilter();
+        RefreshScriptLibFilter();
         AppConfig.TxtRequest.Text = AppConfig.RequestTxt;
+        //旧配置无DetectUrl字段（序列化缺省）时用取数页URL兜底初始化
+        if (string.IsNullOrWhiteSpace(AppConfig.DetectUrl))
+        {
+            AppConfig.DetectUrl = AppConfig.Url;
+        }
         //检测页独立文档：优先载入持久化的检测报文；旧配置无此字段时用剥离标记后的取数报文兜底
         AppConfig.TxtDetectRequest.Text = string.IsNullOrWhiteSpace(AppConfig.DetectRequestTxt)
             ? RequestRewriter.StripRequestMarks(AppConfig.RequestTxt)
             : AppConfig.DetectRequestTxt;
 
+        //URL/请求方式 ⇄ 检测报文 双向联动（检测页URL独立为DetectUrl，与取数页Url互不影响）：
+        //① 检测URL或请求方式变化→按需重新生成报文（空报文/上一条自动生成的报文/跨主机新目标才覆盖，人工定制报文不动；
+        //   切换请求方式时定制报文用ChangeRequestFormat原地转换保留请求头）；
+        //② 报文变化→解析请求行/Host头回同步请求方式与检测URL（_requestSyncGuard防循环）
+        AppConfig.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(AppConfig.DetectUrl))
+            {
+                RegenerateDetectRequest(false);
+            }
+            else if (e.PropertyName == nameof(AppConfig.Url))
+            {
+                //取数页联动：URL变化更新取数报文（含标记的取数报文受保护不覆盖）；检测页报文不受取数页URL影响
+                RegenerateDataRequest();
+            }
+            else if (e.PropertyName == nameof(AppConfig.DetectMethod))
+            {
+                RegenerateDetectRequest(true);
+            }
+        };
+        AppConfig.TxtDetectRequest.TextChanged += (_, _) => SyncUrlFromDetectRequest();
+        //取数页报文变化→回同步URL（StripRequestMarks后提取，标记报文也能正确回同步）
+        AppConfig.TxtRequest.TextChanged += (_, _) => SyncUrlFromDataRequest();
+
         //自愈：清理历史AOT源生成序列化丢失属性产生的空壳条目（{}反序列化出的默认实例）
         try
         {
-            var shellTools = AppConfig.ByPassConfig.EncodeTools.Where(s => string.IsNullOrWhiteSpace(s.Code) && !s.Builtin).ToList();
+            var shellTools = AppConfig.ByPassConfig.EncodeTools.Where(s => string.IsNullOrWhiteSpace(s.Code)).ToList();
             foreach (var s in shellTools)
             {
                 AppConfig.ByPassConfig.EncodeTools.Remove(s);

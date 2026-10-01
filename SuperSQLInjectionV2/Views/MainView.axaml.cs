@@ -282,6 +282,8 @@ public partial class MainView : UserControl
         //注入文件对话框回调，用于绕过模板与配置导入导出
         _viewModel.SaveFilePicker = PickSaveFile;
         _viewModel.OpenFilePicker = PickOpenFile;
+        //注入请求日志导出保存文件对话框回调
+        _viewModel.RequestLogSaveFilePicker = PickRequestLogSaveFile;
 
         WindowNotificationManager? notify = WindowNotificationManager.TryGetNotificationManager(topLevel, out var manager)
             ? manager
@@ -722,16 +724,16 @@ public partial class MainView : UserControl
 
     private void RemoveBypassSelect(object? sender, RoutedEventArgs e)
     {
-        //内置规则不可删除（可关闭启用开关）：多选删除仅作用于自定义项
-        EncodeDataGrid.SelectedItems?.Cast<EncodeToolModel>().Where(x => !x.Builtin).ToList().ForEach(x =>
+        //多选删除按行类型分流（变换类出编码链，动态值类清规则引用）
+        EncodeDataGrid.SelectedItems?.Cast<ScriptLibRow>().ToList().ForEach(x =>
         {
-            _viewModel?.AppConfig?.ByPassConfig.EncodeTools.Remove(x);
+            _viewModel?.RemoveTokenScriptCommand.Execute(x);
         });
     }
 
-    //---- 编码处理页行拖拽排序 ----
+    //---- 脚本库页行拖拽排序（仅编码链脚本参与，动态值脚本不拖拽） ----
     private Point _encodeDragStart;
-    private EncodeToolModel? _encodeDragItem;
+    private ScriptLibRow? _encodeDragItem;
     private bool _encodeDragging;
 
     private void EncodeGrid_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -747,7 +749,7 @@ public partial class MainView : UserControl
         {
             return;
         }
-        if (EncodeRowItem(v) is { } item)
+        if (EncodeRowItem(v) is { IsTransform: true } item)
         {
             _encodeDragItem = item;
             _encodeDragStart = e.GetPosition(EncodeDataGrid);
@@ -755,15 +757,15 @@ public partial class MainView : UserControl
     }
 
     /// <summary>按可视树向上找行项：优先TableViewRow，兜底逐级查DataContext（行容器类型变更时仍可用）</summary>
-    private static EncodeToolModel? EncodeRowItem(Visual v)
+    private static ScriptLibRow? EncodeRowItem(Visual v)
     {
-        if (v.FindAncestorOfType<TableViewRow>()?.DataContext is EncodeToolModel m)
+        if (v.FindAncestorOfType<TableViewRow>()?.DataContext is ScriptLibRow m)
         {
             return m;
         }
         for (Visual? cur = v; cur != null; cur = cur.GetVisualParent())
         {
-            if (cur.DataContext is EncodeToolModel m2)
+            if (cur.DataContext is ScriptLibRow m2)
             {
                 return m2;
             }
@@ -798,9 +800,10 @@ public partial class MainView : UserControl
         if (_encodeDragging && _encodeDragItem != null)
         {
             IInputElement? hit = EncodeDataGrid.InputHitTest(e.GetPosition(EncodeDataGrid));
-            if (hit is Visual hv && EncodeRowItem(hv) is { } target)
+            //目标必须是编码链脚本行（动态值脚本不参与排序，落在其上忽略）
+            if (hit is Visual hv && EncodeRowItem(hv) is { IsTransform: true } target)
             {
-                _viewModel?.MoveEncodeTool(_encodeDragItem, _viewModel.AppConfig.ByPassConfig.EncodeTools.IndexOf(target));
+                _viewModel?.MoveEncodeTool(_encodeDragItem.Tool, _viewModel.AppConfig.ByPassConfig.EncodeTools.IndexOf(target.Tool!));
             }
         }
         _encodeDragItem = null;
@@ -957,7 +960,23 @@ public partial class MainView : UserControl
     /// <summary>
     /// 弹出保存文件对话框，返回选择的保存路径
     /// </summary>
-    private async Task<string?> PickSaveFile()
+    private Task<string?> PickSaveFile()
+    {
+        return PickSaveFileAs("导出数据", "dump_data.csv");
+    }
+
+    /// <summary>
+    /// 弹出保存文件对话框（请求日志导出），返回选择的保存路径
+    /// </summary>
+    private Task<string?> PickRequestLogSaveFile()
+    {
+        return PickSaveFileAs("导出请求日志", "request_log.csv");
+    }
+
+    /// <summary>
+    /// 弹出保存文件对话框（CSV/文本），返回选择的保存路径
+    /// </summary>
+    private async Task<string?> PickSaveFileAs(string title, string suggestedName)
     {
         var topLevel = TopLevel.GetTopLevel(this);
         if (topLevel == null)
@@ -966,8 +985,8 @@ public partial class MainView : UserControl
         }
         var file = await topLevel.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
         {
-            Title = "导出数据",
-            SuggestedFileName = "dump_data.csv",
+            Title = title,
+            SuggestedFileName = suggestedName,
             DefaultExtension = "csv",
             FileTypeChoices = new[]
             {

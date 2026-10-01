@@ -1,0 +1,61 @@
+<UserControl
+    x:Class="SuperSQLInjectionV2.Dialogs.BatchDetectView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialogs="clr-namespace:SuperSQLInjectionV2.Dialogs"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:u="https://irihi.tech/ursa"
+    d:DesignHeight="600"
+    d:DesignWidth="820"
+    x:CompileBindings="True"
+    x:DataType="dialogs:BatchDetectViewModel"
+    mc:Ignorable="d">
+    <Grid Width="820" Height="600" RowDefinitions="Auto,120,Auto,*,Auto" Margin="12" RowSpacing="8">
+        <TextBlock Grid.Row="0" Classes="Secondary" FontSize="11" TextWrapping="Wrap"
+                   Text="一行一个URL（缺省协议自动补 http://）。每个目标以当前界面检测配置（Level/Risk/tamper/代理等）构造GET请求逐参数检测；命中点自动写入注入记录，可在注入记录中恢复配置后取数。目标需要登录态/Cookie时请用单目标完整报文检测。" />
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBox Grid.Column="0" Classes="TextArea" AcceptsReturn="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     Text="{Binding UrlsText}" IsEnabled="{Binding !IsRunning}"
+                     PlaceholderText="http://target1/page?id=1&#x0a;http://target2/list.php?cat=2&#x0a;target3.com/news/1" />
+            <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Top">
+                <u:IconButton Theme="{DynamicResource OutlineIconButton}" Content="导入文件"
+                              Command="{Binding ImportUrlsCommand}" IsEnabled="{Binding !IsRunning}" />
+                <u:IconButton Theme="{DynamicResource OutlineIconButton}" Content="清空"
+                              Command="{Binding ClearUrlsCommand}" IsEnabled="{Binding !IsRunning}" />
+            </StackPanel>
+        </Grid>
+        <WrapPanel Grid.Row="2" ItemSpacing="10" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Text="并行目标数：" Classes="Secondary" VerticalAlignment="Center" />
+                <NumericUpDown Width="80" Height="28" Minimum="1" Maximum="20" Increment="1"
+                               Value="{Binding ThreadCount}" IsEnabled="{Binding !IsRunning}"
+                               ToolTip.Tip="同时检测的目标数量（每个目标内部按检测页配置执行）" VerticalAlignment="Center" />
+            </StackPanel>
+            <u:IconButton Theme="{DynamicResource SolidIconButton}" Classes="opadd tbtn"
+                          Icon="{StaticResource SemiIconPlay}" Content="开始检测"
+                          Command="{Binding StartCommand}" IsEnabled="{Binding !IsRunning}" />
+            <u:IconButton Theme="{DynamicResource OutlineIconButton}" Classes="Danger"
+                          Icon="{StaticResource SemiIconStop}" Content="停止"
+                          Command="{Binding StopCommand}" IsEnabled="{Binding IsRunning}" />
+            <TextBlock Text="{Binding ProgressText}" Classes="Secondary" VerticalAlignment="Center" />
+        </WrapPanel>
+        <TableView Grid.Row="3" ItemsSource="{Binding Rows}" CanUserResizeColumns="True"
+                   BorderThickness="1" ScrollViewer.AllowAutoHide="True">
+            <TableView.Columns>
+                <TableViewColumn Width="50" x:DataType="dialogs:BatchRow" Binding="{Binding Index}" Header="#" HorizontalContentAlignment="Center" />
+                <TableViewColumn Width="3*" x:DataType="dialogs:BatchRow" Binding="{Binding Url}" Header="URL" />
+                <TableViewColumn Width="70" x:DataType="dialogs:BatchRow" Binding="{Binding Status}" Header="状态" HorizontalContentAlignment="Center" />
+                <TableViewColumn Width="70" x:DataType="dialogs:BatchRow" Binding="{Binding HitCount}" Header="注入点" HorizontalContentAlignment="Center" />
+                <TableViewColumn Width="1.2*" x:DataType="dialogs:BatchRow" Binding="{Binding TypeSummary}" Header="注入类型" HorizontalContentAlignment="Center" />
+                <TableViewColumn Width="1.2*" x:DataType="dialogs:BatchRow" Binding="{Binding DbSummary}" Header="数据库" HorizontalContentAlignment="Center" />
+                <TableViewColumn Width="70" x:DataType="dialogs:BatchRow" Binding="{Binding ElapsedText}" Header="耗时" HorizontalContentAlignment="Center" />
+                <TableViewColumn Width="1.5*" x:DataType="dialogs:BatchRow" Binding="{Binding Message}" Header="消息" />
+            </TableView.Columns>
+        </TableView>
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Theme="{DynamicResource SolidButton}" Content="关闭" Width="90"
+                    Command="{Binding CloseCommand}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

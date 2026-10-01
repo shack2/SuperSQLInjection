@@ -340,7 +340,8 @@
     <dbms value="KingbaseES">
         <error regexp="kingbase8"/>
         <error regexp="KSQLException"/>
-        <error regexp="KingbaseES"/>
+        <!-- 裸词KingbaseES会误伤标题/正文带库名的正常页（IsDbErrorPage全页误判→Union探测无信号短路），须带错误上下文 -->
+        <error regexp="KingbaseES.{0,80}(ERROR|Exception|错误|异常)"/>
         <error regexp="kbjdbc"/>
     </dbms>
     <dbms value="OpenGauss">

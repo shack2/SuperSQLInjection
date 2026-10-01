@@ -150,6 +150,11 @@ namespace SuperSQLInjectionV2.Tools
                     Log.Show("WAF启发式探测未发现明显防护特征！");
                 }
             }
+            catch (SuperSQLInjectionV2.Tools.Http.TargetUnreachableException)
+            {
+                //目标不可达：上抛终止整个检测，不作为普通WAF探测失败吞掉
+                throw;
+            }
             catch (Exception wafEx)
             {
                 //WAF探测失败不影响正常检测，但记录便于排查
@@ -175,8 +180,12 @@ namespace SuperSQLInjectionV2.Tools
         }
 
         /// <summary>
-        /// 剔除响应中回显的payload（原文及URL编码形态），
-        /// 避免payload回显导致真值页与模板的相似度被人为拉低（对反射内容的处理）
+        /// 剔除响应中回显的payload（sqlmap removeReflectiveValues 同款模糊中和）：
+        /// 1. 精确形态快速路径：原文/单重URL编码/EscapeDataString/HtmlEncode/双重URL编码（%2520），循环至稳定；
+        /// 2. 模糊中和：payload多重URL解码后按字母数字分段，段间以 [^\n]{1,168} 通配构造正则，
+        ///    对任意编码/转义形态的反射免疫（段数>10截断、2秒超时熔断，退化为仅精确路径）；
+        /// 3. 快速预检：所有字面片段都在页面中才执行模糊替换，避免无反射时的正则开销。
+        /// 注意：调用方若需保留页面中的真实DB输出（如报错注入grep匹配段），应先做占位保护再调用。
         /// </summary>
         public static string StripPayloadReflection(string pageText, string payload)
         {
@@ -184,15 +193,70 @@ namespace SuperSQLInjectionV2.Tools
             {
                 return pageText ?? "";
             }
-            string result = pageText.Replace(payload, "", StringComparison.Ordinal);
+            string result = pageText;
+            //1. 精确形态快速路径（循环至稳定，覆盖多重编码嵌套）：
             //实际发送使用URLEncode.UrlEncode（保留'-等），href/src中的编码回显同形态；
             //EscapeDataString形态兜底（编码'为%27的场景）；
-            //HtmlEncode形态覆盖服务端将payload回显到HTML正文/错误消息的场景（' → &#39;）
-            foreach (string encoded in new[] { URLEncode.UrlEncode(payload), Uri.EscapeDataString(payload), System.Net.WebUtility.HtmlEncode(payload) })
+            //HtmlEncode形态覆盖服务端将payload回显到HTML正文/错误消息的场景（' → &#39;）；
+            //双重URL编码覆盖frame跳转/二次跳转回显场景（%2520，实测反射形态）
+            string[] exactForms = new[]
             {
-                if (!encoded.Equals(payload, StringComparison.Ordinal))
+                payload,
+                URLEncode.UrlEncode(payload),
+                Uri.EscapeDataString(payload),
+                System.Net.WebUtility.HtmlEncode(payload),
+                URLEncode.UrlEncode(URLEncode.UrlEncode(payload)),
+                Uri.EscapeDataString(Uri.EscapeDataString(payload))
+            };
+            for (int round = 0; round < 3; round++)
+            {
+                string before = result;
+                foreach (string form in exactForms)
                 {
-                    result = Regex.Replace(result, Regex.Escape(encoded), "", RegexOptions.IgnoreCase);
+                    if (!form.Equals(payload, StringComparison.Ordinal) || round == 0)
+                    {
+                        result = Regex.Replace(result, Regex.Escape(form), "", RegexOptions.IgnoreCase);
+                    }
+                }
+                if (result == before)
+                {
+                    break;
+                }
+            }
+            //2. 模糊中和（编码无关）：payload多重URL解码后按字母数字分段，段间通配
+            string decoded = payload;
+            for (int i = 0; i < 3; i++)
+            {
+                string d = Uri.UnescapeDataString(decoded);
+                if (d == decoded)
+                {
+                    break;
+                }
+                decoded = d;
+            }
+            MatchCollection segments = Regex.Matches(decoded, "[A-Za-z0-9]+");
+            //至少2个字面片段、且存在非字母数字字符（有反射变体空间）才启用模糊路径
+            if (segments.Count >= 2 && decoded.Length != segments.Cast<Match>().Sum(m => m.Length))
+            {
+                List<string> parts = segments.Cast<Match>().Select(m => m.Value).ToList();
+                //快速预检：除首段外所有字面片段都必须出现在页面中（大小写不敏感）
+                if (parts.Skip(1).All(p => result.IndexOf(p, StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    //段数熔断：超10段取首尾各5段拼接，防正则爆炸
+                    if (parts.Count > 10)
+                    {
+                        parts = parts.Take(5).Concat(parts.Skip(parts.Count - 5)).ToList();
+                    }
+                    string fuzzy = string.Join(@"[^\n]{1,168}", parts.Select(Regex.Escape));
+                    try
+                    {
+                        Regex fuzzyRegex = new Regex(fuzzy, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(2));
+                        result = fuzzyRegex.Replace(result, "");
+                    }
+                    catch (RegexMatchTimeoutException)
+                    {
+                        //超时熔断：退化为仅精确路径结果
+                    }
                 }
             }
             return result;

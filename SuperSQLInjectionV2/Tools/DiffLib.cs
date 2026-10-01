@@ -37,6 +37,15 @@ namespace SuperSQLInjectionV2.Tools
         private const int ChunkSize = 512;
 
         /// <summary>
+        /// 相似度结果全局缓存（sqlmap kb.cache.comparison同款思路）：
+        /// 键=(a哈希,b哈希)，盲注取数/检测真假值重发的响应常聚簇到少数相同页面，命中即免全量比对。
+        /// 哈希碰撞概率与sqlmap Python hash缓存同级，可接受；超上限整体清空防内存膨胀
+        /// </summary>
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<(int, int), double> _ratioCache
+            = new System.Collections.Concurrent.ConcurrentDictionary<(int, int), double>();
+        private const int RatioCacheLimit = 20000;
+
+        /// <summary>
         /// 计算两个字符串的相似度（近似 difflib.SequenceMatcher.ratio），范围 0.0-1.0，1.0 表示完全相同
         /// </summary>
         public static double Ratio(string? a, string? b)
@@ -59,6 +68,12 @@ namespace SuperSQLInjectionV2.Tools
             {
                 return 1.0;
             }
+            //全局缓存：命中直接返回（键为原文哈希，碰撞风险与sqlmap同款缓存一致）
+            var cacheKey = (a.GetHashCode(), b.GetHashCode());
+            if (_ratioCache.TryGetValue(cacheKey, out double cachedRatio))
+            {
+                return cachedRatio;
+            }
             //截断保护
             if (a.Length > MaxCompareLength)
             {
@@ -69,15 +84,76 @@ namespace SuperSQLInjectionV2.Tools
                 b = b.Substring(0, MaxCompareLength);
             }
 
+            double ratio;
             if (Math.Max(a.Length, b.Length) <= CharLevelLimit)
             {
                 int matches = CountMatchingChars(a, b);
-                return 2.0 * matches / (a.Length + b.Length);
+                ratio = 2.0 * matches / (a.Length + b.Length);
             }
-            return TokenRatio(a, b);
+            else
+            {
+                ratio = TokenRatio(a, b);
+            }
+            if (_ratioCache.Count >= RatioCacheLimit)
+            {
+                _ratioCache.Clear();
+            }
+            _ratioCache[cacheKey] = ratio;
+            return ratio;
         }
 
         #region 字符级模式（difflib 一致）
+
+        /// <summary>
+        /// difflib get_matching_blocks 同款：返回 a 与 b 的匹配块列表（按位置升序，相邻连续块已合并）。
+        /// 供动态内容标记（findDynamicContent移植）提取稳定锚点区块使用。
+        /// </summary>
+        public static List<(int APos, int BPos, int Size)> GetMatchingBlocks(string a, string b)
+        {
+            List<(int APos, int BPos, int Size)> result = new List<(int, int, int)>();
+            if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b))
+            {
+                return result;
+            }
+            Dictionary<char, List<int>> b2j = BuildCharIndex(b);
+            Queue<(int alo, int ahi, int blo, int bhi)> queue = new Queue<(int, int, int, int)>();
+            queue.Enqueue((0, a.Length, 0, b.Length));
+            while (queue.Count > 0)
+            {
+                (int alo, int ahi, int blo, int bhi) = queue.Dequeue();
+                FindLongestMatch(a, alo, ahi, b, blo, bhi, b2j, out int ai, out int bi, out int size);
+                if (size > 0)
+                {
+                    result.Add((ai, bi, size));
+                    if (alo < ai && blo < bi)
+                    {
+                        queue.Enqueue((alo, ai, blo, bi));
+                    }
+                    if (ai + size < ahi && bi + size < bhi)
+                    {
+                        queue.Enqueue((ai + size, ahi, bi + size, bhi));
+                    }
+                }
+            }
+            //difflib语义：按位置升序排列，相邻连续块（前块终点=后块起点）合并为一块
+            result.Sort((x, y) => x.APos != y.APos ? x.APos - y.APos : x.BPos - y.BPos);
+            List<(int APos, int BPos, int Size)> merged = new List<(int, int, int)>();
+            foreach (var block in result)
+            {
+                if (merged.Count > 0)
+                {
+                    var last = merged[merged.Count - 1];
+                    if (last.APos + last.Size == block.APos && last.BPos + last.Size == block.BPos)
+                    {
+                        merged[merged.Count - 1] = (last.APos, last.BPos, last.Size + block.Size);
+                        continue;
+                    }
+                }
+                merged.Add(block);
+            }
+            return merged;
+        }
+
 
         /// <summary>
         /// 构建 b 的字符到位置列表索引（difflib 的 b2j），

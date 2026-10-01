@@ -14,15 +14,15 @@
     mc:Ignorable="d">
     <Grid Width="880" Height="640" RowDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="10">
 
-        <!-- 名称 + 类型 -->
+        <!-- 名称 + 用途 -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,8">
             <TextBlock Text="名称：" VerticalAlignment="Center" />
             <TextBox Width="220" VerticalAlignment="Center" Text="{Binding Name}" />
-            <TextBlock Text="类型：" VerticalAlignment="Center" />
-            <ComboBox Width="240" VerticalAlignment="Center"
-                      ItemsSource="{Binding KindNames}"
-                      SelectedIndex="{Binding Kind}"
-                      ToolTip.Tip="请求抓取：脚本输入为抓取请求返回的HTTP响应报文，从响应中提取动态值；自主生成：脚本输入为主请求报文，输出即为动态值（API签名等场景）" />
+            <TextBlock Text="用途：" VerticalAlignment="Center" />
+            <ComboBox Width="320" VerticalAlignment="Center"
+                      ItemsSource="{Binding UsageChoices}"
+                      SelectedIndex="{Binding UsageIndex}"
+                      ToolTip.Tip="Payload变换：编码链Encode块内payload变换；报文变换：整份HTTP报文改写；响应提取：从抓取响应报文中提取动态值；值生成：以主请求报文为输入生成动态值（API签名等场景）" />
         </StackPanel>
 
         <!-- 代码编辑区 -->
@@ -36,20 +36,14 @@
                                        FontWeight="Light" />
         </Border>
 
-        <!-- 验证执行区 -->
-        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,8,0,0">
+        <!-- 验证执行区（验证执行按钮在底部操作行最左侧） -->
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,8,0,0">
             <TextBlock Grid.Column="0" Text="测试数据：" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Margin="8,0" VerticalAlignment="Center"
+            <TextBox Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
                      Classes="TextArea" AcceptsReturn="True" MinHeight="32" MaxHeight="76"
                      TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
                      Text="{Binding TestInput}"
                      PlaceholderText="{Binding TestInputPlaceholder}" />
-            <u:IconButton Grid.Column="2" VerticalAlignment="Center"
-                          Theme="{DynamicResource OutlineIconButton}"
-                          Icon="{StaticResource SemiIconPlay}"
-                          IsLoading="{Binding IsTesting}"
-                          Content="验证执行"
-                          Command="{Binding TestRunCommand}" />
         </Grid>
         <TextBlock Grid.Row="3" Margin="0,6,0,4" Opacity="0.7" Text="{Binding TestStatus}" />
 
@@ -59,15 +53,22 @@
                  HorizontalAlignment="Stretch"
                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                  Text="{Binding TestOutput}"
-                 PlaceholderText="提取/生成的动态值" />
+                 PlaceholderText="脚本执行结果" />
 
-        <!-- 操作按钮 -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal" Spacing="10"
-                    HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Theme="{DynamicResource SolidButton}" Width="90"
-                    Content="保 存" Command="{Binding ConfirmCommand}" />
-            <Button Theme="{DynamicResource OutlineButton}" Width="90"
-                    Content="取 消" Command="{Binding CancelCommand}" />
-        </StackPanel>
+        <!-- 操作按钮行：最左验证执行，最右保存/取消 -->
+        <Grid Grid.Row="5" Margin="0,10,0,0">
+            <u:IconButton HorizontalAlignment="Left" VerticalAlignment="Center"
+                          Theme="{DynamicResource OutlineIconButton}"
+                          Icon="{StaticResource SemiIconPlay}"
+                          IsLoading="{Binding IsTesting}"
+                          Content="验证执行"
+                          Command="{Binding TestRunCommand}" />
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                <Button Theme="{DynamicResource SolidButton}" Width="90"
+                        Content="保 存" Command="{Binding ConfirmCommand}" />
+                <Button Theme="{DynamicResource OutlineButton}" Width="90"
+                        Content="取 消" Command="{Binding CancelCommand}" />
+            </StackPanel>
+        </Grid>
     </Grid>
 </UserControl>

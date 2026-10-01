@@ -1,0 +1,153 @@
+{
+  "data": [
+    {
+      "id": "image-001",
+      "title": "超级SQL注入工具 · 软件图标 16",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1790560000000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "naturalSize": {
+          "width": 16,
+          "height": 16
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/app-icon-16.png"
+      }
+    },
+    {
+      "id": "image-002",
+      "title": "超级SQL注入工具 · 软件图标 32",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1790560000000,
+      "canvasData": {
+        "x": 120,
+        "y": 0,
+        "naturalSize": {
+          "width": 32,
+          "height": 32
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/app-icon-32.png"
+      }
+    },
+    {
+      "id": "image-003",
+      "title": "超级SQL注入工具 · 软件图标 48",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1790560000000,
+      "canvasData": {
+        "x": 240,
+        "y": 0,
+        "naturalSize": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/app-icon-48.png"
+      }
+    },
+    {
+      "id": "image-004",
+      "title": "超级SQL注入工具 · 软件图标 64",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1790560000000,
+      "canvasData": {
+        "x": 400,
+        "y": 0,
+        "naturalSize": {
+          "width": 64,
+          "height": 64
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/app-icon-64.png"
+      }
+    },
+    {
+      "id": "image-005",
+      "title": "超级SQL注入工具 · 软件图标 128",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1790560000000,
+      "canvasData": {
+        "x": 560,
+        "y": 0,
+        "naturalSize": {
+          "width": 128,
+          "height": 128
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/app-icon-128.png"
+      }
+    },
+    {
+      "id": "image-006",
+      "title": "超级SQL注入工具 · 软件图标 256",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1790560000000,
+      "canvasData": {
+        "x": 800,
+        "y": 0,
+        "naturalSize": {
+          "width": 256,
+          "height": 256
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/app-icon-256.png"
+      }
+    },
+    {
+      "id": "image-007",
+      "title": "超级SQL注入工具 · 软件图标 512",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1790560000000,
+      "canvasData": {
+        "x": 1160,
+        "y": 0,
+        "naturalSize": {
+          "width": 512,
+          "height": 512
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/app-icon-512.png"
+      }
+    },
+    {
+      "id": "image-008",
+      "title": "超级SQL注入工具 · 软件图标 矢量源 SVG",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1790560000000,
+      "canvasData": {
+        "x": 1760,
+        "y": 0,
+        "naturalSize": {
+          "width": 512,
+          "height": 512
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/app-icon.svg"
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": false,
+    "deviceType": "desktop",
+    "projectName": "超级SQL注入工具 V2 · UI 重设计"
+  }
+}
