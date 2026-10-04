@@ -946,12 +946,13 @@ public partial class MainViewViewModel : ViewModelBase
 
     #region 取数模板管理（可视化编辑config/payload模板，保存后热生效）
 
-    /// <summary>支持模板管理的数据库类型</summary>
+    /// <summary>支持模板管理的数据库类型（按语法族聚类排序；fork化变体库的差异模板为fork_*.txt，不在此列）</summary>
     public List<DBType> TemplateDbList { get; } = new List<DBType>
     {
-        DBType.MySQL, DBType.SQLServer, DBType.PostgreSQL, DBType.Oracle, DBType.DB2,
-        DBType.Informix, DBType.SQLite, DBType.Access, DBType.DM, DBType.Kingbase,
-        DBType.OpenGauss, DBType.H2, DBType.HSQLDB, DBType.ClickHouse
+        DBType.MySQL, DBType.SQLServer, DBType.Oracle,
+        DBType.PostgreSQL,
+        DBType.Access, DBType.DB2, DBType.SQLite, DBType.Informix,
+        DBType.H2, DBType.HSQLDB, DBType.ClickHouse
     };
 
     [ObservableProperty] private DBType _selectedTemplateDb = DBType.MySQL;
@@ -1039,9 +1040,11 @@ public partial class MainViewViewModel : ViewModelBase
             NotificationManager?.Show("保存模板失败：" + ex.Message);
             return;
         }
-        //必需key校验（仅警告，允许保存——用户可能有意裁剪）
+        //必需key校验（仅警告，允许保存——用户可能有意裁剪）；
+        //overlay模板（声明了Base继承）的必需key由族基准提供，跳过缺失警告
         var keys = new HashSet<string>(validItems.Select(i => i.Key.Trim()), StringComparer.OrdinalIgnoreCase);
-        var missing = BasePayload.RequiredKeys.Where(k => !keys.Contains(k)).ToList();
+        bool isOverlay = keys.Contains(BasePayload.BaseKey);
+        var missing = isOverlay ? new List<string>() : BasePayload.RequiredKeys.Where(k => !keys.Contains(k)).ToList();
         //热生效：仅当编辑的是当前取数配置的数据库时重建PayloadFactory，避免劫持其他库的取数
         bool hotLoaded = false;
         if (SelectedTemplateDb == AppConfig.DataConfig.SelectedDBType)
@@ -1670,12 +1673,21 @@ public partial class MainViewViewModel : ViewModelBase
     /// <summary>上一条由URL自动生成的取数页报文（数据管理页联动基准，与检测页互不影响）</summary>
     private string _lastAutoDataRequest = "";
 
+    /// <summary>URL归一化：缺scheme时按http://补齐，保证Uri.TryCreate/重建可用（不回写输入框，避免打断键入）</summary>
+    private static string NormalizeInputUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url) || url.Contains("://", StringComparison.Ordinal))
+        {
+            return url;
+        }
+        return "http://" + url;
+    }
+
     /// <summary>
     /// URL/请求方式 → 检测报文：空报文/上一条自动生成时按URL重新生成；
-    /// 定制报文（人工粘贴/修改）在URL变更时原地重定向（RetargetRequest保留Cookie等请求头与Body，
-    /// 仅改请求行路径与Host头），报文不完整才回落全量重建；
-    /// 含注入/编码/动态规则标记的报文一律不覆盖；切换请求方式且报文被人工定制时，
-    /// 用ChangeRequestFormat原地转换（参数迁移、请求头保留）
+    /// URL变更且报文与URL语义不一致时一律按新URL构造默认请求（注入标记/定制请求头不保留）；
+    /// 报文与URL语义一致（记录加载/报文回同步的回声）不重建，避免冲掉刚加载的标记报文；
+    /// 切换请求方式且报文被人工定制时，用ChangeRequestFormat原地转换（参数迁移、请求头与标记保留）
     /// </summary>
     private void RegenerateDetectRequest(bool methodSwitched)
     {
@@ -1683,6 +1695,7 @@ public partial class MainViewViewModel : ViewModelBase
         {
             return;
         }
+        string targetUrl = NormalizeInputUrl(AppConfig.DetectUrl);
         string current = AppConfig.TxtDetectRequest.Text;
         bool isAutoOrEmpty = current.Length == 0 || current == _lastAutoRequest;
         if (!isAutoOrEmpty && methodSwitched)
@@ -1708,37 +1721,16 @@ public partial class MainViewViewModel : ViewModelBase
         }
         if (!isAutoOrEmpty)
         {
-            //含注入/编码/动态规则标记的报文不覆盖，保护已标记配置
-            if (current.Contains(ConstData.InjectStr, StringComparison.Ordinal)
-                || current.Contains("<Encode>", StringComparison.Ordinal)
-                || current.Contains("<DRule>", StringComparison.Ordinal))
+            //报文与URL语义一致（注入记录加载/报文回同步的回声）无需变动——避免记录加载时URL回写冲掉刚加载的标记报文；
+            //不一致说明用户切换了目标：一律按新URL构造默认请求（注入标记/定制请求头不保留）
+            string clean = RequestRewriter.StripRequestMarks(current);
+            (_, string? curUrl) = RequestRewriter.ExtractMethodAndUrlLenient(clean, AppConfig.IsSSL);
+            if (RequestRewriter.SameUrl(curUrl, targetUrl))
             {
-                return;
-            }
-            //报文URL与目标语义一致（如报文回同步触发）无需变动；
-            //不一致说明用户切换了目标：原地重定向（保留请求头/Cookie/Body），报文不完整再回落全量重建
-            (_, string? curUrl) = RequestRewriter.ExtractMethodAndUrl(current, AppConfig.IsSSL);
-            if (RequestRewriter.SameUrl(curUrl, AppConfig.DetectUrl))
-            {
-                return;
-            }
-            string? retargeted = RequestRewriter.RetargetRequest(current, AppConfig.DetectUrl);
-            if (!string.IsNullOrEmpty(retargeted) && retargeted != current)
-            {
-                _requestSyncGuard = true;
-                try
-                {
-                    AppConfig.TxtDetectRequest.Text = retargeted;
-                    _lastAutoRequest = "";
-                }
-                finally
-                {
-                    _requestSyncGuard = false;
-                }
                 return;
             }
         }
-        string req = RequestRewriter.BuildRequestFromUrl(AppConfig.DetectUrl, AppConfig.DetectMethod);
+        string req = RequestRewriter.BuildRequestFromUrl(targetUrl, AppConfig.DetectMethod);
         if (string.IsNullOrEmpty(req))
         {
             return;
@@ -1782,53 +1774,54 @@ public partial class MainViewViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// URL → 取数页报文（数据管理页联动）：空报文/上一条自动生成时按URL重建（请求方式沿用当前报文，默认GET）；
-    /// 定制报文在URL变更时原地重定向（RetargetRequest保留请求头与Body），报文不完整才回落全量重建；
-    /// 含注入/编码/动态规则标记的报文一律不覆盖——标记只能由注入记录加载或手工配置改变
+    /// URL/请求方式 → 取数页报文（数据管理页联动，语义与检测页RegenerateDetectRequest一致）：
+    /// 空报文/上一条自动生成时按URL+DataMethod重建；URL变更且报文与URL语义不一致时一律按新URL构造默认请求
+    /// （注入标记/定制请求头不保留）；报文与URL语义一致（记录加载/回同步回声）不重建；
+    /// 方式切换时定制报文用ChangeRequestFormat原地转换（参数迁移、请求头与标记保留）
     /// </summary>
-    private void RegenerateDataRequest()
+    private void RegenerateDataRequest(bool methodSwitched)
     {
         if (_requestSyncGuard)
         {
             return;
         }
+        string targetUrl = NormalizeInputUrl(AppConfig.Url);
         string current = AppConfig.TxtRequest.Text;
-        //含注入/编码/动态规则标记的报文不覆盖，保护已标记配置（记录加载/手工标记的注入点）
-        if (current.Contains(ConstData.InjectStr, StringComparison.Ordinal)
-            || current.Contains("<Encode>", StringComparison.Ordinal)
-            || current.Contains("<DRule>", StringComparison.Ordinal))
-        {
-            return;
-        }
         bool isAutoOrEmpty = current.Length == 0 || current == _lastAutoDataRequest;
-        if (!isAutoOrEmpty)
+        if (!isAutoOrEmpty && methodSwitched)
         {
-            //报文URL与目标语义一致无需变动；不一致说明用户切换了目标：原地重定向，报文不完整再回落全量重建
-            (_, string? curUrl) = RequestRewriter.ExtractMethodAndUrl(current, AppConfig.IsSSL);
-            if (RequestRewriter.SameUrl(curUrl, AppConfig.Url))
-            {
-                return;
-            }
-            string? retargeted = RequestRewriter.RetargetRequest(current, AppConfig.Url);
-            if (!string.IsNullOrEmpty(retargeted) && retargeted != current)
+            //定制报文原地转换请求方式（参数迁移、请求头保留），与右键"转换数据报文"同一实现
+            string converted = RequestRewriter.ChangeRequestFormat(current,
+                string.Equals(AppConfig.DataMethod, "POST", StringComparison.OrdinalIgnoreCase)
+                    ? RequestFormat.POST_FORM : RequestFormat.GET);
+            if (!string.IsNullOrEmpty(converted) && converted != current)
             {
                 _requestSyncGuard = true;
                 try
                 {
-                    AppConfig.TxtRequest.Text = retargeted;
+                    AppConfig.TxtRequest.Text = converted;
                     _lastAutoDataRequest = "";
                 }
                 finally
                 {
                     _requestSyncGuard = false;
                 }
+            }
+            return;
+        }
+        //URL变更（非方式切换）：报文与URL语义一致（注入记录加载/报文回同步的回声）无需变动——
+        //避免记录加载时URL回写冲掉刚加载的标记报文；不一致说明用户切换了目标：
+        //一律按新URL构造默认请求（注入标记/定制请求头不保留）
+        if (!isAutoOrEmpty)
+        {
+            string clean = RequestRewriter.StripRequestMarks(current);
+            (_, string? curUrl) = RequestRewriter.ExtractMethodAndUrlLenient(clean, AppConfig.IsSSL);
+            if (RequestRewriter.SameUrl(curUrl, targetUrl))
+            {
                 return;
             }
         }
-        //请求方式沿用当前报文（取数页无方式下拉框），提取失败默认GET
-        (string? curMethod, _) = RequestRewriter.ExtractMethodAndUrl(current, AppConfig.IsSSL);
-        string req = RequestRewriter.BuildRequestFromUrl(AppConfig.Url,
-            string.IsNullOrEmpty(curMethod) ? "GET" : curMethod);
+        string req = RequestRewriter.BuildRequestFromUrl(targetUrl, AppConfig.DataMethod);
         if (string.IsNullOrEmpty(req))
         {
             return;
@@ -1845,7 +1838,7 @@ public partial class MainViewViewModel : ViewModelBase
         }
     }
 
-    /// <summary>取数页报文 → URL：剥离标记后解析请求行与Host头回同步（报文不完整或程序内改写时跳过）</summary>
+    /// <summary>取数页报文 → URL/请求方式：剥离标记后解析请求行与Host头回同步（报文不完整或程序内改写时跳过）</summary>
     private void SyncUrlFromDataRequest()
     {
         if (_requestSyncGuard)
@@ -1854,18 +1847,22 @@ public partial class MainViewViewModel : ViewModelBase
         }
         //标记报文请求行可能含<Encode>等字面量与未编码空格的payload，先剥离再用宽松版提取URL
         string clean = RequestRewriter.StripRequestMarks(AppConfig.TxtRequest.Text);
-        (_, string? url) = RequestRewriter.ExtractMethodAndUrlLenient(clean, AppConfig.IsSSL);
-        if (url != null && !RequestRewriter.SameUrl(url, AppConfig.Url))
+        (string? method, string? url) = RequestRewriter.ExtractMethodAndUrlLenient(clean, AppConfig.IsSSL);
+        _requestSyncGuard = true;
+        try
         {
-            _requestSyncGuard = true;
-            try
+            if ((method == "GET" || method == "POST") && method != AppConfig.DataMethod)
+            {
+                AppConfig.DataMethod = method;
+            }
+            if (url != null && !RequestRewriter.SameUrl(url, AppConfig.Url))
             {
                 AppConfig.Url = url;
             }
-            finally
-            {
-                _requestSyncGuard = false;
-            }
+        }
+        finally
+        {
+            _requestSyncGuard = false;
         }
     }
 
@@ -1902,6 +1899,9 @@ public partial class MainViewViewModel : ViewModelBase
             //检出即停标记：某参数命中后停止其余参数与扩展位置检测
             bool stopTesting = false;
 
+            //跨参数信号共享会话：参数间共享命中boundary/命中库（优先排序非限定），贯穿主参数与扩展位置检测
+            SuperSQLInjectionV2.Tools.Inject.DetectSessionState detectSession = new SuperSQLInjectionV2.Tools.Inject.DetectSessionState();
+
             foreach (KeyValuePair<string, string> paramNameAndData in request.Params)
             {
                 string paramName = paramNameAndData.Key;
@@ -1925,12 +1925,8 @@ public partial class MainViewViewModel : ViewModelBase
                 {
                     //多技术检测引擎：覆盖B/E/U/S/T/Q全技术类型，支持level/risk/boundary矩阵过滤，命中后继续检测其余类型
                     Log.Show("报告大侠，正在使用多技术检测引擎对参数" + paramName + "进行注入测试（Level=" + AppConfig.DataConfig.DetectLevel + "，Risk=" + AppConfig.DataConfig.DetectRisk + "）！");
-                    List<InjectPoint> inpList = await SuperSQLInjectionV2.Tools.Inject.InjectDetectEngine.DetectParam(AppConfig, requestTxt, paramName, paramData);
-                    //按利用价值升序应用：所有命中都会写入注入记录，最优注入点最后生效为当前配置
-                    foreach (InjectPoint inp_sq in inpList)
-                    {
-                        UpdateData(inp_sq);
-                    }
+                    List<InjectPoint> inpList = await SuperSQLInjectionV2.Tools.Inject.InjectDetectEngine.DetectParam(AppConfig, requestTxt, paramName, paramData, session: detectSession, onHit: ApplyHitImmediate);
+                    //命中已即时写入注入记录（onHit回调），这里只按命中数量做提示与检出即停判断
                     if (inpList.Count > 1)
                     {
                         Log.Show("该参数共发现" + inpList.Count + "种注入类型，已全部记录到注入记录列表，可在注入记录中切换利用！");
@@ -1955,12 +1951,13 @@ public partial class MainViewViewModel : ViewModelBase
             //扩展注入位置（level 扩展行为）：JSON请求体任意level；level>=2测Cookie键值；level>=3测User-Agent/Referer头
             if (!stopTesting && SuperSQLInjectionV2.Tools.Inject.InjectPayloadLoader.IsAvailable())
             {
-                await CheckExtendedPlaces(request, cleanRequestTxt);
+                await CheckExtendedPlaces(request, cleanRequestTxt, detectSession);
             }
-            //检测命中后主动确认DBMS banner（指纹识别阶段），坐实库型与版本
+            //检测命中后先精确识别族内变体（金仓/openGauss/达梦），再主动确认DBMS banner坐实库型与版本
             if (_detectHitFound)
             {
                 _detectHitFound = false;
+                await ConfirmDbVariantAsync();
                 await ConfirmDbBanner();
             }
             //取数引导：标记报文只存注入记录不回写编辑器，明确指引下一步操作
@@ -1996,7 +1993,7 @@ public partial class MainViewViewModel : ViewModelBase
     /// 扩展注入位置检测（level 行为）：JSON请求体任意level；level>=2测Cookie键值对；level>=3测User-Agent/Referer头。
     /// 命中同样走UpdateData进入注入记录，可恢复利用（标记已嵌入请求文本对应位置）。
     /// </summary>
-    private async Task CheckExtendedPlaces(HttpRequest request, string requestTxt)
+    private async Task CheckExtendedPlaces(HttpRequest request, string requestTxt, SuperSQLInjectionV2.Tools.Inject.DetectSessionState detectSession)
     {
         int level = Math.Max(1, Math.Min(5, AppConfig.DataConfig.DetectLevel));
         //扩展位置目标枚举与 CLI 共用（ParamTargetDiscovery），保证两端参数发现面一致
@@ -2022,7 +2019,7 @@ public partial class MainViewViewModel : ViewModelBase
                     {
                         return new List<InjectPoint>();
                     }
-                    List<InjectPoint> hits = await SuperSQLInjectionV2.Tools.Inject.InjectDetectEngine.DetectParam(AppConfig, requestTxt, t.name, t.value, t.place, t.header, t.uriIdx).ConfigureAwait(false);
+                    List<InjectPoint> hits = await SuperSQLInjectionV2.Tools.Inject.InjectDetectEngine.DetectParam(AppConfig, requestTxt, t.name, t.value, t.place, t.header, t.uriIdx, detectSession, ApplyHitImmediate).ConfigureAwait(false);
                     if (hits.Count > 0)
                     {
                         Volatile.Write(ref parHitFound, 1);
@@ -2034,24 +2031,15 @@ public partial class MainViewViewModel : ViewModelBase
                     gate.Release();
                 }
             }).ToList();
-            List<InjectPoint>[] allHits = await Task.WhenAll(tasks).ConfigureAwait(false);
-            foreach (List<InjectPoint> hits in allHits)
-            {
-                foreach (InjectPoint inp in hits)
-                {
-                    UpdateData(inp);
-                }
-            }
+            //命中已通过onHit即时写入注入记录（回调内封送UI线程），这里只需等待全部参数检测完成
+            await Task.WhenAll(tasks).ConfigureAwait(false);
             return;
         }
         foreach (var t in targets)
         {
             Log.Show("报告大侠，正在对" + t.desc + "参数 " + t.name + " 进行注入测试（Level=" + level + "）！");
-            List<InjectPoint> hits = await SuperSQLInjectionV2.Tools.Inject.InjectDetectEngine.DetectParam(AppConfig, requestTxt, t.name, t.value, t.place, t.header, t.uriIdx);
-            foreach (InjectPoint inp in hits)
-            {
-                UpdateData(inp);
-            }
+            List<InjectPoint> hits = await SuperSQLInjectionV2.Tools.Inject.InjectDetectEngine.DetectParam(AppConfig, requestTxt, t.name, t.value, t.place, t.header, t.uriIdx, detectSession, ApplyHitImmediate);
+            //命中已即时写入注入记录（onHit回调），这里只做检出即停判断
             //检出即停：已检出注入，停止其余扩展位置参数检测
             if (hits.Count > 0 && AppConfig.DataConfig.DetectStopOnHit)
             {
@@ -2105,7 +2093,18 @@ public partial class MainViewViewModel : ViewModelBase
                 SyncTimeSleepFromCheckValue();
             }
             if (!inp.DBType.Equals(DBType.UnKnow)) {
-                AppConfig.DataConfig.SelectedDBType = inp.DBType;
+                //fork化归一：变体库（金仓/openGauss/达梦）归一到族宿主+Fork名，取数=族模板+fork overlay
+                var (fam, fork) = SuperSQLInjectionV2.Payload.DbProfile.ToFamilyFork(inp.DBType);
+                inp.DBType = fam;
+                if (!string.IsNullOrEmpty(fork))
+                {
+                    inp.ForkName = fork;
+                }
+                AppConfig.DataConfig.SelectedDBType = fam;
+                if (!string.IsNullOrEmpty(inp.ForkName))
+                {
+                    AppConfig.DataConfig.SelectedForkName = inp.ForkName;
+                }
             }
             if (inp.InjectType.Equals(InjectType.Union))
             {
@@ -2132,13 +2131,30 @@ public partial class MainViewViewModel : ViewModelBase
             //标记报文不回写编辑器：检测页报文保持干净，利用标记只随注入点存入注入记录，
             //取数时在注入记录中选择对应注入点（恢复记录）才加载带标记的报文
             _lastHitRequestTxt = inp.RequestTxt;
+            _lastHitPoint = inp;
             AddInjectRecord(inp);
+        }
+    }
+
+    /// <summary>
+    /// 命中即时落记录：检测引擎onHit回调来自工作线程（ConfigureAwait(false)），
+    /// 封送到UI线程同步执行UpdateData，保证ObservableCollection/绑定属性单线程写；
+    /// 检测全程async await不阻塞UI线程，Wait()不会死锁
+    /// </summary>
+    private void ApplyHitImmediate(InjectPoint hit)
+    {
+        if (Avalonia.Application.Current == null || Dispatcher.UIThread.CheckAccess())
+        {
+            UpdateData(hit);
+        }
+        else
+        {
+            Dispatcher.UIThread.InvokeAsync(() => UpdateData(hit)).Wait();
         }
     }
 
     /// <summary>本轮检测是否有命中（UpdateData置位，驱动检测完成后的banner主动确认）</summary>
     private bool _detectHitFound;
-
     /// <summary>本轮检测命中点总数（UpdateData累加，驱动检测完成后的取数引导提示）</summary>
     private int _detectHitCount;
 
@@ -2147,6 +2163,64 @@ public partial class MainViewViewModel : ViewModelBase
 
     /// <summary>最后一个命中点的标记报文（编辑器不回写后，banner主动确认等检测后动作据此构造请求）</summary>
     private string? _lastHitRequestTxt;
+
+    /// <summary>最后一个命中点对象（变体精确识别据此取通道/判定依据/标记报文）</summary>
+    private InjectPoint? _lastHitPoint;
+
+    /// <summary>
+    /// 变体/Fork纠偏回写注入记录：命中点识别出fork（如KingbaseES/MariaDB）后，
+    /// 同步更新注入记录列表中同注入点全部记录的库型与Fork名，重新落盘并登记通道注册表，刷新筛选视图
+    /// </summary>
+    private void WriteBackDbVariant(InjectPoint hit, DBType refined, string forkName = "")
+    {
+        bool changed = false;
+        foreach (InjectRecord r in InjectRecords.Where(r =>
+            r.PName == hit.PName && r.InjectType == hit.InjectType
+            && r.RequestTxt == hit.RequestTxt && (r.DBType != refined || r.ForkName != forkName)).ToList())
+        {
+            r.DBType = refined;
+            r.ForkName = forkName;
+            InjectChannelRegistry.Register(AppConfig.Host, AppConfig.Port, r);
+            changed = true;
+        }
+        if (changed)
+        {
+            SaveInjectRecords();
+            RefreshInjectRecordFilters();
+            Log.SysLog("注入记录库型已回写为 " + refined + (string.IsNullOrEmpty(forkName) ? "" : "(" + forkName + ")") + "（参数 " + hit.PName + "）");
+        }
+        //上下文与取数配置同步：fork overlay模板即时生效
+        CurrentContext.DbForkName = forkName;
+        AppConfig.DataConfig.SelectedForkName = forkName;
+    }
+
+    /// <summary>
+    /// 检测命中后族→Fork精确识别（布尔盲注通道专用）：
+    /// Union/报错通道的banner识别在ConfirmDbBanner内完成；时间/堆叠通道不识别（保持空Fork名）。
+    /// 识别成功回写命中点Fork名与注入记录（库型保持族宿主，取数=族模板+fork overlay）
+    /// </summary>
+    private async Task ConfirmDbVariantAsync()
+    {
+        try
+        {
+            InjectPoint? hit = _lastHitPoint;
+            if (hit == null || hit.DBType == DBType.UnKnow || hit.InjectType != InjectType.Blind)
+            {
+                return;
+            }
+            var result = await SuperSQLInjectionV2.Tools.Inject.DbVariantResolver.ResolveAsync(AppConfig, hit).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(result.ForkName) && result.ForkName != hit.ForkName)
+            {
+                hit.ForkName = result.ForkName;
+                WriteBackDbVariant(hit, hit.DBType, result.ForkName);
+            }
+        }
+        catch (Exception e)
+        {
+            //fork识别失败不影响检测结论与取数主链路
+            Log.SysLog("Fork识别异常（保持族类型）：" + e.Message);
+        }
+    }
 
     /// <summary>
     /// 检测命中后主动确认DBMS banner（指纹识别阶段）：
@@ -2189,6 +2263,14 @@ public partial class MainViewViewModel : ViewModelBase
             if (!string.IsNullOrWhiteSpace(banner))
             {
                 Log.Success("DBMS banner主动确认：" + db + " → " + banner);
+                //banner特征词识别族内fork（金仓/openGauss/达梦/MariaDB等），库型保持族宿主，Fork名记入记录
+                string fork = SuperSQLInjectionV2.Tools.Inject.DbVariantResolver.IdentifyFork(banner, db);
+                if (!string.IsNullOrEmpty(fork) && _lastHitPoint != null && _lastHitPoint.ForkName != fork)
+                {
+                    Log.Success("Fork库识别：" + db + " 族fork为 " + fork + "（取数=" + db + "族模板+fork overlay）");
+                    _lastHitPoint.ForkName = fork;
+                    WriteBackDbVariant(_lastHitPoint, db, fork);
+                }
             }
         }
         catch (Exception e)
@@ -2282,7 +2364,8 @@ public partial class MainViewViewModel : ViewModelBase
             ContextSourceText = "";
             return;
         }
-        ContextSummaryText = $"{RequestMethod} {CurrentContext.ParamName} · {CurrentContext.InjectType} · {CurrentContext.DbType} · {CurrentContext.DbEncoding}";
+        string forkSuffix = string.IsNullOrEmpty(CurrentContext.DbForkName) ? "" : "(" + CurrentContext.DbForkName + ")";
+        ContextSummaryText = $"{RequestMethod} {CurrentContext.ParamName} · {CurrentContext.InjectType} · {CurrentContext.DbType}{forkSuffix} · {CurrentContext.DbEncoding}";
         ContextSourceText = string.IsNullOrEmpty(CurrentContext.SourceDetail)
             ? CurrentContext.SourceText
             : $"{CurrentContext.SourceText} · {CurrentContext.SourceDetail}";
@@ -2296,6 +2379,8 @@ public partial class MainViewViewModel : ViewModelBase
     {
         AppConfig.DataConfig.SelectedInjectType = CurrentContext.InjectType;
         AppConfig.DataConfig.SelectedDBType = CurrentContext.DbType;
+        //手工指定的Fork选择（Fork下拉）同步到取数配置：fork overlay模板即时生效
+        AppConfig.DataConfig.SelectedForkName = CurrentContext.DbForkName ?? "";
         //编码已改为直接绑定全局配置（AppConfig.DataConfig.DbEncoding），此处仅同步回上下文用于摘要显示
         CurrentContext.DbEncoding = AppConfig.DataConfig.DbEncoding;
         AppConfig.DataConfig.SumColumnCount = CurrentContext.SumColumnCount;
@@ -2304,7 +2389,7 @@ public partial class MainViewViewModel : ViewModelBase
         AppConfig.DataConfig.ResetVectorMode();
         CurrentContext.Source = InjectContextSource.Manual;
         CurrentContext.SourceDetail = "手动覆盖";
-        Log.Success($"已手工指定注入上下文：{CurrentContext.InjectType} · {CurrentContext.DbType} · {CurrentContext.DbEncoding}（Union {CurrentContext.SumColumnCount} 列，显示列 {CurrentContext.ShowColumnIndex}），取数等利用将按此执行");
+        Log.Success($"已手工指定注入上下文：{CurrentContext.InjectType} · {CurrentContext.DbType}{(string.IsNullOrEmpty(CurrentContext.DbForkName) ? "" : "(" + CurrentContext.DbForkName + ")")} · {CurrentContext.DbEncoding}（Union {CurrentContext.SumColumnCount} 列，显示列 {CurrentContext.ShowColumnIndex}），取数等利用将按此执行");
     }
 
     /// <summary>
@@ -2406,6 +2491,7 @@ public partial class MainViewViewModel : ViewModelBase
             Target = host + ":" + port,
             PName = inp.PName ?? "",
             DBType = inp.DBType,
+            ForkName = inp.ForkName ?? "",
             InjectType = inp.InjectType,
             BoolInjectType = inp.BoolInjectType,
             CheckValue = inp.CheckValue ?? "",
@@ -2464,6 +2550,7 @@ public partial class MainViewViewModel : ViewModelBase
         CurrentContext.ParamName = record.PName;
         CurrentContext.InjectType = record.InjectType;
         CurrentContext.DbType = record.DBType;
+        CurrentContext.DbForkName = record.ForkName ?? "";
         CurrentContext.DbEncoding = AppConfig.DataConfig.DbEncoding;
         //列数/显示位仅Union命中时有意义，非Union保留默认值（4/2）
         if (record.InjectType == InjectType.Union)
@@ -2531,18 +2618,33 @@ public partial class MainViewViewModel : ViewModelBase
     private void RestoreInjectRecordCore(InjectRecord record)
     {
         //方案C：恢复时不信任存储的烘焙快照，按结构化字段（Prefix/Suffix/Where/VectorTemplate/OrigValue/Place）重烘焙标记报文，
-        //保证标记形态与当前编码/取数链路一致；定位失败时RebakeRecordRequest内部回退存储报文
-        AppConfig.TxtRequest.Text = RequestRewriter.RebakeRecordRequest(AppConfig, record);
+        //保证标记形态与当前编码/取数链路一致；定位失败时RebakeRecordRequest内部回退存储报文。
+        //报文+URL成对回写期间挂同步守卫：URL变更触发"一律按新URL重建默认请求"会冲掉刚加载的标记报文，
+        //URL/请求方式由SyncUrlFromRecord显式回写，无需联动回路参与
+        _requestSyncGuard = true;
+        try
+        {
+            AppConfig.TxtRequest.Text = RequestRewriter.RebakeRecordRequest(AppConfig, record);
+            SyncUrlFromRecord(record);
+        }
+        finally
+        {
+            _requestSyncGuard = false;
+        }
         //回显标记随记录恢复（记录无标记的旧数据回退模板默认值）
         Payload.EchoMarkers.Use(record, Payload.PayloadFactory.BasePayload);
-        SyncUrlFromRecord(record);
         //旧记录迁移：Bool盲注+时间判定 升级为独立的时间盲注类型
         if (record.InjectType == InjectType.Blind && record.BoolInjectType == BoolInjectType.Time)
         {
             record.InjectType = InjectType.Time;
         }
         AppConfig.DataConfig.InjectParamName = record.PName;
+        //fork化归一：旧记录可能存变体库型，归一到族宿主（setter内自动归一）+Fork名随后写入
         AppConfig.DataConfig.SelectedDBType = record.DBType;
+        string recordFork = !string.IsNullOrEmpty(record.ForkName)
+            ? record.ForkName
+            : SuperSQLInjectionV2.Payload.DbProfile.ToFamilyFork(record.DBType).ForkName;
+        AppConfig.DataConfig.SelectedForkName = recordFork ?? "";
         AppConfig.DataConfig.SelectedInjectType = record.InjectType;
         //where=3参数替换点的vector取数模式随记录恢复（旧记录无此字段时自动为1/空=胶水模式）
         AppConfig.DataConfig.Where = record.Where;
@@ -2626,7 +2728,10 @@ public partial class MainViewViewModel : ViewModelBase
         CurrentContext.SourceDetail = record.Target;
         CurrentContext.ParamName = record.PName;
         CurrentContext.InjectType = record.InjectType;
-        CurrentContext.DbType = record.DBType;
+        //fork化归一：旧记录可能存的是变体库型（金仓/openGauss/达梦），归一到族宿主+Fork名
+        var (familyDb, familyFork) = SuperSQLInjectionV2.Payload.DbProfile.ToFamilyFork(record.DBType);
+        CurrentContext.DbType = familyDb;
+        CurrentContext.DbForkName = !string.IsNullOrEmpty(record.ForkName) ? record.ForkName : familyFork;
         CurrentContext.DbEncoding = AppConfig.DataConfig.DbEncoding;
         //列数/显示位仅Union记录有意义，非Union记录保留当前值，避免被无意义的1或0覆盖
         if (record.InjectType == InjectType.Union)
@@ -2657,6 +2762,12 @@ public partial class MainViewViewModel : ViewModelBase
             string[] firstParts = firstLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (firstParts.Length >= 2)
             {
+                //请求方式回同步：记录恢复走同步守卫，SyncUrlFromDataRequest不参与，此处显式回写
+                string m = firstParts[0].ToUpperInvariant();
+                if ((m == "GET" || m == "POST") && m != AppConfig.DataMethod)
+                {
+                    AppConfig.DataMethod = m;
+                }
                 string cleanPath = firstParts[1];
                 //裸$sql$替换为原始参数值：PValue本身含编码块，须先剥除再作为替换值
                 string cleanPValue = Regex.Replace(record.PValue ?? "", "<Encode>.*?</Encode>", "");
@@ -3262,43 +3373,12 @@ public partial class MainViewViewModel : ViewModelBase
                     DataOpTabIndex = tab;
                 }
             }
-            //跳过参数子页（索引3）仅注入检测页提供：切到数据管理页时若停留在3，回退到请求报文避免请求区空白
-            if (page == 4 && RequestSubTabIndex == 3)
-            {
-                RequestSubTabIndex = 0;
-            }
-            //伴随请求（1，原随机值规则/二次注入已合并）仅数据管理页提供：切到注入检测页时若停留在1/2，回退到请求报文避免请求区空白
-            if (page == 0 && (RequestSubTabIndex == 1 || RequestSubTabIndex == 2))
-            {
-                RequestSubTabIndex = 0;
-            }
             SelectedNavIndex = page;
         }
     }
 
-    /// <summary>主编辑面板子页：0请求报文 1伴随请求（前置随机值抓取+后置二次注入）3跳过参数（2已并入1）</summary>
+    /// <summary>检测页请求区选项卡索引：0请求报文 1跳过参数（TabControl.SelectedIndex双向绑定）</summary>
     [ObservableProperty] private int _requestSubTabIndex = 0;
-    [ObservableProperty] private bool _requestSubTab0Visible = true;
-    [ObservableProperty] private bool _requestSubTab1Visible = false;
-    [ObservableProperty] private bool _requestSubTab2Visible = false;
-    [ObservableProperty] private bool _requestSubTab3Visible = false;
-
-    partial void OnRequestSubTabIndexChanged(int value)
-    {
-        RequestSubTab0Visible = value == 0;
-        RequestSubTab1Visible = value == 1;
-        RequestSubTab2Visible = value == 2;
-        RequestSubTab3Visible = value == 3;
-    }
-
-    [RelayCommand]
-    private void SelectRequestSubTab(string index)
-    {
-        if (int.TryParse(index, out int i))
-        {
-            RequestSubTabIndex = i;
-        }
-    }
 
     /// <summary>日志级别过滤：0全部 1信息 2成功 3警告/错误</summary>
     [ObservableProperty] private int _logFilterIndex = 0;
@@ -3521,14 +3601,34 @@ public partial class MainViewViewModel : ViewModelBase
        
         try
         {
-            FileStream fs=new FileStream(AppDomain.CurrentDomain.BaseDirectory + "/config/lastconfig.json", FileMode.Open, FileAccess.Read);
-            AppConfig? config = JsonSerializer.Deserialize(fs, Source.JsonCtx.CompactInfo<AppConfig>());
+            string json = File.ReadAllText(AppDomain.CurrentDomain.BaseDirectory + "/config/lastconfig.json");
+            AppConfig? config = JsonSerializer.Deserialize(json, Source.JsonCtx.CompactInfo<AppConfig>());
 
             if (config != null)
             {
+                //旧版配置一次性迁移（v2.0.2 智能模式整合）：旧「非动态不检测」开关已删除，
+                //旧用户 DetectStopOnNonDynamic=true（默认省时）且未显式开过智能模式时，迁移为智能模式开，
+                //保持"默认省时"语义；用户显式关过智能模式（SmartMode=false 且非动态停止也关）则尊重原选择
+                try
+                {
+                    using JsonDocument doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("DataConfig", out JsonElement dc)
+                        && dc.TryGetProperty("DetectStopOnNonDynamic", out JsonElement snd)
+                        && snd.ValueKind == JsonValueKind.True
+                        && dc.TryGetProperty("SmartMode", out JsonElement sm)
+                        && sm.ValueKind == JsonValueKind.False)
+                    {
+                        config.DataConfig.SmartMode = true;
+                        Log.SysLog("配置迁移：旧「非动态不检测」开关已整合进智能模式，已自动开启智能模式（Level≥3 保留时间/堆叠检测）！");
+                    }
+                }
+                catch (Exception)
+                {
+                    //迁移探测失败不影响配置加载
+                }
                 return config;
             }
-                
+
         }
         catch (Exception e)
         {
@@ -3889,6 +3989,74 @@ public partial class MainViewViewModel : ViewModelBase
         }
     }
 
+    /// <summary>编辑代理（弹窗修改主机/端口/类型/账号密码/启用状态）</summary>
+    [RelayCommand]
+    private async Task EditProxy(Proxy? proxy)
+    {
+        if (proxy == null)
+        {
+            return;
+        }
+        var vm = Dialogs.ProxyEditViewModel.FromItem(proxy);
+        var options = new OverlayDialogOptions
+        {
+            FullScreen = false,
+            HorizontalAnchor = HorizontalPosition.Center,
+            VerticalAnchor = VerticalPosition.Center,
+            Mode = DialogMode.None,
+            Buttons = DialogButton.None,
+            Title = "编辑代理",
+            CanLightDismiss = true,
+            CanDragMove = true,
+            IsCloseButtonVisible = true,
+            CanResize = true,
+        };
+        await OverlayDialog.ShowStandardAsync<Dialogs.ProxyEditView, Dialogs.ProxyEditViewModel>(vm, options: options);
+        if (!vm.Confirmed)
+        {
+            return;
+        }
+        //防重复：修改后与列表中其他代理同主机同端口则拒绝
+        if (AppConfig.ProxyConfig.ProxyItems.Any(p => !ReferenceEquals(p, proxy)
+            && p.Host.Equals(vm.Host?.Trim(), StringComparison.OrdinalIgnoreCase) && p.Port == vm.Port))
+        {
+            NotificationManager?.Show("已存在相同主机和端口的代理，未保存！");
+            return;
+        }
+        vm.ApplyTo(proxy);
+        SavaConfig();
+        NotificationManager?.Show("代理已保存！");
+    }
+
+    /// <summary>把选中代理设为固定代理：移到列表首位（固定模式取第一个可用代理）并启用，代理模式切为固定</summary>
+    [RelayCommand]
+    private void SetFixedProxy(Proxy? proxy)
+    {
+        if (proxy == null)
+        {
+            return;
+        }
+        var items = AppConfig.ProxyConfig.ProxyItems;
+        int idx = items.IndexOf(proxy);
+        if (idx < 0)
+        {
+            return;
+        }
+        if (idx > 0)
+        {
+            items.Move(idx, 0);
+        }
+        proxy.IsEnabled = true;
+        AppConfig.ProxyConfig.SelectProxyType = ProxyType.Fixed;
+        if (!AppConfig.ProxyConfig.ProxyEnable)
+        {
+            AppConfig.ProxyConfig.ProxyEnable = true;
+        }
+        AppConfig.ProxyConfig.CurrentProxyText = proxy.Host + ":" + proxy.Port;
+        SavaConfig();
+        Log.Show("已设固定代理：" + proxy.Host + ":" + proxy.Port + "（代理模式=固定，已启用）！");
+    }
+
     [RelayCommand]
     private async Task CheckAllProxy()
     {
@@ -3896,8 +4064,7 @@ public partial class MainViewViewModel : ViewModelBase
         {
             Log.Warning("大侠，代理列表为空，请先添加代理！");
             return;
-        }
-        Log.Show("开始验证所有代理，共：" + AppConfig.ProxyConfig.ProxyItems.Count + "个！");
+        }        Log.Show("开始验证所有代理，共：" + AppConfig.ProxyConfig.ProxyItems.Count + "个！");
         List<Proxy> items = AppConfig.ProxyConfig.ProxyItems.ToList();
         //全异步并行验证（网络等待不占线程），逐个回写UI状态
         await Task.WhenAll(items.Select(async proxy =>
@@ -3992,10 +4159,10 @@ public partial class MainViewViewModel : ViewModelBase
             ? RequestRewriter.StripRequestMarks(AppConfig.RequestTxt)
             : AppConfig.DetectRequestTxt;
 
-        //URL/请求方式 ⇄ 检测报文 双向联动（检测页URL独立为DetectUrl，与取数页Url互不影响）：
-        //① 检测URL或请求方式变化→按需重新生成报文（空报文/上一条自动生成的报文/跨主机新目标才覆盖，人工定制报文不动；
-        //   切换请求方式时定制报文用ChangeRequestFormat原地转换保留请求头）；
-        //② 报文变化→解析请求行/Host头回同步请求方式与检测URL（_requestSyncGuard防循环）
+        //URL/请求方式 ⇄ 报文 双向联动（检测页DetectUrl/DetectMethod与取数页Url/DataMethod各自独立，两页报文互不影响）：
+        //① URL变化→报文与URL语义不一致时一律按新URL构造默认请求（注入标记/定制请求头不保留；语义一致的回声不重建）；
+        //   请求方式切换→定制报文用ChangeRequestFormat原地转换（参数迁移、请求头与注入标记保留）；
+        //② 报文变化→解析请求行/Host头回同步请求方式与URL（_requestSyncGuard防循环）
         AppConfig.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(AppConfig.DetectUrl))
@@ -4004,8 +4171,13 @@ public partial class MainViewViewModel : ViewModelBase
             }
             else if (e.PropertyName == nameof(AppConfig.Url))
             {
-                //取数页联动：URL变化更新取数报文（含标记的取数报文受保护不覆盖）；检测页报文不受取数页URL影响
-                RegenerateDataRequest();
+                //取数页URL变化：按新URL重建取数报文（检测页报文不受取数页URL影响）
+                RegenerateDataRequest(false);
+            }
+            else if (e.PropertyName == nameof(AppConfig.DataMethod))
+            {
+                //取数页请求方式切换：定制报文原地转换（参数迁移、请求头与注入标记保留）
+                RegenerateDataRequest(true);
             }
             else if (e.PropertyName == nameof(AppConfig.DetectMethod))
             {

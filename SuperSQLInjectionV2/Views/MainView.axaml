@@ -30,448 +30,10 @@
                 <StaticResource x:Key="IconColumn" ResourceKey="IconColumn" />
             </converters:TreeViewIconConverter>
             <converters:StringEqualityConverter x:Key="StringEqualityConverter" />
+            <converters:EmptyToBoolConverter x:Key="EmptyToBoolConverter" />
             <converters:InjectTypeNameConverter x:Key="InjectTypeNameConverter" />
             <converters:InjectTypeBadgeConverter x:Key="InjectTypeBadgeConverter" />
-            <!--  Lucide 线性图标（24x24 坐标系，Stroke 渲染，源：lucide-static ISC）  -->
-            <StreamGeometry x:Key="LgDatabaseZap">M3,5 A9,3 0 1 0 21,5 A9,3 0 1 0 3,5 Z M3 5V19A9 3 0 0 0 15 21.84 M21 5V8 M21 12L18 17H22L19 22 M3 12A9 3 0 0 0 14.59 14.87</StreamGeometry>
-            <StreamGeometry x:Key="LgRadar">M19.07 4.93A10 10 0 0 0 6.99 3.34 M4 6h.01 M2.29 9.62A10 10 0 1 0 21.31 8.35 M16.24 7.76A6 6 0 1 0 8.23 16.67 M12 18h.01 M17.99 11.66A6 6 0 0 1 15.77 16.67 M10,12 A2,2 0 1 0 14,12 A2,2 0 1 0 10,12 Z M13.41 10.59L19.07 4.93</StreamGeometry>
-            <StreamGeometry x:Key="LgTerminal">M12 19h8 M4 17l6-6-6-6</StreamGeometry>
-            <StreamGeometry x:Key="LgHome">M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10</StreamGeometry>
-            <StreamGeometry x:Key="LgDatabase">M3,5 A9,3 0 1 0 21,5 A9,3 0 1 0 3,5 Z M3 5V19A9 3 0 0 0 21 19V5 M3 12A9 3 0 0 0 21 12</StreamGeometry>
-            <StreamGeometry x:Key="LgTable2">M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18</StreamGeometry>
-            <StreamGeometry x:Key="LgGlobe">M2,12 A10,10 0 1 0 22,12 A10,10 0 1 0 2,12 Z M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20 M2 12h20</StreamGeometry>
-            <StreamGeometry x:Key="LgShieldAlert">M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z M12 8v4 M12 16h.01</StreamGeometry>
-            <StreamGeometry x:Key="LgBinary">M16,14 A2,2 0 0 1 18,16 V18 A2,2 0 0 1 16,20 A2,2 0 0 1 14,18 V16 A2,2 0 0 1 16,14 Z M8,4 A2,2 0 0 1 10,6 V8 A2,2 0 0 1 8,10 A2,2 0 0 1 6,8 V6 A2,2 0 0 1 8,4 Z M6 20h4 M14 10h4 M6 14h2v6 M14 4h2v6</StreamGeometry>
-            <StreamGeometry x:Key="LgScrollText">M15 12h-5 M15 8h-5 M19 17V5a2 2 0 0 0-2-2H4 M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3</StreamGeometry>
-            <StreamGeometry x:Key="LgMoon">M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401</StreamGeometry>
-            <StreamGeometry x:Key="LgTemplate">M3,3 H21 V10 H3 Z M3,14 H21 V21 H3 Z</StreamGeometry>
-            <StreamGeometry x:Key="LgSun">M8,12 A4,4 0 1 0 16,12 A4,4 0 1 0 8,12 Z M12 2v2 M12 20v2 M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41 M2 12h2 M20 12h2 M6.34 17.66l-1.41 1.41 M19.07 4.93l-1.41 1.41</StreamGeometry>
-            <StreamGeometry x:Key="LgLock">M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M7 11V7a5 5 0 0 1 10 0v4</StreamGeometry>
-            <StreamGeometry x:Key="LgServer">M4 2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M4 14h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2z M6 6h.01 M6 18h.01</StreamGeometry>
-            <StreamGeometry x:Key="LgSignal">M2 20h.01 M7 20v-4 M12 20v-8 M17 20V8 M22 4v16</StreamGeometry>
-            <StreamGeometry x:Key="LgUser">M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M8,7 A4,4 0 1 0 16,7 A4,4 0 1 0 8,7 Z</StreamGeometry>
-            <StreamGeometry x:Key="LgBookOpen">M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z</StreamGeometry>
-            <StreamGeometry x:Key="LgRepeat">M17 2l4 4-4 4 M3 11v-1a4 4 0 0 1 4-4h14 M7 22l-4-4 4-4 M21 13v1a4 4 0 0 1-4 4H3</StreamGeometry>
-            <StreamGeometry x:Key="LgTimer">M10 2h4 M12 14v-4 M5,14 A7,7 0 1 0 19,14 A7,7 0 1 0 5,14 Z</StreamGeometry>
-            <StreamGeometry x:Key="LgArrowLeftRight">M8 3L4 7l4 4 M4 7h16 M16 21l4-4-4-4 M20 17H4</StreamGeometry>
-            <StreamGeometry x:Key="LgFileCode">M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M10 13l-2 2 2 2 M14 17l2-2-2-2</StreamGeometry>
-            <StreamGeometry x:Key="LgDownload">M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3</StreamGeometry>
-            <StreamGeometry x:Key="LgUpload">M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12</StreamGeometry>
-            <StreamGeometry x:Key="LgChevronsLeft">M11 17l-5-5 5-5 M18 17l-5-5 5-5</StreamGeometry>
-            <StreamGeometry x:Key="LgChevronsRight">M6 17l5-5-5-5 M13 17l5-5-5-5</StreamGeometry>
-            <StreamGeometry x:Key="LgChevronUp">M18 15l-6-6-6 6</StreamGeometry>
-            <StreamGeometry x:Key="LgChevronDown">M6 9l6 6 6-6</StreamGeometry>
-            <StreamGeometry x:Key="LgInfo">M12,22 A10,10 0 1 0 12,2 A10,10 0 1 0 12,22 Z M12 16v-4 M12 8h.01</StreamGeometry>
-            <StreamGeometry x:Key="LgSend">M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z</StreamGeometry>
-            <!--  lucide: refresh-cw（软件更新卡片）  -->
-            <StreamGeometry x:Key="LgRefreshCw">M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8 M21 3v5h-5 M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16 M3 21v-5h5</StreamGeometry>
-            <!--  请求配置工具栏细线图标（lucide：braces / crosshair / sparkles，Stroke渲染；braces垂直占满3-21，与文字居中对齐更稳）  -->
-            <StreamGeometry x:Key="LgCode">M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1 M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1</StreamGeometry>
-            <StreamGeometry x:Key="LgCrosshair">M22,12 A10,10 0 1 0 2,12 A10,10 0 1 0 22,12 Z M22 12h-4 M6 12H2 M12 6V2 M12 22v-4</StreamGeometry>
-            <StreamGeometry x:Key="LgSparkles">M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z M5 3v4 M3 5h4 M19 17v4 M17 19h4</StreamGeometry>
-            <StreamGeometry x:Key="LgSearch">M19 11A8 8 0 1 0 3 11 8 8 0 1 0 19 11Z M21 21l-4.35-4.35</StreamGeometry>
-            <StreamGeometry x:Key="LgCircleCheck">M21.8 10A10 10 0 1 1 17 3.34 M9 11l3 3L22 4</StreamGeometry>
         </Panel.Resources>
-        <Panel.Styles>
-            <Style Selector="Grid.Blur">
-                <Setter Property="Effect" Value="blur(10)" />
-            </Style>
-              <Style Selector="CheckBox">
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-            </Style>
-            <!--  ======== 设计稿组件样式（对应 pages/主界面·浅色主题.html） ========  -->
-            <!--  卡片面板  -->
-            <Style Selector="Border.panel">
-                <Setter Property="Background" Value="{DynamicResource DsgCard}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgBorder}" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="4" />
-            </Style>
-            <!--  扁平通栏页面底板：无圆角无边框，靠分隔线分区（IDE 风格）  -->
-            <Style Selector="Border.pageflat">
-                <Setter Property="Background" Value="{DynamicResource DsgCard}" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="CornerRadius" Value="0" />
-            </Style>
-            <!--  左侧导航项  -->
-            <Style Selector="Button.navitem">
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Height" Value="36" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-                <Setter Property="HorizontalAlignment" Value="Stretch" />
-                <Setter Property="HorizontalContentAlignment" Value="Left" />
-                <Setter Property="Padding" Value="10,0" />
-                <Setter Property="FontSize" Value="13" />
-                <!--  菜单文字用Light字重（300）：Inter/YaHei的Regular笔画偏厚，Light更接近设计稿观感；选中态SemiBold保持对比  -->
-                <Setter Property="FontWeight" Value="Light" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="Cursor" Value="Hand" />
-            </Style>
-            <Style Selector="Button.navitem:pointerover">
-                <Setter Property="Background" Value="{DynamicResource DsgNavHover}" />
-            </Style>
-            <!--  模板触发器会盖住Button.Background（Semi主题），悬停背景需同时定位模板内ContentPresenter  -->
-            <Style Selector="Button.navitem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource DsgNavHover}" />
-            </Style>
-            <Style Selector="Button.navitem.active">
-                <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-            </Style>
-            <!--  Lucide 线性导航图标：描边渲染，随导航状态变色  -->
-            <Style Selector="Path.luc">
-                <Setter Property="Width" Value="16" />
-                <Setter Property="Height" Value="16" />
-                <Setter Property="Stretch" Value="Uniform" />
-                <Setter Property="Stroke" Value="{DynamicResource DsgInk2}" />
-                <Setter Property="StrokeThickness" Value="2" />
-                <Setter Property="StrokeLineCap" Value="Round" />
-                <Setter Property="StrokeJoin" Value="Round" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-            </Style>
-            <!--  导航项内图标：比全局luc更浅一档、描边更细（仅菜单范围生效）  -->
-            <Style Selector="Button.navitem Path.luc">
-                <Setter Property="Stroke" Value="{DynamicResource DsgNavIcon}" />
-                <Setter Property="StrokeThickness" Value="1.5" />
-            </Style>
-            <Style Selector="Button.navitem:pointerover Path.luc">
-                <Setter Property="Stroke" Value="{DynamicResource DsgInk2}" />
-            </Style>
-            <Style Selector="Button.navitem.active Path.luc">
-                <Setter Property="Stroke" Value="{DynamicResource DsgPrimary}" />
-            </Style>
-            <!--  导航分组标题  -->
-            <Style Selector="TextBlock.navcaption">
-                <Setter Property="FontSize" Value="12" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-                <Setter Property="Margin" Value="10,12,10,5" />
-            </Style>
-            <!--  配置条  -->
-            <Style Selector="Border.cfgstrip">
-                <Setter Property="Background" Value="{DynamicResource DsgCard}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgBorder}" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="MinHeight" Value="40" />
-                <Setter Property="Padding" Value="12,4" />
-            </Style>
-            <Style Selector="Border.cfglabel">
-                <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="Padding" Value="0,0" />
-                <Setter Property="Height" Value="22" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Margin" Value="0,0,4,0" />
-            </Style>
-            <!--  通道配置分组：经典 GroupBox 外观（标题骑跨上边框，4px圆角，DsgBorder描边）  -->
-            <Style Selector="GroupBox.chgrp">
-                <Setter Property="Padding" Value="10,5,10,10" />
-                <Setter Property="Template">
-                    <ControlTemplate>
-                        <Grid RowDefinitions="Auto,*">
-                            <Border Grid.RowSpan="2" BorderBrush="{DynamicResource DsgBorder}" BorderThickness="1" CornerRadius="4" Margin="0,9,0,0" />
-                            <Border Background="{DynamicResource DsgCard}" HorizontalAlignment="Left" Margin="10,0,0,0" Padding="5,1">
-                                <ContentPresenter Content="{TemplateBinding Header}"
-                                                  TextElement.FontSize="14" 
-                                                  TextElement.Foreground="{DynamicResource DsgPrimary}" />
-                            </Border>
-                            <ContentPresenter Grid.Row="1" Content="{TemplateBinding Content}" Margin="{TemplateBinding Padding}" />
-                        </Grid>
-                    </ControlTemplate>
-                </Setter>
-            </Style>
-            <Style Selector="Border.cfglabel TextBlock">
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-                <Setter Property="FontSize" Value="11" />
-                <Setter Property="FontWeight" Value="Bold" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-            </Style>
-            <!--  编辑器面板头部子页签  -->
-            <Style Selector="Button.subtab">
-                <Setter Property="Background" Value="Transparent" />
-                <!--  预留2px底边占位：选中态只改BorderBrush不位移，与TabItem选中下划线同款  -->
-                <Setter Property="BorderThickness" Value="0,0,0,2" />
-                <Setter Property="BorderBrush" Value="Transparent" />
-                <Setter Property="Padding" Value="11,0" />
-                <Setter Property="Height" Value="37" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-                <Setter Property="FontSize" Value="12.5" />
-                <Setter Property="CornerRadius" Value="0" />
-                <Setter Property="Cursor" Value="Hand" />
-            </Style>
-            <Style Selector="Button.subtab:pointerover">
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
-                <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
-            </Style>
-            <Style Selector="Button.subtab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
-            </Style>
-            <!--  选中态对齐TabItem三要素：主色文字+主色图标+2px主色下划线，字重Normal（避免中文合成加粗变形）  -->
-            <Style Selector="Button.subtab.active">
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimary}" />
-                <Setter Property="Background" Value="Transparent" />
-            </Style>
-            <Style Selector="Button.subtab.active:pointerover">
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-                <Setter Property="Background" Value="Transparent" />
-            </Style>
-            <Style Selector="Button.subtab.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="Transparent" />
-            </Style>
-            <!--  标签选择按钮组（文件操作方式等，active=选中）  -->
-            <Style Selector="Button.tagbtn">
-                <Setter Property="Height" Value="26" />
-                <Setter Property="Padding" Value="10,0" />
-                <Setter Property="Margin" Value="0,0,6,0" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgBorder}" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-                <Setter Property="FontSize" Value="12" />
-                <Setter Property="Cursor" Value="Hand" />
-            </Style>
-            <Style Selector="Button.tagbtn:pointerover">
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimary}" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-            </Style>
-            <Style Selector="Button.tagbtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimary}" />
-            </Style>
-            <Style Selector="Button.tagbtn.active">
-                <Setter Property="Background" Value="{DynamicResource DsgPrimary}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimary}" />
-                <Setter Property="Foreground" Value="White" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-            </Style>
-            <!--  迷你按钮（复制/换行/清空/导出等）  -->
-            <Style Selector="Button.minibtn">
-                <Setter Property="Height" Value="26" />
-                <Setter Property="Padding" Value="9,0" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgBorder}" />
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-                <Setter Property="FontSize" Value="11.5" />
-                <Setter Property="Cursor" Value="Hand" />
-            </Style>
-            <Style Selector="Button.minibtn:pointerover">
-                <!--  用DsgPrimary而非SemiColorPrimary：浅色两者同为#2563EB，深色下DsgPrimary是亮青#22D3EE（SemiColorPrimary深青#0891B2做文字太闷）  -->
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-
-            </Style>
-            <!--  Semi主题的Button悬停/按下背景写在模板ContentPresenter上（模板触发器盖过Button.Background的TemplateBinding），
-                  悬停/按下背景必须定位到模板内部的PART_ContentPresenter才生效  -->
-            <Style Selector="Button.minibtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimaryTint2}" />
-            </Style>
-            <Style Selector="Button.minibtn:pressed /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint2}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimaryPointerover}" />
-            </Style>
-            <!--  minibtn内细线图标：比全局luc更小更细，悬浮随文字加深  -->
-            <Style Selector="Button.minibtn Path.luc">
-                <Setter Property="Width" Value="13" />
-                <Setter Property="Height" Value="13" />
-                <Setter Property="StrokeThickness" Value="1.75" />
-            </Style>
-            <Style Selector="Button.minibtn:pointerover Path.luc">
-                <Setter Property="Stroke" Value="{DynamicResource DsgPrimary}" />
-            </Style>
-            <!--  日志过滤 chips  -->
-            <Style Selector="Button.chip">
-                <Setter Property="Height" Value="22" />
-                <Setter Property="Padding" Value="9,0" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-                <Setter Property="FontSize" Value="11" />
-                <Setter Property="Cursor" Value="Hand" />
-            </Style>
-            <Style Selector="Button.chip:pointerover">
-                <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
-            </Style>
-            <Style Selector="Button.chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
-            </Style>
-            <Style Selector="Button.chip.on">
-                <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-            </Style>
-
-
-            <!--  概览面板 kv 行  -->
-            <Style Selector="Border.kvrow">
-                <Setter Property="Padding" Value="10" />
-                <Setter Property="BorderThickness" Value="0,0,0,1" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgBorder}" />
-                <Setter Property="Height" Value="35" />
-            </Style>
-            <Style Selector="TextBlock.kvkey">
-                <Setter Property="FontSize" Value="12" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-            </Style>
-            <Style Selector="TextBlock.kvval">
-                <Setter Property="FontSize" Value="12" />
-                <!--  值文本用最深的主题墨色（浅色主题下近黑；随暗色主题自动反白，不写死纯黑防止暗色不可读）  -->
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-            </Style>
-            <!--  工具列面板标题  -->
-            <Style Selector="TextBlock.toolshead">
-                <Setter Property="FontSize" Value="11.5" />
-                <Setter Property="FontWeight" Value="Bold" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-            </Style>
-            <!--  状态栏徽章（无底色纯文字，Padding仅作间距）  -->
-            <Style Selector="Border.sbbadge">
-                <Setter Property="Height" Value="20" />
-                <Setter Property="Padding" Value="8,0" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-            </Style>
-            <Style Selector="Border.sbbadge TextBlock">
-                <Setter Property="FontSize" Value="10.5" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-            </Style>
-            <!--  状态栏分隔线  -->
-            <Style Selector="Border.sbsep">
-                <Setter Property="Width" Value="1" />
-                <Setter Property="Height" Value="14" />
-                <Setter Property="Background" Value="{DynamicResource DsgLineStrong}" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Margin" Value="4,0" />
-            </Style>
-            <!--  数据读取页：页头  -->
-            <Style Selector="Border.phead">
-                <Setter Property="Height" Value="38" />
-                <Setter Property="Padding" Value="12,0" />
-                <Setter Property="BorderThickness" Value="0,0,0,1" />
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgBorder}" />
-                <Setter Property="Background" Value="{DynamicResource DsgCard}" />
-            </Style>
-            <!--  数据读取页：子面板头  -->
-            <Style Selector="Border.subhead">
-                <Setter Property="Height" Value="34" />
-                <Setter Property="Padding" Value="10,0" />
-                <Setter Property="BorderThickness" Value="0,0,0,1" />
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgBorder}" />
-                <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
-            </Style>
-            <!--  数据读取页：当前对象路径徽章  -->
-            <Style Selector="Border.dtpath">
-                <Setter Property="Height" Value="22" />
-                <Setter Property="Padding" Value="9,0" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-            </Style>
-            <Style Selector="Border.dtpath TextBlock">
-                <Setter Property="FontSize" Value="11" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-            </Style>
-            <!--  数据读取页：工具条分隔线  -->
-            <Style Selector="Border.dtvsep">
-                <Setter Property="Width" Value="1" />
-                <Setter Property="Height" Value="18" />
-                <Setter Property="Background" Value="{DynamicResource DsgLineStrong}" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Margin" Value="2,0" />
-            </Style>
-            <!--  数据读取页：总条数徽章  -->
-            <Style Selector="Border.dttotal">
-                <Setter Property="Height" Value="24" />
-                <Setter Property="MinWidth" Value="44" />
-                <Setter Property="Padding" Value="8,0" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="HorizontalAlignment" Value="Center" />
-            </Style>
-            <Style Selector="Border.dttotal TextBlock">
-                <Setter Property="FontSize" Value="12" />
-                <Setter Property="FontWeight" Value="Bold" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="HorizontalAlignment" Value="Center" />
-            </Style>
-            <!--  顶部横排选项卡（数据管理/防护绕过等）：默认主题VerticalAlignment=Center会让2px选中下划线浮空，
-                  改为Stretch贴底；前景色统一走Dsg令牌（悬停/选中高度一致，只变色不变高）  -->
-            <Style Selector="TabControl:not(.sidetabs) > TabItem">
-                <Setter Property="VerticalAlignment" Value="Stretch" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-                <!--  行高+5px：默认垂直padding 4+4，提到6.5+6.5  -->
-                <Setter Property="Padding" Value="8,6.5" />
-            </Style>
-            <Style Selector="TabControl:not(.sidetabs) > TabItem:pointerover">
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
-            </Style>
-            <Style Selector="TabControl:not(.sidetabs) > TabItem:selected">
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-            </Style>
-            <!--  Semi选中态会把表头切成SemiBold（TabItemSelectedFontWeight），中文合成加粗字形变形；
-                  选中态已有亮青文字+下划线指示，字重压回Normal（需打到模板内的PART_HeaderPresenter才生效）  -->
-            <Style Selector="TabControl:not(.sidetabs) > TabItem:selected /template/ ContentPresenter#PART_HeaderPresenter">
-                <Setter Property="FontWeight" Value="Normal" />
-                <!--  选中文字色同样被Semi写在模板此节点上（TabItemLineHeaderSelectedForeground），
-                      必须在这里覆盖才能跟随DsgPrimary主题色（浅色蓝/深色青）  -->
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-            </Style>
-            <!--  悬停文字色同样打到模板节点（Semi冻结的Text0），保证跟随DsgInk1  -->
-            <Style Selector="TabControl:not(.sidetabs) > TabItem:pointerover:not(:selected) /template/ ContentPresenter#PART_HeaderPresenter">
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
-            </Style>
-            <!--  表头内联图标（Path.luc 的 Stroke / 请求包响应包的 PathIcon）随选中/悬停变色  -->
-            <Style Selector="TabControl:not(.sidetabs) > TabItem:pointerover:not(:selected) Path.luc">
-                <Setter Property="Stroke" Value="{DynamicResource DsgInk1}" />
-            </Style>
-            <Style Selector="TabControl:not(.sidetabs) > TabItem:selected Path.luc">
-                <Setter Property="Stroke" Value="{DynamicResource DsgPrimary}" />
-            </Style>
-            <!--  注意：必须限定在 /template/ ContentPresenter#PART_HeaderPresenter 内，
-                  裸后代选择器会命中选项卡内容区里所有 PathIcon（曾把 CheckBox 对勾染成主色导致"实心方块"）  -->
-            <Style Selector="TabControl:not(.sidetabs) > TabItem:pointerover:not(:selected) /template/ ContentPresenter#PART_HeaderPresenter PathIcon">
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
-            </Style>
-            <Style Selector="TabControl:not(.sidetabs) > TabItem:selected /template/ ContentPresenter#PART_HeaderPresenter PathIcon">
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-            </Style>
-            <!--  库表列树：选中行高亮  -->
-            <Style Selector="TreeViewItem:selected">
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-            </Style>
-            <!--  左侧竖排选项卡（防护绕过/注入操作）：整行等宽菜单化，选中态铺满整行  -->
-            <Style Selector="TabControl.sidetabs > TabItem">
-                <Setter Property="MinWidth" Value="128" />
-                <Setter Property="Padding" Value="12,9" />
-                <Setter Property="Margin" Value="0,1" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                <Setter Property="FontSize" Value="12.5" />
-                <Setter Property="Cursor" Value="Hand" />
-            </Style>
-            <Style Selector="TabControl.sidetabs > TabItem:pointerover">
-                <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
-            </Style>
-            <Style Selector="TabControl.sidetabs > TabItem:selected">
-                <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-            </Style>
-        </Panel.Styles>
 
         <Grid Background="{DynamicResource DsgBg}" Margin="0,0,0,0">
             <Grid ColumnDefinitions="Auto,*">
@@ -524,14 +86,14 @@
                                 <Button Classes="navitem" Classes.active="{Binding NavPage0Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="0">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgRadar}" />
+                                        <Path Classes="luc" Data="{StaticResource LgScanLine}" />
                                         <TextBlock Text="注入检测" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage10Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="10">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgFileCode}" />
+                                        <Path Classes="luc" Data="{StaticResource LgListChecks}" />
                                         <TextBlock Text="检测用例" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
@@ -539,12 +101,12 @@
                                         Command="{Binding SelectNavCommand}" CommandParameter="3">
                                     <Grid ColumnDefinitions="Auto,*,Auto">
                                         <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <Path Classes="luc" Data="{StaticResource LgDatabase}" />
+                                            <Path Classes="luc" Data="{StaticResource LgHistory}" />
                                             <TextBlock Text="注入记录" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                         </StackPanel>
                                         <Border Grid.Column="2"
-                                                Background="{DynamicResource DsgSurface3}"
-                                                CornerRadius="4" MinWidth="20" Height="18" Padding="6,0"
+                                                Background="{DynamicResource DsgPrimaryTint}"
+                                                CornerRadius="18" MinWidth="18" Height="18" Margin="5,0"
                                                 VerticalAlignment="Center">
                                             <Border.IsVisible>
                                                 <MultiBinding Converter="{x:Static BoolConverters.And}">
@@ -552,7 +114,7 @@
                                                     <Binding Path="!IsNavCollapsed" />
                                                 </MultiBinding>
                                             </Border.IsVisible>
-                                            <TextBlock Text="{Binding InjectRecords.Count}" FontSize="10.5"
+                                            <TextBlock  Text="{Binding InjectRecords.Count}" FontSize="12"
                                                        FontWeight="SemiBold" Foreground="{DynamicResource DsgInk2}"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
@@ -563,14 +125,14 @@
                                 <Button Classes="navitem" Classes.active="{Binding NavPage4Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="4">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgTable2}" />
+                                        <Path Classes="luc" Data="{StaticResource LgDatabase}" />
                                         <TextBlock Text="数据管理" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage9Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="9">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgTemplate}" />
+                                        <Path Classes="luc" Data="{StaticResource LgFileSpreadsheet}" />
                                         <TextBlock Text="取数模版" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
@@ -579,21 +141,21 @@
                                 <Button Classes="navitem" Classes.active="{Binding NavPage5Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="5">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgGlobe}" />
+                                        <Path Classes="luc" Data="{StaticResource LgNetwork}" />
                                         <TextBlock Text="网络设置" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage6Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="6">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgShieldAlert}" />
+                                        <Path Classes="luc" Data="{StaticResource LgShieldOff}" />
                                         <TextBlock Text="防护绕过" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage7Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="7">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgBinary}" />
+                                        <Path Classes="luc" Data="{StaticResource LgCode2}" />
                                         <TextBlock Text="编码工具" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
@@ -622,7 +184,7 @@
                 <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto,32" Margin="0,0,0,0">
 
                     <!--  面包屑位置标识（卡片式：首页 › 当前页胶囊，所有页面统一置顶）  -->
-                    <Border Grid.Row="0" Height="40">
+                    <Border Grid.Row="0" Height="50" Background="{DynamicResource DsgBg}" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DsgBorder}">
                         <Border Padding="15,5" HorizontalAlignment="Left"
                                 BoxShadow="0 1 3 0 #0D1B2A14">
                             <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
@@ -630,13 +192,13 @@
                                       Stretch="Uniform" VerticalAlignment="Center"
                                       Stroke="{DynamicResource DsgInk3}" StrokeThickness="1.5"
                                       StrokeLineCap="Round" Fill="Transparent" />
-                                <TextBlock Text="首页" FontSize="14" Foreground="{DynamicResource DsgInk3}" VerticalAlignment="Center" />
+                                <TextBlock Text="首页" FontSize="14" Margin="0,0,5,0" Foreground="{DynamicResource DsgInk3}" VerticalAlignment="Center" />
                                 <Path Data="M9 5l6 6-6 6" Width="12" Height="12"
                                       Stretch="Uniform" VerticalAlignment="Center"
                                       Stroke="{DynamicResource DsgInk3}" StrokeThickness="1.5"
                                       StrokeLineCap="Round" Fill="Transparent" />
                                 <Border  VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding NavCurrentPageName}" FontSize="14"  Foreground="{DynamicResource DsgPrimary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding NavCurrentPageName}" FontSize="14"  Foreground="{DynamicResource DsgInk3}" VerticalAlignment="Center" />
                                 </Border>
                             </StackPanel>
                         </Border>
@@ -661,7 +223,6 @@
                                              Text="{Binding AppConfig.DetectUrl}"
                                              VerticalAlignment="Center" Padding="32,0,0,0"
                                              FontFamily="{StaticResource CodeFontFamily}"
-                                             FontSize="12.5"
                                              PlaceholderText="http://target/page?id=1" />
                                     <PathIcon Data="{StaticResource IconHttpRequest}" Width="14" Height="14"
                                               IsHitTestVisible="False" Foreground="{DynamicResource DsgInk3}"
@@ -671,7 +232,7 @@
                                             HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
                                             Height="22" Padding="8,0" CornerRadius="4"
                                             Background="{DynamicResource DsgPrimaryTint}">
-                                        <TextBlock FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
+                                        <TextBlock FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"
                                                    Foreground="{DynamicResource DsgPrimary}"
                                                    Text="{Binding InjectRecords.Count, StringFormat={}{0} 个注入点}" />
                                     </Border>
@@ -697,6 +258,7 @@
                                               IsLoading="{Binding AppConfig.IsRuning}"
                                               Theme="{DynamicResource SolidIconButton}"
                                               Content="检 测"
+                                              Classes="Primary"
                                               IsEnabled="{Binding !AppConfig.IsRuning}"
                                               VerticalAlignment="Center"
                                               IsVisible="{Binding !NavPage4Visible}"
@@ -704,23 +266,22 @@
                             </Grid>
                             <!--  线程/端口/SSL（全页面共用）+ 检测参数（仅注入检测页）；网页解码/代理以网络设置页配置为准，取数编码在数据操作页注入配置卡片  -->
                             <WrapPanel Grid.Row="2" ItemSpacing="8" LineSpacing="4" Margin="0,0,0,10" VerticalAlignment="Center">
-                                <TextBlock Classes="kvkey" Text="线程：" />
+                                <TextBlock  Text="线程：" Classes="Normal" VerticalAlignment="Center"/>
                                 <ComboBox Width="62" ItemsSource="{Binding AppConfig.ThreadSizeItems}"
                                           SelectedValue="{Binding AppConfig.ThreadSize}" VerticalAlignment="Center" />
                                 <Border Classes="dtvsep" />
-                                <TextBlock Text="端口：" Classes="kvkey" />
+                                <TextBlock Text="端口：" Classes="Normal" VerticalAlignment="Center"/>
                                 <TextBox Width="62" Classes="Bordered" VerticalAlignment="Center" Text="{Binding AppConfig.Port}" />
                                 <CheckBox Content="SSL" IsChecked="{Binding AppConfig.IsSSL}" VerticalAlignment="Center" />
                                 <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding NavPage0Visible}" VerticalAlignment="Center">
                                     <Border Classes="dtvsep" />
-                                    <TextBlock Text="级别：" Classes="kvkey" />
+                                    <TextBlock Text="级别：" Classes="Normal"  VerticalAlignment="Center"/>
                                     <ComboBox Width="52" ItemsSource="{Binding AppConfig.DataConfig.DetectLevels}" SelectedItem="{Binding AppConfig.DataConfig.DetectLevel}" VerticalAlignment="Center" />
-                                    <TextBlock Text="风险：" Classes="kvkey" />
+                                    <TextBlock Text="风险：" Classes="Normal" VerticalAlignment="Center"/>
                                     <ComboBox Width="52" ItemsSource="{Binding AppConfig.DataConfig.DetectRisks}" SelectedItem="{Binding AppConfig.DataConfig.DetectRisk}" VerticalAlignment="Center" />
-                                    <CheckBox Content="智能模式" IsChecked="{Binding AppConfig.DataConfig.SmartMode}" VerticalAlignment="Center" ToolTip.Tip="智能模式：启发式无任何迹象（非动态参数+无错误指纹）时跳过深度检测；非动态参数跳过页面比对类技术，仅保留时间/堆叠" />
+                                    <CheckBox Content="智能模式" IsChecked="{Binding AppConfig.DataConfig.SmartMode}" VerticalAlignment="Center" ToolTip.Tip="智能模式（默认开）：非动态参数（页面不随参数值变化）且无错误指纹时——Level&lt;3 直接跳过该参数深度检测；Level≥3 保留时间盲注/堆叠检测（不依赖页面回显，静态页面注入的唯一通道），跳过Bool/报错/Union等比对类技术；有错误指纹时全技术检测。头注入/写入型低级别目标请关闭本开关全量重测" />
                                     <CheckBox Content="穷举模式" IsChecked="{Binding AppConfig.DataConfig.DetectExhaustive}" VerticalAlignment="Center" ToolTip.Tip="默认命中一个用例即跳到下一技术（省时）；开启后同技术内继续测完剩余用例/边界，注入记录给出同技术多个命中（更完整画像，发包更多）" />
                                     <CheckBox Content="WAF拦截停止" IsChecked="{Binding AppConfig.DataConfig.DetectStopOnWaf}" VerticalAlignment="Center" ToolTip.Tip="检测过程中被WAF拦截（HTTP 401/403/406/429/501）累计5次即停止整个检测，避免持续触发防护导致IP被封；被拦目标建议配置随机UA/随机源IP/代理/请求延时/tamper后重测" />
-                                    <CheckBox Content="非动态不检测" IsChecked="{Binding AppConfig.DataConfig.DetectStopOnNonDynamic}" VerticalAlignment="Center" ToolTip.Tip="识别到非动态参数（页面不随参数值变化）时，停止对该参数的注入检测（省时，默认开）；注意：头注入/写入型注入（页面不随参数变化）会被跳过，此类目标请关闭该开关重测" />
                                     <CheckBox Content="检出即停" IsChecked="{Binding AppConfig.DataConfig.DetectStopOnHit}" VerticalAlignment="Center" ToolTip.Tip="某参数检出注入后停止其余参数/扩展位置的检测（sqlmap同款默认行为，省时，默认开）；需要完整画像（所有参数×所有技术）时关闭本开关" />
                                     <CheckBox Content="多参数并行" IsChecked="{Binding AppConfig.DataConfig.DetectParamParallel}" VerticalAlignment="Center" ToolTip.Tip="多参数目标（表单/JSON/XML等）按线程数并发检测，N个参数约N倍提速；参数间检测上下文独立互不影响，默认关闭（串行逐个检测）" />
                                     <CheckBox Content="DNS外带探测" IsChecked="{Binding AppConfig.DataConfig.DetectDnsOob}" VerticalAlignment="Center" ToolTip.Tip="触发数据库向DNSLog域名发起DNS解析，平台侧回收确认（不依赖页面响应，可发现无回显无延时的盲注）。需先在网络设置配置DNSLog域名+API Token" />
@@ -736,108 +297,94 @@
 
                             <!--  工作区  -->
                             <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-                                <!--  请求报文面板（扁平通栏，右侧1px分隔线）  -->
+                                <!--  请求报文面板（扁平通栏，右侧1px分隔线；TabControl布局：请求报文/跳过参数）  -->
                                 <Border Classes="pageflat" Grid.Column="0" BorderThickness="0,0,1,0" BorderBrush="{DynamicResource DsgBorder}">
-                                    <DockPanel>
-                                        <Border DockPanel.Dock="Top" Height="38" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DsgBorder}">
-                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Button Classes="subtab" Classes.active="{Binding RequestSubTab0Visible}"
-                                                        Command="{Binding SelectRequestSubTabCommand}" CommandParameter="0">
-                                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                                        <PathIcon Data="{StaticResource IconHttpRequest}" Width="13.5" Height="13.5" />
-                                                        <TextBlock Text="请求报文" VerticalAlignment="Center" />
-                                                    </StackPanel>
-                                                </Button>
-                                                <Button Classes="subtab" Classes.active="{Binding RequestSubTab3Visible}"
-                                                        Command="{Binding SelectRequestSubTabCommand}" CommandParameter="3">
-                                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                                        <PathIcon Data="{StaticResource IconSkipParam}" Width="13.5" Height="13.5" />
-                                                        <TextBlock Text="跳过参数" VerticalAlignment="Center" />
-                                                    </StackPanel>
-                                                </Button>
-                                            </StackPanel>
-                                        </Border>
-                                       
-                                        <Grid Background="{DynamicResource DsgCodeBg}">
-                                            <!--  子页0：请求报文编辑器（检测页独立文档，永不写入利用标记）  -->
-                                            <AvaloniaEditor:TextEditor IsVisible="{Binding RequestSubTab0Visible}"
-                                                                     FontFamily="{StaticResource CodeFontFamily}"
-                                                                     Name="RequestTxtBox"
-                                                                     ShowLineNumbers="True"
-                                                                     Document="{Binding AppConfig.TxtDetectRequest}"
-                                                                     HorizontalScrollBarVisibility="Auto"
-                                                                     VerticalScrollBarVisibility="Visible"
-                                                                     Watermark="请复制注入点HTTP请求数据包">
+                                    <TabControl BorderThickness="0" SelectedIndex="{Binding RequestSubTabIndex}">
+                                        <TabItem>
+                                            <TabItem.Header>
+                                                <WrapPanel>
+                                                    <PathIcon Data="{StaticResource IconHttpRequest}" Width="13.5" Height="13.5" VerticalAlignment="Center" />
+                                                    <TextBlock Margin="6,0,0,0" Text="请求报文" VerticalAlignment="Center" />
+                                                </WrapPanel>
+                                            </TabItem.Header>
+                                            <TabItem.Content>
+                                                <!--  子页0：请求报文编辑器（检测页独立文档，永不写入利用标记）  -->
+                                                <AvaloniaEditor:TextEditor FontFamily="{StaticResource CodeFontFamily}"
+                                                                         Name="RequestTxtBox"
+                                                                         ShowLineNumbers="True"
+                                                                         Document="{Binding AppConfig.TxtDetectRequest}"
+                                                                         HorizontalScrollBarVisibility="Auto"
+                                                                         VerticalScrollBarVisibility="Visible"
+                                                                         Watermark="请复制注入点HTTP请求数据包">
                                                 <AvaloniaEditor:TextEditor.ContextMenu>
                                                     <ContextMenu Opened="RequestMenuOpenedC">
                                                         <MenuItem Header="根据URL生成请求包" Click="BuildRequestFromUrlC">
                                                             <MenuItem.Icon>
-                                                                <PathIcon Data="{StaticResource IconHttpRequest}" />
+                                                                <Path Classes="lucm" Data="{StaticResource LgLink}" />
+                                                            </MenuItem.Icon>
+                                                        </MenuItem>
+                                                        <MenuItem Header="从文件导入报文" Click="ImportRequestFromFileC">
+                                                            <MenuItem.Icon>
+                                                                <Path Classes="lucm" Data="{StaticResource LgUpload}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="转换数据报文">
                                                             <MenuItem.Icon>
-                                                                <PathIcon Data="{StaticResource IconChangeRequest}" />
+                                                                <Path Classes="lucm" Data="{StaticResource LgArrowLeftRight}" />
                                                             </MenuItem.Icon>
-                                                            <MenuItem Header="转为 GET（参数移到URL）" Click="ChangeRequestFormatC" Tag="GET" >
-                                                                <MenuItem.Icon>
-                                                                    <PathIcon Data="{StaticResource IconChangeRequest}" />
-                                                                </MenuItem.Icon>
-                                                            </MenuItem>
-                                                            <MenuItem Header="转为 POST（表单urlencoded）" Click="ChangeRequestFormatC" Tag="POST_FORM" >
-                                                                <MenuItem.Icon>
-                                                                    <PathIcon Data="{StaticResource IconChangeRequest}" />
-                                                                </MenuItem.Icon>
-                                                            </MenuItem>
-                                                            <MenuItem Header="转为 POST（JSON）" Click="ChangeRequestFormatC" Tag="POST_JSON" >
-                                                                <MenuItem.Icon>
-                                                                    <PathIcon Data="{StaticResource IconChangeRequest}" />
-                                                                </MenuItem.Icon>
-                                                            </MenuItem>
-                                                            <MenuItem Header="转为 POST（multipart复杂格式）" Click="ChangeRequestFormatC" Tag="POST_MULTIPART" >
-                                                                <MenuItem.Icon>
-                                                                    <PathIcon Data="{StaticResource IconChangeRequest}" />
-                                                                </MenuItem.Icon>
-                                                            </MenuItem>
+                                                            <MenuItem Header="转为 GET（参数移到URL）" Click="ChangeRequestFormatC" Tag="GET" />
+                                                            <MenuItem Header="转为 POST（表单urlencoded）" Click="ChangeRequestFormatC" Tag="POST_FORM" />
+                                                            <MenuItem Header="转为 POST（JSON）" Click="ChangeRequestFormatC" Tag="POST_JSON" />
+                                                            <MenuItem Header="转为 POST（multipart复杂格式）" Click="ChangeRequestFormatC" Tag="POST_MULTIPART" />
                                                         </MenuItem>
                                                         <MenuItem Header="插入动态值">
                                                             <MenuItem.Icon>
-                                                                <PathIcon Data="{StaticResource IconRandFlag}" />
+                                                                <Path Classes="lucm" Data="{StaticResource LgSparkles}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="二次注入（单选）">
                                                             <MenuItem.Icon>
-                                                                <PathIcon Data="{StaticResource IconChangeRequest}" />
+                                                                <Path Classes="lucm" Data="{StaticResource LgLayers}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="发送请求" Command="{Binding SendRequestCommand}" CommandParameter="detect">
                                                             <MenuItem.Icon>
-                                                                <PathIcon Data="{StaticResource SemiIconSendStroked}" />
+                                                                <Path Classes="lucm" Data="{StaticResource LgSend}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <Separator />
                                                         <MenuItem Header="复制报文" Click="CopyRequestC">
                                                             <MenuItem.Icon>
-                                                                <PathIcon Data="{StaticResource SemiIconCopyStroked}" />
+                                                                <Path Classes="lucm" Data="{StaticResource LgCopy}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="自动换行" Click="ToggleWrapC">
                                                             <MenuItem.Icon>
-                                                                <PathIcon Data="{StaticResource IconChangeRequest}" />
+                                                                <Path Classes="lucm" Data="{StaticResource LgWrapText}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="清空报文" Click="ClearRequestC">
                                                             <MenuItem.Icon>
-                                                                <PathIcon Data="{StaticResource SemiIconDelete}" />
+                                                                <Path Classes="lucm" Data="{StaticResource LgTrash2}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                     </ContextMenu>
                                                 </AvaloniaEditor:TextEditor.ContextMenu>
                                             </AvaloniaEditor:TextEditor>
-                                            <!--  子页3：跳过参数（jumpkey.txt；伴随请求子页仅数据操作页提供）  -->
-                                            <Grid IsVisible="{Binding RequestSubTab3Visible}" RowDefinitions="Auto,*,Auto" Background="{DynamicResource DsgCard}">
+                                            </TabItem.Content>
+                                        </TabItem>
+                                        <TabItem>
+                                            <TabItem.Header>
+                                                <WrapPanel>
+                                                    <PathIcon Data="{StaticResource IconSkipParam}" Width="13.5" Height="13.5" VerticalAlignment="Center" />
+                                                    <TextBlock Margin="6,0,0,0" Text="跳过参数" VerticalAlignment="Center" />
+                                                </WrapPanel>
+                                            </TabItem.Header>
+                                            <TabItem.Content>
+                                            <!--  子页1：跳过参数（jumpkey.txt）  -->
+                                            <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource DsgCard}">
                                                 <Border Classes="subhead" Grid.Row="0">
-                                                    <TextBlock Text="注入检测时命中下列参数名（不区分大小写）直接跳过，用于静态参数/Token/视图状态类参数降噪；增删即时生效并保存到 config/injection/jumpkey.txt" Classes="Secondary" FontSize="11" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                                    <TextBlock Text="注入检测时命中下列参数名（不区分大小写）直接跳过，用于静态参数/Token/视图状态类参数降噪；增删即时生效并保存到 config/injection/jumpkey.txt" Classes="Secondary hint" VerticalAlignment="Center" TextWrapping="Wrap" />
                                                 </Border>
                                                 <ListBox Grid.Row="1" Name="JumpkeyListBox" Margin="12,8"
                                                          SelectionMode="Multiple"
@@ -849,7 +396,7 @@
                                                         <MenuFlyout>
                                                             <MenuItem Header="删 除" Click="RemoveJumpkeySelect">
                                                                 <MenuItem.Icon>
-                                                                    <PathIcon Data="{StaticResource SemiIconDelete}" />
+                                                                    <Path Classes="lucm" Data="{StaticResource LgTrash2}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                         </MenuFlyout>
@@ -866,8 +413,9 @@
                                                     </StackPanel>
                                                 </Border>
                                             </Grid>
-                                        </Grid>
-                                    </DockPanel>
+                                            </TabItem.Content>
+                                        </TabItem>
+                                    </TabControl>
                                 </Border>
 
                                 <!--  右侧工具列（可折叠：展开288px/收起30px展开条）  -->
@@ -882,7 +430,7 @@
                                                     <TextBlock Classes="toolshead" Text="检测概览" VerticalAlignment="Center" />
                                                     <Button Classes="minibtn" Grid.Column="1" HorizontalAlignment="Right" Height="20" Padding="6,0" VerticalAlignment="Center"
                                                             Command="{Binding ToggleOverviewCommand}" ToolTip.Tip="收起检测概览（报文区加宽）">
-                                                        <TextBlock Text="›" FontSize="12" VerticalAlignment="Center" />
+                                                        <TextBlock Text="›" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
                                                     </Button>
                                                 </Grid>
                                                 <Border Classes="kvrow">
@@ -946,18 +494,12 @@
                                                     <Grid ColumnDefinitions="Auto,*">
                                                         <TextBlock Classes="kvkey" Text="命中Payload" />
                                                         <TextBlock Classes="kvval" Grid.Column="1" MaxWidth="168" TextTrimming="CharacterEllipsis"
-                                                                   FontFamily="{StaticResource CodeFontFamily}" FontSize="11"
+                                                                   FontFamily="{StaticResource CodeFontFamily}"
                                                                    HorizontalAlignment="Right"
                                                                    Text="{Binding OverviewPayloadText}" ToolTip.Tip="{Binding OverviewPayloadText}" />
                                                     </Grid>
                                                 </Border>
-                                                 <Border Classes="kvrow">
-                                                    <Grid ColumnDefinitions="*,Auto" Height="30">
-                                                        <TextBlock Classes="kvkey" Text="最近命中" />
-                                                        <TextBlock Classes="kvval" Grid.Column="1" Text="{Binding OverviewLastTimeText}" VerticalAlignment="Center" />
-                                                    </Grid>
-                                                 </Border>
-
+                                                 
                                                 <Border Classes="kvrow">
                                                 <Grid ColumnDefinitions="*,Auto" Height="30">
                                                     <TextBlock Classes="kvkey" Text="联合查询" />
@@ -991,7 +533,7 @@
                                                     <TextBlock Classes="kvkey" Text="状态" />
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                                         <Ellipse Width="7" Height="7" Fill="{Binding DetectStatusBrush}" />
-                                                        <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding DetectStatusText}"
+                                                        <TextBlock FontSize="12" FontWeight="Bold" Text="{Binding DetectStatusText}"
                                                                    Foreground="{Binding DetectStatusBrush}" />
                                                     </StackPanel>
                                                 </Grid>
@@ -1005,7 +547,7 @@
                                         </Border>
 
                                         <!--  注入操作（与概览之间1px分隔线）  -->
-                                        <Border Padding="12,11" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DsgBorder}">
+                                        <Border Padding="12,11" >
                                             <StackPanel Spacing="8">
                                                 <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
                                                     <Button Grid.Row="0" Grid.Column="0" Classes="minibtn" Height="34" CornerRadius="4" Margin="0,0,4,0"
@@ -1061,7 +603,7 @@
                                                 Command="{Binding ToggleOverviewCommand}" ToolTip.Tip="展开检测概览">
                                             <TextBlock Text="‹" FontSize="12" VerticalAlignment="Center" />
                                         </Button>
-                                        <TextBlock Text="检测概览" FontSize="11" Foreground="{DynamicResource DsgInk3}"
+                                        <TextBlock Text="检测概览" FontSize="13" Foreground="{DynamicResource DsgInk3}"
                                                    HorizontalAlignment="Center" Margin="14,10,0,0">
                                             <TextBlock.RenderTransform>
                                                 <RotateTransform Angle="90" />
@@ -1087,7 +629,7 @@
                                             <u:IconButton Icon="{StaticResource SemiIconDeleteStroked}" Content="删除选中" VerticalAlignment="Center" Classes="opdel tbtn"
                                                           Theme="{DynamicResource SolidIconButton}" Command="{Binding RemoveCheckedInjectRecordsCommand}"
                                                           ToolTip.Tip="弹窗确认后批量删除勾选行的注入记录" />
-                                            <u:IconButton Icon="{StaticResource SemiIconDelete}" Content="清空全部" VerticalAlignment="Center" Classes="opdel tbtn"
+                                            <u:IconButton Icon="{StaticResource SemiIconDeleteStroked}" Content="清空全部" VerticalAlignment="Center" Classes="opdel tbtn"
                                                           Theme="{DynamicResource SolidIconButton}" Command="{Binding ClearInjectRecordsCommand}"
                                                           ToolTip.Tip="弹窗确认后清空全部注入记录（不可恢复）" />
                                         </StackPanel>
@@ -1104,7 +646,7 @@
                                                           ItemsSource="{Binding InjectRecordTypeFilters}"
                                                           SelectedItem="{Binding InjectRecordFilterType}" />
                                             </StackPanel>
-                                            <TextBlock Classes="Secondary" VerticalAlignment="Center" FontSize="10.5"
+                                            <TextBlock Classes="Secondary hint" VerticalAlignment="Center"
                                                        Text="{Binding InjectRecordCountInfo}" />
                                             <TextBox Width="280" Height="30" VerticalAlignment="Center"
                                                      Text="{Binding InjectRecordSearchKeyword}"
@@ -1117,6 +659,11 @@
                                         </WrapPanel>
                                     </Grid>
                                 </Border>
+                                <!--  空态水印：无记录时居中提示（ZIndex压层，有数据时IsVisible=false自动隐藏）  -->
+                                <TextBlock Grid.Row="1" ZIndex="1" Text="暂无注入记录——检测到注入点后自动记录在这里"
+                                           FontSize="13" Foreground="{DynamicResource DsgInk3}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                                           IsVisible="{Binding FilteredInjectRecords.Count, Converter={StaticResource EmptyToBoolConverter}}" />
                                 <TableView Grid.Row="1" Name="InjectRecordTable" ItemsSource="{Binding FilteredInjectRecords}"
                                            SelectedItem="{Binding SelectedInjectRecord}"
                                            CanUserResizeColumns="True"
@@ -1142,27 +689,37 @@
                                         </ContextMenu>
                                     </TableView.ContextMenu>
                                     <TableView.Columns>
-                                        <TableViewColumn Header="选择" Width="46" HorizontalContentAlignment="Center">
+                                        <TableViewColumn Header="选择" Width="60" HorizontalContentAlignment="Center">
                                             <TableViewColumn.CellTemplate>
                                                 <DataTemplate x:DataType="models:InjectRecord">
                                                     <CheckBox IsChecked="{Binding RowChecked}" Click="RowCheckSelectC" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                 </DataTemplate>
                                             </TableViewColumn.CellTemplate>
                                         </TableViewColumn>
-                                        <TableViewColumn Header="时间" Binding="{Binding TimeStr}" Width="105" x:DataType="models:InjectRecord" />
-                                        <TableViewColumn Header="目标" Binding="{Binding Target}" Width="2*" x:DataType="models:InjectRecord" />
-                                        <TableViewColumn Header="参数" Binding="{Binding PName}" Width="90" x:DataType="models:InjectRecord" />
-                                        <TableViewColumn Header="数据库" Width="105" x:DataType="models:InjectRecord" HorizontalContentAlignment="Left">
+                                        <TableViewColumn Header="时间" HorizontalContentAlignment="Center" Binding="{Binding TimeStr}" Width="105" x:DataType="models:InjectRecord" />
+                                        <TableViewColumn Header="目标" HorizontalContentAlignment="Center" Binding="{Binding Target}" Width="2*" x:DataType="models:InjectRecord" />
+                                        <TableViewColumn Header="参数" HorizontalContentAlignment="Center" Binding="{Binding PName}" Width="90" x:DataType="models:InjectRecord" />
+                                        <TableViewColumn Header="数据库" Width="105" HorizontalContentAlignment="Center" x:DataType="models:InjectRecord">
                                             <TableViewColumn.CellTemplate>
                                                 <DataTemplate x:DataType="models:InjectRecord">
                                                     <Border Padding="6,1" CornerRadius="4" VerticalAlignment="Center" HorizontalAlignment="Left"
                                                             Background="{DynamicResource DsgSurface3}">
-                                                        <TextBlock Text="{Binding DBType}" FontSize="11" Foreground="{DynamicResource DsgInk2}" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding DBType}" Foreground="{DynamicResource DsgInk2}" VerticalAlignment="Center" />
                                                     </Border>
                                                 </DataTemplate>
                                             </TableViewColumn.CellTemplate>
                                         </TableViewColumn>
-                                        <TableViewColumn Header="注入类型" Width="150" x:DataType="models:InjectRecord" HorizontalContentAlignment="Left">
+                                        <TableViewColumn Header="Fork库" Width="95" HorizontalContentAlignment="Center" x:DataType="models:InjectRecord">
+                                            <TableViewColumn.CellTemplate>
+                                                <DataTemplate x:DataType="models:InjectRecord">
+                                                    <Border Padding="6,1" CornerRadius="4" VerticalAlignment="Center" HorizontalAlignment="Left"
+                                                            Background="{DynamicResource DsgSurface3}">
+                                                        <TextBlock Text="{Binding ForkNameText}" Foreground="{DynamicResource DsgInk2}" VerticalAlignment="Center" />
+                                                    </Border>
+                                                </DataTemplate>
+                                            </TableViewColumn.CellTemplate>
+                                        </TableViewColumn>
+                                        <TableViewColumn Header="注入类型" Width="150" HorizontalContentAlignment="Center" x:DataType="models:InjectRecord">
                                             <TableViewColumn.CellTemplate>
                                                 <DataTemplate x:DataType="models:InjectRecord">
                                                     <Border Padding="6,1" CornerRadius="4" VerticalAlignment="Center" HorizontalAlignment="Left"
@@ -1173,31 +730,29 @@
                                                 </DataTemplate>
                                             </TableViewColumn.CellTemplate>
                                         </TableViewColumn>
-                                        <TableViewColumn Header="判断值" Binding="{Binding CheckValue}" Width="90" x:DataType="models:InjectRecord" />
-                                        <TableViewColumn Header="列数" Binding="{Binding SumColumnCountText}" Width="55" x:DataType="models:InjectRecord" HorizontalContentAlignment="Center" />
-                                        <TableViewColumn Header="显示位" Binding="{Binding ShowColumnIndexText}" Width="60" x:DataType="models:InjectRecord" HorizontalContentAlignment="Center" />
+                                        <TableViewColumn Header="判断值" Binding="{Binding CheckValue}" HorizontalContentAlignment="Center" Width="90" x:DataType="models:InjectRecord" />
+                                        <TableViewColumn Header="列数" Binding="{Binding SumColumnCountText}" HorizontalContentAlignment="Center" Width="60" x:DataType="models:InjectRecord"  />
+                                        <TableViewColumn Header="显示位" Binding="{Binding ShowColumnIndexText}" HorizontalContentAlignment="Center" Width="80" x:DataType="models:InjectRecord"/>
                                         <TableViewColumn Header="测试Payload" Binding="{Binding TestPayload}" Width="2*" x:DataType="models:InjectRecord" />
                                         <TableViewColumn Width="110" Header="操作" HorizontalContentAlignment="Center">
                                             <TableViewColumn.CellTemplate>
                                                 <DataTemplate x:DataType="models:InjectRecord">
                                                     <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                        <u:IconButton Width="26" Height="26" Padding="0"
-                                                                      Theme="{DynamicResource BorderlessIconButton}"
-                                                                      Icon="{StaticResource IconView}"
-                                                                      Foreground="{DynamicResource DsgInk2}"
-                                                                      Tag="{Binding}" Click="ViewInjectRecordRow"
-                                                                      ToolTip.Tip="查看该注入记录详情" />
-                                                        <u:IconButton Width="26" Height="26" Padding="0"
-                                                                      Theme="{DynamicResource BorderlessIconButton}"
-                                                                      Icon="{StaticResource IconEnterData}"
-                                                                      Foreground="{DynamicResource DsgPrimary}"
-                                                                      Tag="{Binding}" Click="EnterDataOpRow"
-                                                                      ToolTip.Tip="恢复该记录并跳转到数据操作页取数" />
-                                                        <u:IconButton Width="26" Height="26" Padding="0" Classes="Danger"
-                                                                      Theme="{DynamicResource BorderlessIconButton}"
-                                                                      Icon="{StaticResource SemiIconDelete}"
-                                                                      Tag="{Binding}" Click="DeleteInjectRecordRow"
-                                                                      ToolTip.Tip="删除该注入记录（需确认）" />
+                                                        <Button Classes="opico view"
+                                                                Tag="{Binding}" Click="ViewInjectRecordRow"
+                                                                ToolTip.Tip="查看该注入记录详情">
+                                                            <Path Classes="luc" Data="{StaticResource LgEye}" />
+                                                        </Button>
+                                                        <Button Classes="opico view"
+                                                                Tag="{Binding}" Click="EnterDataOpRow"
+                                                                ToolTip.Tip="恢复该记录并跳转到数据操作页取数">
+                                                            <Path Classes="luc" Data="{StaticResource LgLogIn}" />
+                                                        </Button>
+                                                        <Button Classes="opico del"
+                                                                Tag="{Binding}" Click="DeleteInjectRecordRow"
+                                                                ToolTip.Tip="删除该注入记录（需确认）">
+                                                            <Path Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                        </Button>
                                                     </StackPanel>
                                                 </DataTemplate>
                                             </TableViewColumn.CellTemplate>
@@ -1217,9 +772,9 @@
                                     <!--  左右布局：左侧两行配置内容，右侧“应用”按钮通高对齐  -->
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel Grid.Column="0" Spacing="8" VerticalAlignment="Center">
-                                            <!--  第一行：注入记录选择 + 目标URL + 端口/SSL  -->
-                                            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto">
-                                                <TextBlock Text="检测记录" VerticalAlignment="Center"/>
+                                            <!--  第一行：注入记录选择 + 请求方式 + 目标URL + 端口/SSL  -->
+                                            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto">
+                                                <TextBlock Text="检测记录：" Classes="Normal" VerticalAlignment="Center"/>
                                                 <ComboBox Grid.Column="1" Width="300" Height="28" Margin="8,0,0,0" VerticalAlignment="Center"
                                                           ItemsSource="{Binding InjectRecords}"
                                                           SelectedItem="{Binding QuickSelectRecord}"
@@ -1230,18 +785,22 @@
                                                         </DataTemplate>
                                                     </ComboBox.ItemTemplate>
                                                 </ComboBox>
-                                                <TextBlock Grid.Column="2" Classes="kvkey" Text="目标URL：" Margin="14,0,0,0" />
-                                                <TextBox Grid.Column="3" Classes="Bordered" Height="28"
+                                                <TextBlock Grid.Column="2" Text="目标URL：" Classes="Normal" Margin="14,0,0,0" VerticalAlignment="Center"/>
+                                                <ComboBox Grid.Column="3" Width="76" Height="28" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                          Classes="ClearButton"
+                                                          ItemsSource="{Binding AppConfig.DetectMethods}"
+                                                          SelectedItem="{Binding AppConfig.DataMethod}"
+                                                          ToolTip.Tip="请求方式：输入URL后按此方式自动生成请求报文；手工修改报文后自动回同步" />
+                                                <TextBox Grid.Column="4" Classes="Bordered" Height="28" Margin="8,0,0,0"
                                                          Text="{Binding AppConfig.Url}"
                                                          VerticalAlignment="Center" VerticalContentAlignment="Center"
                                                          FontFamily="{StaticResource CodeFontFamily}"
-                                                         FontSize="12"
                                                          PlaceholderText="http://target/page?id=1" />
-                                                <TextBlock Grid.Column="4" Classes="kvkey" Text="端口：" Margin="10,0,0,0" />
-                                                <TextBox Grid.Column="5" Width="62" Height="28" Classes="Bordered" VerticalAlignment="Center" Text="{Binding AppConfig.Port}" />
-                                                <CheckBox Grid.Column="6" Content="SSL" Margin="10,0,0,0" IsChecked="{Binding AppConfig.IsSSL}" VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="7" Classes="kvkey" Text="线程：" Margin="10,0,0,0" VerticalAlignment="Center" />
-                                                <ComboBox Grid.Column="8" Width="70" Height="28" Margin="6,0,0,0" ItemsSource="{Binding AppConfig.ThreadSizeItems}"
+                                                <TextBlock Grid.Column="5" VerticalAlignment="Center" Text="端 口：" Classes="Normal"  Margin="10,0,0,0" />
+                                                <TextBox Grid.Column="6" Width="62" Height="28" Classes="Bordered" VerticalAlignment="Center" Text="{Binding AppConfig.Port}" />
+                                                <CheckBox Grid.Column="7" Content="SSL" Margin="10,0,0,0" IsChecked="{Binding AppConfig.IsSSL}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="8" Text="线程：" Classes="Normal" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                <ComboBox Grid.Column="9" Width="70" Height="28" Margin="6,0,0,0" ItemsSource="{Binding AppConfig.ThreadSizeItems}"
                                                           SelectedValue="{Binding AppConfig.ThreadSize}" VerticalAlignment="Center" />
                                             </Grid>
                                         <!--  第二行：取数增效开关（盲注链路）+ 字符集/读取方式  -->
@@ -1328,14 +887,14 @@
                                                             <StackPanel Orientation="Horizontal" Spacing="7" Margin="12,0,0,0" VerticalAlignment="Center">
                                                                 <Path Classes="luc" Data="{StaticResource LgDatabaseZap}" Width="13.5" Height="13.5"
                                                                       Stroke="{DynamicResource DsgPrimary}" />
-                                                                <TextBlock Text="通道配置" FontSize="12.5" FontWeight="Bold" VerticalAlignment="Center" />
+                                                                <TextBlock Text="通道配置" FontSize="13" VerticalAlignment="Center" />
                                                             </StackPanel>
                                                         </Border>
                                                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                                                             <StackPanel Spacing="10" Margin="10,10">
-                                                                <!--  基础通道配置  -->
+                                                                <!--  基础通道配置（注入类型/数据库族/Fork库各一行，Fork下拉按族联动过滤变体库）  -->
                                                                 <GroupBox Classes="chgrp" Header="基础">
-                                                                    <Grid ColumnDefinitions="64,*,64,*">
+                                                                    <Grid ColumnDefinitions="64,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
                                                                         <TextBlock Classes="kvkey" Text="注入类型：" VerticalAlignment="Center" />
                                                                         <ComboBox Grid.Column="1" ItemsSource="{Binding AppConfig.DataConfig.InjectTypes}"
                                                                                   SelectedItem="{Binding CurrentContext.InjectType}" VerticalAlignment="Center">
@@ -1345,9 +904,19 @@
                                                                                 </DataTemplate>
                                                                             </ComboBox.ItemTemplate>
                                                                         </ComboBox>
-                                                                        <TextBlock Grid.Column="2" Classes="kvkey" Text="数据库：" Margin="8,0,0,0" VerticalAlignment="Center" />
-                                                                        <ComboBox Grid.Column="3" ItemsSource="{Binding AppConfig.DataConfig.DBTypes}"
-                                                                                  SelectedItem="{Binding CurrentContext.DbType}" VerticalAlignment="Center" />
+                                                                        <TextBlock Grid.Row="1" Classes="kvkey" Text="数据库：" VerticalAlignment="Center" />
+                                                                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding AppConfig.DataConfig.DbFamilies}"
+                                                                                  SelectedItem="{Binding CurrentContext.DbFamily}" VerticalAlignment="Center">
+                                                                            <ComboBox.ItemTemplate>
+                                                                                <DataTemplate>
+                                                                                    <TextBlock Text="{Binding Converter={StaticResource InjectTypeNameConverter}}" />
+                                                                                </DataTemplate>
+                                                                            </ComboBox.ItemTemplate>
+                                                                        </ComboBox>
+                                                                        <TextBlock Grid.Row="2" Classes="kvkey" Text="Fork库：" VerticalAlignment="Center" />
+                                                                        <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding CurrentContext.ForkOptions}"
+                                                                                  SelectedItem="{Binding CurrentContext.DbForkSelection}"
+                                                                                  IsEnabled="{Binding CurrentContext.HasForks}" VerticalAlignment="Center" />
                                                                     </Grid>
                                                                 </GroupBox>
                                                                 <!--  Union 通道参数  -->
@@ -1397,7 +966,7 @@
                                                                             <NumericUpDown Grid.Column="1" Minimum="1" Maximum="30" Increment="1"
                                                                                            Value="{Binding AppConfig.SleepInjectMaxTime}" VerticalAlignment="Center" />
                                                                         </Grid>
-                                                                        <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap"
+                                                                        <TextBlock Classes="Secondary hint" TextWrapping="Wrap"
                                                                                    Text="延时秒数同时作为取数sleep时长与响应耗时判定阈值；时间通道注入点下修改实时生效。" />
                                                                     </StackPanel>
                                                                 </GroupBox>
@@ -1480,73 +1049,62 @@
                                                                     <ContextMenu Opened="RequestMenuOpenedC">
                                                                         <MenuItem Header="根据URL生成请求包" Click="BuildRequestFromUrlC">
                                                                             <MenuItem.Icon>
-                                                                                <PathIcon Data="{StaticResource IconHttpRequest}" />
+                                                                                <Path Classes="lucm" Data="{StaticResource LgLink}" />
+                                                                            </MenuItem.Icon>
+                                                                        </MenuItem>
+                                                                        <MenuItem Header="从文件导入报文" Click="ImportRequestFromFileC">
+                                                                            <MenuItem.Icon>
+                                                                                <Path Classes="lucm" Data="{StaticResource LgUpload}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="转换数据报文">
                                                                             <MenuItem.Icon>
-                                                                                <PathIcon Data="{StaticResource IconChangeRequest}" />
+                                                                                <Path Classes="lucm" Data="{StaticResource LgArrowLeftRight}" />
                                                                             </MenuItem.Icon>
-                                                                            <MenuItem Header="转为 GET（参数移到URL）" Click="ChangeRequestFormatC" Tag="GET" >
-                                                                                <MenuItem.Icon>
-                                                                                    <PathIcon Data="{StaticResource IconChangeRequest}" />
-                                                                                </MenuItem.Icon>
-                                                                            </MenuItem>
-                                                                            <MenuItem Header="转为 POST（表单urlencoded）" Click="ChangeRequestFormatC" Tag="POST_FORM" >
-                                                                                <MenuItem.Icon>
-                                                                                    <PathIcon Data="{StaticResource IconChangeRequest}" />
-                                                                                </MenuItem.Icon>
-                                                                            </MenuItem>
-                                                                            <MenuItem Header="转为 POST（JSON）" Click="ChangeRequestFormatC" Tag="POST_JSON" >
-                                                                                <MenuItem.Icon>
-                                                                                    <PathIcon Data="{StaticResource IconChangeRequest}" />
-                                                                                </MenuItem.Icon>
-                                                                            </MenuItem>
-                                                                            <MenuItem Header="转为 POST（multipart复杂格式）" Click="ChangeRequestFormatC" Tag="POST_MULTIPART" >
-                                                                                <MenuItem.Icon>
-                                                                                    <PathIcon Data="{StaticResource IconChangeRequest}" />
-                                                                                </MenuItem.Icon>
-                                                                            </MenuItem>
+                                                                            <MenuItem Header="转为 GET（参数移到URL）" Click="ChangeRequestFormatC" Tag="GET" />
+                                                                            <MenuItem Header="转为 POST（表单urlencoded）" Click="ChangeRequestFormatC" Tag="POST_FORM" />
+                                                                            <MenuItem Header="转为 POST（JSON）" Click="ChangeRequestFormatC" Tag="POST_JSON" />
+                                                                            <MenuItem Header="转为 POST（multipart复杂格式）" Click="ChangeRequestFormatC" Tag="POST_MULTIPART" />
                                                                         </MenuItem>
                                                                         <MenuItem Header="编码标记" Click="SetEncodingPointC">
                                                                             <MenuItem.Icon>
-                                                                                <PathIcon Data="{StaticResource IconEncodingFlag}" />
+                                                                                <Path Classes="lucm" Data="{StaticResource LgCode}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="注入标记" Click="SetInjectPointC">
                                                                             <MenuItem.Icon>
-                                                                                <PathIcon Data="{StaticResource IconInjectFlag}" />
+                                                                                <Path Classes="lucm" Data="{StaticResource LgCrosshair}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="插入动态值">
                                                                             <MenuItem.Icon>
-                                                                                <PathIcon Data="{StaticResource IconRandFlag}" />
+                                                                                <Path Classes="lucm" Data="{StaticResource LgSparkles}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="二次注入（单选）">
                                                                             <MenuItem.Icon>
-                                                                                <PathIcon Data="{StaticResource IconChangeRequest}" />
+                                                                                <Path Classes="lucm" Data="{StaticResource LgLayers}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="发送请求" Command="{Binding SendRequestCommand}" CommandParameter="exploit">
                                                                             <MenuItem.Icon>
-                                                                                <PathIcon Data="{StaticResource SemiIconSendStroked}" />
+                                                                                <Path Classes="lucm" Data="{StaticResource LgSend}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <Separator />
                                                                         <MenuItem Header="复制报文" Click="CopyRequestC">
                                                                             <MenuItem.Icon>
-                                                                                <PathIcon Data="{StaticResource SemiIconCopyStroked}" />
+                                                                                <Path Classes="lucm" Data="{StaticResource LgCopy}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="自动换行" Click="ToggleWrapC">
                                                                             <MenuItem.Icon>
-                                                                                <PathIcon Data="{StaticResource IconChangeRequest}" />
+                                                                                <Path Classes="lucm" Data="{StaticResource LgWrapText}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="清空报文" Click="ClearRequestC">
                                                                             <MenuItem.Icon>
-                                                                                <PathIcon Data="{StaticResource SemiIconDelete}" />
+                                                                                <Path Classes="lucm" Data="{StaticResource LgTrash2}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                     </ContextMenu>
@@ -1574,7 +1132,7 @@
                                                             <Grid ColumnDefinitions="Auto,*">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                                                                     <PathIcon Data="{StaticResource IconVerInfo}" Width="14" Height="14" Foreground="{DynamicResource DsgPrimary}" />
-                                                                    <TextBlock Text="环境变量" FontSize="12.5" FontWeight="Bold" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="环境变量" Classes="Normal" FontSize="13" VerticalAlignment="Center" />
                                                                 </StackPanel>
                                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                                     <u:IconButton
@@ -1647,7 +1205,7 @@
                                         <TabItem.Header>
                                             <WrapPanel>
                                                 <Path Classes="luc" Data="{StaticResource LgShieldAlert}" Width="14" Height="14" VerticalAlignment="Center" />
-                                                <TextBlock Margin="6,0,0,0" Text="Hash读取" VerticalAlignment="Center" />
+                                                <TextBlock Margin="6,0,0,0" Text="Hash读取" Classes="Normal" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
                                         <TabItem.Content>
@@ -1659,8 +1217,8 @@
                                                             <Grid ColumnDefinitions="Auto,*">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                                                                     <PathIcon Data="{StaticResource IconBypassSafe}" Width="14" Height="14" Foreground="{DynamicResource DsgPrimary}" />
-                                                                    <TextBlock Text="Hash读取" FontSize="12.5" FontWeight="Bold" VerticalAlignment="Center" />
-                                                                    <TextBlock Text="（全用户哈希/是否DBA等，随数据库类型自动加载）" Classes="Secondary" FontSize="11" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="Hash读取" FontSize="13" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="（全用户哈希/是否DBA等，随数据库类型自动加载）" Classes="Secondary hint" VerticalAlignment="Center" />
                                                                 </StackPanel>
                                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                                     <u:IconButton
@@ -1733,7 +1291,7 @@
                                         <TabItem.Header>
                                             <WrapPanel>
                                                 <Path Classes="luc" Data="{StaticResource LgShieldAlert}" Width="14" Height="14" VerticalAlignment="Center" />
-                                                <TextBlock Margin="6,0,0,0" Text="权限角色" VerticalAlignment="Center" />
+                                                <TextBlock Margin="6,0,0,0" Text="权限角色" Classes="Normal" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
                                         <TabItem.Content>
@@ -1745,8 +1303,8 @@
                                                             <Grid ColumnDefinitions="Auto,*">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                                                                     <PathIcon Data="{StaticResource IconBypassSafe}" Width="14" Height="14" Foreground="{DynamicResource DsgPrimary}" />
-                                                                    <TextBlock Text="权限角色" FontSize="12.5" FontWeight="Bold" VerticalAlignment="Center" />
-                                                                    <TextBlock Text="（当前用户权限/角色成员/会话权限等，随数据库类型自动加载）" Classes="Secondary" FontSize="11" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="权限角色" FontSize="13" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="（当前用户权限/角色成员/会话权限等，随数据库类型自动加载）" Classes="Secondary hint" VerticalAlignment="Center" />
                                                                 </StackPanel>
                                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                                     <u:IconButton
@@ -1819,7 +1377,7 @@
                                         <TabItem.Header>
                                             <WrapPanel>
                                                 <Path Classes="luc" Data="{StaticResource LgBinary}" Width="14" Height="14" VerticalAlignment="Center" />
-                                                <TextBlock Margin="6,0,0,0" Text="文件操作" VerticalAlignment="Center" />
+                                                <TextBlock Margin="6,0,0,0" Text="文件操作" Classes="Normal" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
                                         <TabItem.Content>
@@ -1831,7 +1389,7 @@
                                                             <WrapPanel ItemSpacing="10" VerticalAlignment="Center">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="0,0,6,0">
                                                                     <PathIcon Data="{StaticResource IconReadFile}" Width="14" Height="14" Foreground="{DynamicResource DsgPrimary}" />
-                                                                    <TextBlock Text="文件操作" FontSize="12.5" FontWeight="Bold" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="文件操作" FontSize="13" VerticalAlignment="Center" />
                                                                 </StackPanel>
                                                                 <TextBlock Text="文件路径：" Classes="Secondary" VerticalAlignment="Center" />
                                                                 <TextBox Width="220" VerticalAlignment="Center" Text="{Binding AppConfig.FileCmd.FilePath}" />
@@ -1902,7 +1460,7 @@
                                                             <WrapPanel ItemSpacing="10" VerticalAlignment="Center">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="0,0,6,0">
                                                                     <PathIcon Data="{StaticResource IconCommand}" Width="14" Height="14" Foreground="{DynamicResource DsgPrimary}" />
-                                                                    <TextBlock Text="命令执行" FontSize="12.5" FontWeight="Bold" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="命令执行" Classes="Normal" FontSize="13" VerticalAlignment="Center" />
                                                                 </StackPanel>
                                                                 <TextBlock Text="命令：" Classes="Secondary" VerticalAlignment="Center" />
                                                                 <TextBox Width="300" VerticalAlignment="Center" Text="{Binding AppConfig.FileCmd.CmdText}"
@@ -1931,7 +1489,7 @@
                                                                 <u:IconButton
                                                                       Theme="{StaticResource OutlineIconButton}"
                                                                       Classes="Danger"
-                                                                      Icon="{StaticResource SemiIconDelete}"
+                                                                      Icon="{StaticResource SemiIconDeleteStroked}"
                                                                       Command="{Binding AppConfig.FileCmd.CleanupUdfCommand}"
                                                                       Content="清理UDF"
                                                                       ToolTip.Tip="UDF痕迹清理：删除UDF库文件并drop sys_eval/sys_exec函数（支持MySQL/PostgreSQL UDF通道）" />
@@ -1976,7 +1534,7 @@
                                                             <WrapPanel ItemSpacing="10" VerticalAlignment="Center">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="0,0,6,0">
                                                                     <Path Classes="luc" Data="{StaticResource LgDatabaseZap}" Width="14" Height="14" Stroke="{DynamicResource DsgPrimary}" />
-                                                                    <TextBlock Text="自定义SQL" FontSize="12.5" FontWeight="Bold" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="自定义SQL" Classes="Normal" FontSize="13" VerticalAlignment="Center" />
                                                                 </StackPanel>
                                                                 <TextBlock Text="SQL：" Classes="Secondary" VerticalAlignment="Center" />
                                                                 <TextBox Width="500" VerticalAlignment="Center" Text="{Binding AppConfig.DataDump.CustomSql}"
@@ -2009,7 +1567,7 @@
                                         <TabItem.Header>
                                             <WrapPanel>
                                                 <Path Classes="luc" Data="{StaticResource LgTable2}" Width="14" Height="14" VerticalAlignment="Center" />
-                                                <TextBlock Margin="6,0,0,0" Text="数据操作" VerticalAlignment="Center" />
+                                                <TextBlock Margin="6,0,0,0" Text="数据操作" Classes="Normal" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
                                         <TabItem.Content>
@@ -2049,11 +1607,6 @@
                                                 </StackPanel>
                                             </Border>
                                         <TreeView Grid.Row="2" Padding="4,6" Name="DBStructTree" SelectionMode="Multiple" ItemsSource="{Binding AppConfig.DataDump.DBStructItems}">
-                                            <TreeView.Styles>
-                                                <Style Selector="TreeViewItem">
-                                                    <Setter Property="IsExpanded" Value="True" />
-                                                </Style>
-                                            </TreeView.Styles>
                                             <TreeView.ItemTemplate>
                                                 <TreeDataTemplate ItemsSource="{Binding SubItems}">
                                                     <StackPanel Orientation="Horizontal" Spacing="3">
@@ -2146,7 +1699,10 @@
                                         </TreeView>
                                         </Grid>
                                     </Border>
-                                    <GridSplitter Grid.Column="1" ShowsPreview="True" />
+                                    <!--  细分隔线+透明拖拽热区（与其他页同款，替代默认粗灰GridSplitter）  -->
+                                    <Border Grid.Column="1" Width="1" HorizontalAlignment="Center"
+                                            Background="{DynamicResource DsgBorder}" />
+                                    <GridSplitter Grid.Column="1" Width="5" Background="Transparent" HorizontalAlignment="Stretch" />
                                     <Border Grid.Column="2" Padding="0">
                                         <Grid RowDefinitions="Auto,*">
                                             <Border Classes="subhead" Grid.Row="0" Height="44">
@@ -2213,19 +1769,19 @@
                                                 </StackPanel>
                                             </Button>
                                             <Border Classes="dtvsep" Margin="23,0" />
-                                            <TextBlock Classes="kvkey" Text="开始下标" />
+                                            <TextBlock Text="开始下标" Classes="Normal" VerticalAlignment="Center"/>
                                             <NumericUpDown Increment="1" Width="76" Height="28" 
                                                            Minimum="0" Value="{Binding AppConfig.DataDump.DataDumpStart}" VerticalAlignment="Center" />
-                                            <TextBlock Classes="kvkey" Text="获取条数" />
+                                            <TextBlock Text="获取条数" Classes="Normal" VerticalAlignment="Center"/>
                                             <NumericUpDown Increment="1" Width="76" Height="28" Value="{Binding AppConfig.DataDump.DumpCount}" 
                                                            Minimum="1" VerticalAlignment="Center" />
-                                            <TextBlock Classes="kvkey" Text="Union批量" />
+                                            <TextBlock Text="Union批量" Classes="Normal" VerticalAlignment="Center"/>
                                             <NumericUpDown Increment="1" Width="64" Height="28" Value="{Binding AppConfig.DataConfig.UnionBatchRows}"
                                                            Minimum="1" Maximum="50" VerticalAlignment="Center"
                                                            ToolTip.Tip="Union批量取数行数：>1时聚合函数多行拼单行一次回显（k行1次请求），截断/取空自动回退逐行；1=逐行" />
-                                            <TextBlock Classes="kvkey" Text="总条数" />
-                                            <Border Classes="dttotal">
-                                                <TextBlock Text="{Binding AppConfig.DataDump.DataCount}" />
+                                            <TextBlock Text="总条数" Classes="Normal" VerticalAlignment="Center"/>
+                                            <Border >
+                                                <TextBlock Text="{Binding AppConfig.DataDump.DataCount}" VerticalAlignment="Center"/>
                                             </Border>
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -2260,7 +1816,7 @@
                                     </TabItem.Header>
                                     <Grid RowDefinitions="Auto,Auto,*">
                                         <Border Classes="subhead" Grid.Row="0">
-                                            <TextBlock Text="超时/重试/302跟随/连接池/网页解码/请求延时/每秒限速等HTTP基础请求参数；随机源IP伪造X-Forwarded-For等客户端IP头，绕过基于源IP的访问控制与频率限制" Classes="Secondary" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                            <TextBlock Text="超时/重试/302跟随/连接池/网页解码/请求延时/每秒限速等HTTP基础请求参数；随机源IP伪造X-Forwarded-For等客户端IP头，绕过基于源IP的访问控制与频率限制" Classes="Secondary hint" TextWrapping="Wrap" VerticalAlignment="Center" />
                                         </Border>
                                         <GroupBox Grid.Row="1" Classes="chgrp" Header="请求设置" Margin="12,10,12,0">
                                             <Grid ColumnDefinitions="*">
@@ -2313,7 +1869,7 @@
                                         </TabItem.Header>
                                         <Grid RowDefinitions="Auto,Auto,*">
                                             <Border Classes="subhead" Grid.Row="0">
-                                                <TextBlock Text="HTTP认证：Basic每次请求自动带认证头；Digest首次401挑战后自动重发并缓存挑战；NTLM为连接级握手（NTLMv1），认证连接自动复用" Classes="Secondary" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                <TextBlock Text="HTTP认证：Basic每次请求自动带认证头；Digest首次401挑战后自动重发并缓存挑战；NTLM为连接级握手（NTLMv1），认证连接自动复用" Classes="Secondary hint" TextWrapping="Wrap" VerticalAlignment="Center" />
                                             </Border>
                                             <GroupBox Grid.Row="1" Classes="chgrp" Header="认证配置" Margin="12,10,12,0">
                                                 <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
@@ -2329,10 +1885,10 @@
                                             </GroupBox>
                                             <GroupBox Grid.Row="2" Classes="chgrp" Header="说明" Margin="12,10,12,10">
                                                 <StackPanel Spacing="6">
-                                                    <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· Basic：Authorization头 preemptive 携带 Base64(用户名:密码)，适合已知凭据的站点；" />
-                                                    <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· Digest：无需预填挑战，首次请求收到401后自动完成挑战-响应并重发，后续请求 preemptive 携带（nc自动递增）；" />
-                                                    <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· NTLM：Type1/Type2/Type3 握手在同一连接上完成，认证通过的连接归还连接池复用，盲注高并发下不重复握手；" />
-                                                    <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· 认证失败的请求表现为401状态码，注入检测的比对照会自然排除，无需额外处理。" />
+                                                    <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· Basic：Authorization头 preemptive 携带 Base64(用户名:密码)，适合已知凭据的站点；" />
+                                                    <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· Digest：无需预填挑战，首次请求收到401后自动完成挑战-响应并重发，后续请求 preemptive 携带（nc自动递增）；" />
+                                                    <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· NTLM：Type1/Type2/Type3 握手在同一连接上完成，认证通过的连接归还连接池复用，盲注高并发下不重复握手；" />
+                                                    <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· 认证失败的请求表现为401状态码，注入检测的比对照会自然排除，无需额外处理。" />
                                                 </StackPanel>
                                             </GroupBox>
                                         </Grid>
@@ -2347,7 +1903,7 @@
                                     <Grid RowDefinitions="Auto,*,Auto">
                                         <Border Classes="subhead" Grid.Row="0">
                                             <Grid ColumnDefinitions="Auto,*">
-                                                <TextBlock Text="通过代理转发请求，支持代理池轮换与可用性验证" Classes="Secondary" FontSize="11" VerticalAlignment="Center" />
+                                                <TextBlock Text="通过代理转发请求，支持代理池轮换与可用性验证" Classes="Secondary hint" VerticalAlignment="Center" />
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                     <TextBlock Text="启用代理" Classes="Secondary" VerticalAlignment="Center" />
                                                     <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.ProxyConfig.ProxyEnable}" VerticalAlignment="Center" />
@@ -2355,6 +1911,11 @@
                                                     <ComboBox Width="130" Height="26" ItemsSource="{Binding AppConfig.ProxyConfig.ProxyTypeItems}" SelectedItem="{Binding AppConfig.ProxyConfig.SelectProxyType}" VerticalAlignment="Center" />
                                                     <TextBlock Text="当前代理：" Classes="Secondary" VerticalAlignment="Center" />
                                                     <TextBlock VerticalAlignment="Center" Text="{Binding AppConfig.ProxyConfig.CurrentProxyText}" />
+                                                    <TextBlock Text="验证地址：" Classes="Secondary" VerticalAlignment="Center" />
+                                                    <TextBox Width="200" Classes="Bordered" VerticalAlignment="Center"
+                                                             Text="{Binding AppConfig.ProxyConfig.ProxyTestUrl}"
+                                                             PlaceholderText="如 http://www.baidu.com"
+                                                             ToolTip.Tip="验证代理时通过代理访问该地址，验证真实转发能力（Socks5=CONNECT握手，HTTP代理=GET/CONNECT试请求）" />
                                                 </StackPanel>
                                             </Grid>
                                         </Border>
@@ -2362,6 +1923,7 @@
                                                    CanUserResizeColumns="True"
                                                    Name="ProxyDataGrid"
                                                    ItemsSource="{Binding AppConfig.ProxyConfig.ProxyItems}"
+                                                   DoubleTapped="EditProxySelect"
                                                    BorderThickness="1"
                                                    ScrollViewer.AllowAutoHide="True">
                                                 <TableView.Columns>
@@ -2390,6 +1952,16 @@
                                                         <MenuItem Header="验证选中代理" Click="CheckProxySelect">
                                                             <MenuItem.Icon>
                                                                 <PathIcon Data="{StaticResource SemiIconCheckboxTick}" />
+                                                            </MenuItem.Icon>
+                                                        </MenuItem>
+                                                        <MenuItem Header="编辑选中代理" Click="EditProxySelect">
+                                                            <MenuItem.Icon>
+                                                                <Path Classes="lucm" Data="{StaticResource LgPencil}" />
+                                                            </MenuItem.Icon>
+                                                        </MenuItem>
+                                                        <MenuItem Header="设为固定代理" Click="SetFixedProxySelect">
+                                                            <MenuItem.Icon>
+                                                                <Path Classes="lucm" Data="{StaticResource LgSquareCheckBig}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="验证所有代理" Command="{Binding CheckAllProxyCommand}">
@@ -2422,10 +1994,7 @@
                                                     <TextBlock Text="端口：" Classes="Secondary" VerticalAlignment="Center" />
                                                     <TextBox Width="80" Classes="Bordered" Text="{Binding AppConfig.ProxyConfig.AddProxy.Port}" VerticalAlignment="Center" />
                                                     <TextBlock Text="类型：" Classes="Secondary" VerticalAlignment="Center" />
-                                                    <ComboBox Width="100" SelectedItem="{Binding AppConfig.ProxyConfig.AddProxy.proxyType}" VerticalAlignment="Center">
-                                                        <ComboBoxItem>Socks5</ComboBoxItem>
-                                                        <ComboBoxItem>HTTP</ComboBoxItem>
-                                                    </ComboBox>
+                                                    <ComboBox Width="100" ItemsSource="{Binding AppConfig.ProxyConfig.ProxyTypeNameItems}" SelectedItem="{Binding AppConfig.ProxyConfig.AddProxy.proxyType}" VerticalAlignment="Center" />
                                                     <TextBlock Text="用户名：" Classes="Secondary" VerticalAlignment="Center" />
                                                     <TextBox Width="100" Classes="Bordered" Text="{Binding AppConfig.ProxyConfig.AddProxy.username}" VerticalAlignment="Center" />
                                                     <TextBlock Text="密码：" Classes="Secondary" VerticalAlignment="Center" />
@@ -2449,7 +2018,7 @@
                                         </TabItem.Header>
                                         <Grid RowDefinitions="Auto,Auto,*">
                                             <Border Classes="subhead" Grid.Row="0">
-                                                <TextBlock Text="DNS外带数据接收通道：盲注无回显场景把查询结果编码进DNS子域名外带；配置API后可自动回收解析记录" Classes="Secondary" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                <TextBlock Text="DNS外带数据接收通道：盲注无回显场景把查询结果编码进DNS子域名外带；配置API后可自动回收解析记录" Classes="Secondary hint" TextWrapping="Wrap" VerticalAlignment="Center" />
                                             </Border>
                                             <GroupBox Grid.Row="1" Classes="chgrp" Header="DNSLog 配置" Margin="12,10,12,0">
                                                 <StackPanel Spacing="10" VerticalAlignment="Center">
@@ -2473,18 +2042,18 @@
                                                         <Button Content="应用" Classes="minibtn" Click="ApplyDnsServerC" VerticalAlignment="Center" />
                                                     </StackPanel>
                                                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                                        <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· 内置服务：域名NS指向本机后开启即可直接收记录（53需管理员/root，测试可用5353等高位端口）；改端口/域名后点「应用」重启服务；" />
+                                                        <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· 内置服务：域名NS指向本机后开启即可直接收记录（53需管理员/root，测试可用5353等高位端口）；改端口/域名后点「应用」重启服务；" />
                                                     </StackPanel>
                                                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                                        <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· 服务器形态：把 SuperSQLInjectionV2.DnsServer 部署到VPS（--domain 域名 --port 53 --http 8080 --token 密钥），API地址填 http://VPS:8080/api/records?token={token}&amp;type=dns&amp;filter={domain} 即可复用自动回收。" />
+                                                        <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· 服务器形态：把 SuperSQLInjectionV2.DnsServer 部署到VPS（--domain 域名 --port 53 --http 8080 --token 密钥），API地址填 http://VPS:8080/api/records?token={token}&amp;type=dns&amp;filter={domain} 即可复用自动回收。" />
                                                     </StackPanel>
                                                 </StackPanel>
                                             </GroupBox>
                                             <GroupBox Grid.Row="2" Classes="chgrp" Header="说明" Margin="12,10,12,10">
                                                 <StackPanel Spacing="6">
-                                                    <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· 注入检测发现 DNS 盲注通道后，数据操作的注入类型选 DNS 即可按外带方式取数；" />
-                                                    <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· 域名必填；Token 与 API 地址用于自动回收解析记录，留空则到 DNSLog 平台手工查看；" />
-                                                    <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· API地址模板中的 {token} 与 {domain} 会被实际值替换，默认兼容 ceye.io 接口。" />
+                                                    <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· 注入检测发现 DNS 盲注通道后，数据操作的注入类型选 DNS 即可按外带方式取数；" />
+                                                    <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· 域名必填；Token 与 API 地址用于自动回收解析记录，留空则到 DNSLog 平台手工查看；" />
+                                                    <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· API地址模板中的 {token} 与 {domain} 会被实际值替换，默认兼容 ceye.io 接口。" />
                                                 </StackPanel>
                                             </GroupBox>
                                         </Grid>
@@ -2499,7 +2068,7 @@
                                         <Grid RowDefinitions="Auto,*,Auto">
                                             <Border Classes="subhead" Grid.Row="0">
                                                 <Grid ColumnDefinitions="Auto,*">
-                                                    <TextBlock Text="开启随机UA后每请求从勾选的UA中轮换（无勾选用UA时用内置UA池）；不启用则保留报文自身User-Agent" Classes="Secondary" FontSize="11" VerticalAlignment="Center" />
+                                                    <TextBlock Text="开启随机UA后每请求从勾选的UA中轮换（无勾选用UA时用内置UA池）；不启用则保留报文自身User-Agent" Classes="Secondary hint" VerticalAlignment="Center" />
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                         <TextBlock Text="随机UA" Classes="Secondary" VerticalAlignment="Center" />
                                                         <ToggleSwitch Classes="se" IsChecked="{Binding AppConfig.ByPassConfig.RandomUa}" VerticalAlignment="Center" />
@@ -2563,7 +2132,7 @@
                                         </TabItem.Header>
                                         <Grid RowDefinitions="Auto,Auto,*,Auto">
                                             <Border Classes="subhead" Grid.Row="0">
-                                                <TextBlock Text="字典猜解词表管理：Access 无元数据可读默认走字典猜解；其他库可在数据操作页开启字典猜解后使用通用字典。词条防重复（忽略大小写）" Classes="Secondary" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                <TextBlock Text="字典猜解词表管理：Access 无元数据可读默认走字典猜解；其他库可在数据操作页开启字典猜解后使用通用字典。词条防重复（忽略大小写）" Classes="Secondary hint" TextWrapping="Wrap" VerticalAlignment="Center" />
                                             </Border>
                                             <Border Padding="12,8" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DsgBorder}" Grid.Row="1">
                                                 <WrapPanel ItemSpacing="10" LineSpacing="8" VerticalAlignment="Center">
@@ -2619,7 +2188,7 @@
                                                                       Icon="{StaticResource SemiIconPlusStroked}"
                                                                       Content="添加" Command="{Binding AddDictWordCommand}" VerticalAlignment="Center" />
                                                     </StackPanel>
-                                                    <TextBlock Grid.Column="2" Text="{Binding DictEditHint}" Classes="Secondary" FontSize="11" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding DictEditHint}" Classes="Secondary hint" VerticalAlignment="Center" Margin="12,0,0,0" />
                                                 </Grid>
                                             </Border>
                                         </Grid>
@@ -2635,7 +2204,7 @@
                                         </TabItem.Header>
                                         <Grid RowDefinitions="Auto,*,Auto">
                                             <Border Classes="subhead" Grid.Row="0">
-                                                <TextBlock Text="响应内容包含关键词时自动重发数据包" Classes="Secondary" FontSize="11" VerticalAlignment="Center" />
+                                                <TextBlock Text="响应内容包含关键词时自动重发数据包" Classes="Secondary hint" VerticalAlignment="Center" />
                                             </Border>
                                             <ListBox Grid.Row="1" Name="RetryKeyListBox" Margin="12,8"
                                                      SelectionMode="Multiple"
@@ -2698,6 +2267,11 @@
                                                                   Command="{Binding AddRepaceModelCommand}" />
                                                 </WrapPanel>
                                             </Border>
+                                            <!--  空态水印  -->
+                                            <TextBlock Grid.Row="1" ZIndex="1" Text="暂无字符替换规则——上方填写源/目标字符后点「添加」"
+                                                       FontSize="13" Foreground="{DynamicResource DsgInk3}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                                                       IsVisible="{Binding AppConfig.ByPassConfig.ReplaceItems.Count, Converter={StaticResource EmptyToBoolConverter}}" />
                                             <TableView Grid.Row="1"
                                                        CanUserResizeColumns="True"
                                                        Name="ReplaceDataGrid"
@@ -2782,6 +2356,11 @@
                                                     </TextBox>
                                                 </StackPanel>
                                             </Grid>
+                                            <!--  空态水印  -->
+                                            <TextBlock Grid.Row="2" ZIndex="1" Text="暂无脚本——点击工具栏「添加自定义脚本」创建"
+                                                       FontSize="13" Foreground="{DynamicResource DsgInk3}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                                                       IsVisible="{Binding FilteredScriptLib.Count, Converter={StaticResource EmptyToBoolConverter}}" />
                                             <TableView
                                                           Grid.Row="2"
                                                           CanUserResizeColumns="True"
@@ -2791,14 +2370,14 @@
                                                           BorderThickness="1"
                                                           ScrollViewer.AllowAutoHide="True">
                                                 <TableView.Columns>
-                                                    <TableViewColumn Header="选择" Width="0.45*" HorizontalContentAlignment="Center">
+                                                    <TableViewColumn Header="选择" Width="60" HorizontalContentAlignment="Center">
                                                         <TableViewColumn.CellTemplate>
                                                             <DataTemplate x:DataType="models:ScriptLibRow">
                                                                 <CheckBox IsChecked="{Binding RowChecked}" Click="RowCheckSelectC" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                             </DataTemplate>
                                                         </TableViewColumn.CellTemplate>
                                                     </TableViewColumn>
-                                                    <TableViewColumn Header="序号" Width="50" HorizontalContentAlignment="Center">
+                                                    <TableViewColumn Header="序号" Width="60" HorizontalContentAlignment="Center">
                                                         <TableViewColumn.CellTemplate>
                                                             <DataTemplate x:DataType="models:ScriptLibRow">
                                                                 <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" Classes="Secondary"
@@ -2806,7 +2385,7 @@
                                                             </DataTemplate>
                                                         </TableViewColumn.CellTemplate>
                                                     </TableViewColumn>
-                                                    <TableViewColumn Width="1.2*" x:DataType="models:ScriptLibRow" Binding="{Binding Name}" Header="名称" />
+                                                    <TableViewColumn Width="1.2*" x:DataType="models:ScriptLibRow" HorizontalContentAlignment="Center" Binding="{Binding Name}" Header="名称" />
                                                     <TableViewColumn Header="用途" Width="1.1*" HorizontalContentAlignment="Center">
                                                         <TableViewColumn.CellTemplate>
                                                             <DataTemplate x:DataType="models:ScriptLibRow">
@@ -2827,16 +2406,16 @@
                                                         <TableViewColumn.CellTemplate>
                                                             <DataTemplate x:DataType="models:ScriptLibRow">
                                                                 <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                    <u:IconButton Width="26" Height="26" Padding="0"
-                                                                                  Theme="{DynamicResource BorderlessIconButton}"
-                                                                                  Icon="{StaticResource IconEdit}"
-                                                                                  ToolTip.Tip="编辑该脚本（保存到磁盘脚本文件即时生效）"
-                                                                                  Command="{Binding $parent[TableView].DataContext.EditTokenScriptCommand}" CommandParameter="{Binding}" />
-                                                                    <u:IconButton Width="26" Height="26" Padding="0" Classes="Danger"
-                                                                                  Theme="{DynamicResource BorderlessIconButton}"
-                                                                                  Icon="{StaticResource SemiIconDelete}"
-                                                                                  ToolTip.Tip="删除该脚本"
-                                                                                  Command="{Binding $parent[TableView].DataContext.RemoveTokenScriptCommand}" CommandParameter="{Binding}" />
+                                                                    <Button Classes="opico view"
+                                                                            ToolTip.Tip="编辑该脚本（保存到磁盘脚本文件即时生效）"
+                                                                            Command="{Binding $parent[TableView].DataContext.EditTokenScriptCommand}" CommandParameter="{Binding}">
+                                                                        <Path Classes="luc" Data="{StaticResource LgPencil}" />
+                                                                    </Button>
+                                                                    <Button Classes="opico del"
+                                                                            ToolTip.Tip="删除该脚本"
+                                                                            Command="{Binding $parent[TableView].DataContext.RemoveTokenScriptCommand}" CommandParameter="{Binding}">
+                                                                        <Path Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                                    </Button>
                                                                 </StackPanel>
                                                             </DataTemplate>
                                                         </TableViewColumn.CellTemplate>
@@ -2892,6 +2471,11 @@
                                                 </StackPanel>
                                             </Grid>
 
+                                            <!--  空态水印  -->
+                                            <TextBlock Grid.Row="2" ZIndex="1" Text="暂无动态规则——点击工具栏「添加规则」创建"
+                                                       FontSize="13" Foreground="{DynamicResource DsgInk3}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                                                       IsVisible="{Binding FilteredCompanionRules.Count, Converter={StaticResource EmptyToBoolConverter}}" />
                                             <TableView Grid.Row="2"
                                                        CanUserResizeColumns="True"
                                                        Name="CompanionRuleTable"
@@ -2915,26 +2499,26 @@
                                                             </DataTemplate>
                                                         </TableViewColumn.CellTemplate>
                                                     </TableViewColumn>
-                                                    <TableViewColumn Width="1.2*" x:DataType="models:CompanionRequestConfig" Binding="{Binding Name}" Header="名称" />
-                                                    <TableViewColumn Width="0.8*" x:DataType="models:CompanionRequestConfig" Binding="{Binding TagName}" Header="标记名" />
-                                                    <TableViewColumn Width="1.1*" x:DataType="models:CompanionRequestConfig" Binding="{Binding KindName}" Header="类型" />
-                                                    <TableViewColumn Width="0.8*" x:DataType="models:CompanionRequestConfig" Binding="{Binding SourceName}" Header="来源" />
-                                                    <TableViewColumn Width="0.9*" x:DataType="models:CompanionRequestConfig" Binding="{Binding ExtractName}" Header="取值方式" />
+                                                    <TableViewColumn Width="1.2*" x:DataType="models:CompanionRequestConfig" Binding="{Binding Name}" Header="名称" HorizontalContentAlignment="Center"/>
+                                                    <TableViewColumn Width="0.8*" x:DataType="models:CompanionRequestConfig" Binding="{Binding TagName}" Header="标记名" HorizontalContentAlignment="Center"/>
+                                                    <TableViewColumn Width="1.1*" x:DataType="models:CompanionRequestConfig" Binding="{Binding KindName}" Header="类型" HorizontalContentAlignment="Center"/>
+                                                    <TableViewColumn Width="0.8*" x:DataType="models:CompanionRequestConfig" Binding="{Binding SourceName}" Header="来源" HorizontalContentAlignment="Center"/>
+                                                    <TableViewColumn Width="0.9*" x:DataType="models:CompanionRequestConfig" Binding="{Binding ExtractName}" Header="取值方式" HorizontalContentAlignment="Center"/>
                                                     <TableViewColumn Width="3*" x:DataType="models:CompanionRequestConfig" Binding="{Binding Summary}" Header="URL/报文/脚本摘要" />
                                                     <TableViewColumn Header="操作" Width="1*" HorizontalContentAlignment="Center">
                                                         <TableViewColumn.CellTemplate>
                                                             <DataTemplate x:DataType="models:CompanionRequestConfig">
                                                                 <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                    <u:IconButton Width="26" Height="26" Padding="0"
-                                                                                  Theme="{DynamicResource BorderlessIconButton}"
-                                                                                  Icon="{StaticResource IconEdit}"
-                                                                                  ToolTip.Tip="编辑该规则"
-                                                                                  Command="{Binding $parent[TableView].DataContext.EditCompanionRuleCommand}" CommandParameter="{Binding}" />
-                                                                    <u:IconButton Width="26" Height="26" Padding="0" Classes="Danger"
-                                                                                  Theme="{DynamicResource BorderlessIconButton}"
-                                                                                  Icon="{StaticResource SemiIconDelete}"
-                                                                                  ToolTip.Tip="删除该规则"
-                                                                                  Command="{Binding $parent[TableView].DataContext.RemoveCompanionRuleCommand}" CommandParameter="{Binding}" />
+                                                                    <Button Classes="opico view"
+                                                                            ToolTip.Tip="编辑该规则"
+                                                                            Command="{Binding $parent[TableView].DataContext.EditCompanionRuleCommand}" CommandParameter="{Binding}">
+                                                                        <Path Classes="luc" Data="{StaticResource LgPencil}" />
+                                                                    </Button>
+                                                                    <Button Classes="opico del"
+                                                                            ToolTip.Tip="删除该规则"
+                                                                            Command="{Binding $parent[TableView].DataContext.RemoveCompanionRuleCommand}" CommandParameter="{Binding}">
+                                                                        <Path Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                                    </Button>
                                                                 </StackPanel>
                                                             </DataTemplate>
                                                         </TableViewColumn.CellTemplate>
@@ -3009,7 +2593,7 @@
                                     <u:IconButton Theme="{DynamicResource OutlineIconButton}" Classes="tbtn"
                                                   Icon="{StaticResource IconRefresh}" Content="重新加载"
                                                   VerticalAlignment="Center" Command="{Binding ReloadPayloadsCommand}" />
-                                    <TextBlock Classes="Secondary" VerticalAlignment="Center" FontSize="10.5"
+                                    <TextBlock Classes="Secondary hint" VerticalAlignment="Center"
                                                Text="说明：自定义用例建议写入custom_user.xml，与官方用例文件分离。保存后立即对后续检测生效。" />
                                 </StackPanel>
                                 <!--  用例列表  -->
@@ -3019,28 +2603,27 @@
                                            BorderThickness="1"
                                            ScrollViewer.AllowAutoHide="True">
                                     <TableView.Columns>
-                                        <TableViewColumn Width="3*" Binding="{Binding Title}" Header="用例标题" x:DataType="detectmodels:PayloadItem" />
+                                        <TableViewColumn Width="2*" Binding="{Binding Title}" Header="用例标题" x:DataType="detectmodels:PayloadItem"/>
                                         <TableViewColumn Width="100" Binding="{Binding STypeName}" Header="技术类型" x:DataType="detectmodels:PayloadItem" HorizontalContentAlignment="Center" />
                                         <TableViewColumn Width="55" Binding="{Binding Level}" Header="级别" x:DataType="detectmodels:PayloadItem" HorizontalContentAlignment="Center" />
                                         <TableViewColumn Width="55" Binding="{Binding Risk}" Header="风险" x:DataType="detectmodels:PayloadItem" HorizontalContentAlignment="Center" />
-                                        <TableViewColumn Width="130" Binding="{Binding Dbms}" Header="适用DBMS" x:DataType="detectmodels:PayloadItem" HorizontalContentAlignment="Left" />
-                                        <TableViewColumn Width="140" Binding="{Binding FileName}" Header="所在文件" x:DataType="detectmodels:PayloadItem" HorizontalContentAlignment="Left" />
-                                        <TableViewColumn Width="75" Binding="{Binding HitCount}" Header="命中次数" x:DataType="detectmodels:PayloadItem" HorizontalContentAlignment="Center" />
+                                        <TableViewColumn Width="130" Binding="{Binding Dbms}" Header="适用DBMS" x:DataType="detectmodels:PayloadItem" HorizontalContentAlignment="Center" />
+                                        <TableViewColumn Width="140" Binding="{Binding FileName}" Header="所在文件" x:DataType="detectmodels:PayloadItem" HorizontalContentAlignment="Center" />
+                                        <TableViewColumn Width="100" Binding="{Binding HitCount}" Header="命中次数" x:DataType="detectmodels:PayloadItem" HorizontalContentAlignment="Center" />
                                         <TableViewColumn Width="100" Header="操作" HorizontalContentAlignment="Center">
                                             <TableViewColumn.CellTemplate>
                                                 <DataTemplate x:DataType="detectmodels:PayloadItem">
                                                     <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                        <u:IconButton Width="26" Height="26" Padding="0"
-                                                                      Theme="{DynamicResource BorderlessIconButton}"
-                                                                      Icon="{StaticResource IconView}"
-                                                                      Foreground="{DynamicResource DsgInk2}"
-                                                                      Tag="{Binding}" Click="ViewPayloadRow"
-                                                                      ToolTip.Tip="弹窗查看/编辑该用例" />
-                                                        <u:IconButton Width="26" Height="26" Padding="0" Classes="Danger"
-                                                                      Theme="{DynamicResource BorderlessIconButton}"
-                                                                      Icon="{StaticResource SemiIconDelete}"
-                                                                      Tag="{Binding}" Click="DeletePayloadRow"
-                                                                      ToolTip.Tip="删除该用例（需确认）" />
+                                                        <Button Classes="opico view"
+                                                                Tag="{Binding}" Click="ViewPayloadRow"
+                                                                ToolTip.Tip="弹窗查看/编辑该用例">
+                                                            <Path Classes="luc" Data="{StaticResource LgEye}" />
+                                                        </Button>
+                                                        <Button Classes="opico del"
+                                                                Tag="{Binding}" Click="DeletePayloadRow"
+                                                                ToolTip.Tip="删除该用例（需确认）">
+                                                            <Path Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                        </Button>
                                                     </StackPanel>
                                                 </DataTemplate>
                                             </TableViewColumn.CellTemplate>
@@ -3050,18 +2633,18 @@
                                 <!--  分页栏  -->
                                 <Border Grid.Row="3" Padding="12,6" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DsgBorder}">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource DsgPrimary}"
+                                        <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource DsgInk2}" FontSize="12" FontWeight="SemiBold"
                                                    Text="{Binding PayloadPageInfo}" />
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                            <Button Theme="{DynamicResource OutlineButton}" Content="首页" Width="64" Height="28"
+                                            <Button  Content="首页" Classes="minibtn" Width="64" 
                                                     Command="{Binding PayloadFirstPageCommand}" />
-                                            <Button Theme="{DynamicResource OutlineButton}" Content="上一页" Width="72" Height="28"
+                                            <Button Classes="minibtn" Content="上一页" Width="72" Height="28"
                                                     Command="{Binding PayloadPrevPageCommand}" />
                                             <TextBlock VerticalAlignment="Center" Classes="Secondary"
                                                        Text="{Binding PayloadPageIndex, StringFormat='第 {0} 页'}" />
-                                            <Button Theme="{DynamicResource OutlineButton}" Content="下一页" Width="72" Height="28"
+                                            <Button Classes="minibtn" Content="下一页" Width="72" Height="28"
                                                     Command="{Binding PayloadNextPageCommand}" />
-                                            <Button Theme="{DynamicResource OutlineButton}" Content="末页" Width="64" Height="28"
+                                            <Button Classes="minibtn" Content="末页" Width="64" Height="28"
                                                     Command="{Binding PayloadLastPageCommand}" />
                                         </StackPanel>
                                     </Grid>
@@ -3092,7 +2675,7 @@
                                                               ItemsSource="{Binding FingerprintDbmsFilters}"
                                                               SelectedItem="{Binding FingerprintFilterDbms}" />
                                                 </StackPanel>
-                                                <TextBlock Classes="Secondary" VerticalAlignment="Center" FontSize="10.5"
+                                                <TextBlock Classes="Secondary hint" VerticalAlignment="Center"
                                                            Text="{Binding FingerprintCountInfo}" />
                                             </WrapPanel>
                                         </Grid>
@@ -3112,7 +2695,7 @@
                                                      PlaceholderText="粘贴一段响应文本，测试命中哪些指纹" />
                                             <Button Theme="{DynamicResource OutlineButton}" Content="测试" Width="70"
                                                     VerticalAlignment="Center" Command="{Binding TestFingerprintHitCommand}" />
-                                            <TextBlock Classes="Secondary" VerticalAlignment="Center" FontSize="10.5"
+                                            <TextBlock Classes="Secondary hint" VerticalAlignment="Center"
                                                        Text="{Binding FingerprintTestResult}" />
                                         </StackPanel>
                                         <!--  指纹列表  -->
@@ -3129,17 +2712,16 @@
                                                     <TableViewColumn.CellTemplate>
                                                         <DataTemplate x:DataType="detectmodels:FingerprintItem">
                                                             <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                <u:IconButton Width="26" Height="26" Padding="0"
-                                                                              Theme="{DynamicResource BorderlessIconButton}"
-                                                                              Icon="{StaticResource IconView}"
-                                                                              Foreground="{DynamicResource DsgInk2}"
-                                                                              Tag="{Binding}" Click="EditFingerprintRow"
-                                                                              ToolTip.Tip="弹窗查看/编辑该指纹" />
-                                                                <u:IconButton Width="26" Height="26" Padding="0" Classes="Danger"
-                                                                              Theme="{DynamicResource BorderlessIconButton}"
-                                                                              Icon="{StaticResource SemiIconDelete}"
-                                                                              Tag="{Binding}" Click="DeleteFingerprintRow"
-                                                                              ToolTip.Tip="删除该指纹（需确认）" />
+                                                                <Button Classes="opico view"
+                                                                        Tag="{Binding}" Click="EditFingerprintRow"
+                                                                        ToolTip.Tip="弹窗查看/编辑该指纹">
+                                                                    <Path Classes="luc" Data="{StaticResource LgEye}" />
+                                                                </Button>
+                                                                <Button Classes="opico del"
+                                                                        Tag="{Binding}" Click="DeleteFingerprintRow"
+                                                                        ToolTip.Tip="删除该指纹（需确认）">
+                                                                    <Path Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                                </Button>
                                                             </StackPanel>
                                                         </DataTemplate>
                                                     </TableViewColumn.CellTemplate>
@@ -3176,7 +2758,13 @@
                                 <Grid ColumnDefinitions="*,Auto" Margin="15,15,25,5">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <TextBlock Text="数据库：" Classes="Secondary" VerticalAlignment="Center" />
-                                        <ComboBox Width="160" SelectedItem="{Binding SelectedTemplateDb}" ItemsSource="{Binding TemplateDbList}" />
+                                        <ComboBox Width="160" SelectedItem="{Binding SelectedTemplateDb}" ItemsSource="{Binding TemplateDbList}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Converter={StaticResource InjectTypeNameConverter}, ConverterParameter=family}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
                                         <u:IconButton Theme="{DynamicResource SolidIconButton}" Classes="tbtn"
                                                       Icon="{StaticResource SemiIconSaveStroked}" Content="保存并生效"
                                                       VerticalAlignment="Center" Command="{Binding SaveTemplateCommand}" />
@@ -3206,7 +2794,7 @@
                                           BorderThickness="1"
                                           ScrollViewer.AllowAutoHide="True">
                                     <TableView.Columns>
-                                        <TableViewColumn Width="*" Header="模板Key">
+                                        <TableViewColumn Width="*" Header="模板Key" HorizontalContentAlignment="Center">
                                             <TableViewColumn.CellTemplate>
                                                 <DataTemplate x:DataType="models:PayloadTemplateItem">
                                                     <TextBox Text="{Binding Key}" BorderThickness="0" Background="Transparent"
@@ -3228,12 +2816,12 @@
                                         <TableViewColumn Width="70" Header="操作" HorizontalContentAlignment="Center">
                                             <TableViewColumn.CellTemplate>
                                                 <DataTemplate x:DataType="models:PayloadTemplateItem">
-                                                    <u:IconButton Width="26" Height="26" Padding="0" VerticalAlignment="Center"
-                                                                  Theme="{DynamicResource BorderlessIconButton}"
-                                                                  Icon="{StaticResource IconEdit}"
-                                                                  Command="{Binding $parent[TableView].DataContext.EditTemplateItemCommand}"
-                                                                  CommandParameter="{Binding}"
-                                                                  ToolTip.Tip="弹窗编辑该模板项的Key/Value" />
+                                                    <Button Classes="opico view" VerticalAlignment="Center"
+                                                            Command="{Binding $parent[TableView].DataContext.EditTemplateItemCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            ToolTip.Tip="弹窗编辑该模板项的Key/Value">
+                                                        <Path Classes="luc" Data="{StaticResource LgPencil}" />
+                                                    </Button>
                                                 </DataTemplate>
                                             </TableViewColumn.CellTemplate>
                                         </TableViewColumn>
@@ -3305,6 +2893,11 @@
                         <!--  ======== P8 请求日志 ========  -->
                         <Border Classes="pageflat" IsVisible="{Binding NavPage8Visible}">
                             <Grid RowDefinitions="*,Auto,*">
+                                <!--  空态水印  -->
+                                <TextBlock Grid.Row="0" ZIndex="1" Text="暂无请求日志——发包检测/取数后自动记录在这里"
+                                           FontSize="13" Foreground="{DynamicResource DsgInk3}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                                           IsVisible="{Binding AppConfig.RequestLog.Items.Count, Converter={StaticResource EmptyToBoolConverter}}" />
                                 <TableView Grid.Row="0" Name="RequestLogTable"
                                            CanUserResizeColumns="True"
                                            ItemsSource="{Binding AppConfig.RequestLog.Items}"
@@ -3393,23 +2986,23 @@
                                                         <MenuFlyout>
                                                             <MenuItem Header="剪切" Click="RequestLogCutC">
                                                                 <MenuItem.Icon>
-                                                                    <PathIcon Data="{StaticResource SemiIconScissors}" />
+                                                                    <Path Classes="lucm" Data="{StaticResource LgScissors}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                             <MenuItem Header="Copy" InputGesture="ctrl+C" Command="{Binding CopyMouseCommand}" CommandParameter="{Binding #RequestLogBox.TextArea}" >
                                                                 <MenuItem.Icon>
-                                                                    <PathIcon Data="{StaticResource SemiIconCopy}" />
+                                                                    <Path Classes="lucm" Data="{StaticResource LgCopy}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                             <MenuItem Header="粘贴" Click="RequestLogPasteC">
                                                                 <MenuItem.Icon>
-                                                                    <PathIcon Data="{StaticResource SemiIconImport}" />
+                                                                    <Path Classes="lucm" Data="{StaticResource LgClipboard}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                             <Separator />
                                                             <MenuItem Header="解码" Name="DecodeRequestSubMenu">
                                                                 <MenuItem.Icon>
-                                                                    <PathIcon Data="{StaticResource SemiIconCode}" />
+                                                                    <Path Classes="lucm" Data="{StaticResource LgBinary}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                         </MenuFlyout>
@@ -3437,13 +3030,13 @@
                                                         <MenuFlyout>
                                                             <MenuItem Header="复制" Click="ResponseLogCopyC">
                                                                 <MenuItem.Icon>
-                                                                    <PathIcon Data="{StaticResource SemiIconCopy}" />
+                                                                    <Path Classes="lucm" Data="{StaticResource LgCopy}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                             <Separator />
                                                             <MenuItem Header="解码" Name="DecodeResponseSubMenu">
                                                                 <MenuItem.Icon>
-                                                                    <PathIcon Data="{StaticResource SemiIconCode}" />
+                                                                    <Path Classes="lucm" Data="{StaticResource LgBinary}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                         </MenuFlyout>
@@ -3475,7 +3068,7 @@
                                             </Border>
                                             <StackPanel VerticalAlignment="Center" Spacing="3">
                                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <TextBlock Text="超级SQL注入工具V2" FontSize="17" FontWeight="Bold" VerticalAlignment="Center" />
+                                                    <TextBlock Text="超级SQL注入工具V2" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
                                                     <Border Background="{DynamicResource DsgPrimaryTint2}" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding AppVersionText}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource DsgPrimary}" />
                                                     </Border>
@@ -3488,11 +3081,11 @@
                                                    Text="一款图形化 SQL 注入测试工具，基于 Avalonia 跨平台运行（Windows / macOS / Linux），配套命令行版本 SuperSQLInjectionV2.Cmd 支持脚本化批量检测。" />
                                         <StackPanel Spacing="8">
                                             <TextBlock Text="核心能力" FontWeight="SemiBold" FontSize="14" />
-                                            <TextBlock Classes="Secondary" FontSize="11.5" TextWrapping="Wrap" Text="· 注入检测：Bool盲注 / 报错 / Union / 时间盲注 / 堆叠 / DNS外带，Level 1-5 与 Risk 1-3 分级用例，网页相似度抗噪与智能模式" />
-                                            <TextBlock Classes="Secondary" FontSize="11.5" TextWrapping="Wrap" Text="· 数据获取：环境变量、库表列结构、行数据 dump（分片/断点续传/中文识别）、自定义 SQL、Hash 读取、权限角色" />
-                                            <TextBlock Classes="Secondary" FontSize="11.5" TextWrapping="Wrap" Text="· 文件与命令：各数据库读文件 / 写文件 / 命令执行（MySQL UDF、SQLServer xp_cmdshell、PG UDF 等多通道）" />
-                                            <TextBlock Classes="Secondary" FontSize="11.5" TextWrapping="Wrap" Text="· 防护绕过：内置编码工具链 + 自定义 JS 脚本（含 HPP/chunked/参数名混淆示例脚本），字符替换、随机 UA / 随机源 IP / 代理池" />
-                                            <TextBlock Classes="Secondary" FontSize="11.5" TextWrapping="Wrap" Text="· 支持数据库：MySQL / SQLServer / PostgreSQL / SQLite / Oracle / Access / DB2 / 达梦 等" />
+                                            <TextBlock Classes="Secondary" TextWrapping="Wrap" Text="· 注入检测：Bool盲注 / 报错 / Union / 时间盲注 / 堆叠 / DNS外带，Level 1-5 与 Risk 1-3 分级用例，网页相似度抗噪与智能模式" />
+                                            <TextBlock Classes="Secondary" TextWrapping="Wrap" Text="· 数据获取：环境变量、库表列结构、行数据 dump（分片/断点续传/中文识别）、自定义 SQL、Hash 读取、权限角色" />
+                                            <TextBlock Classes="Secondary" TextWrapping="Wrap" Text="· 文件与命令：各数据库读文件 / 写文件 / 命令执行（MySQL UDF、SQLServer xp_cmdshell、PG UDF 等多通道）" />
+                                            <TextBlock Classes="Secondary" TextWrapping="Wrap" Text="· 防护绕过：内置编码工具链 + 自定义 JS 脚本（含 HPP/chunked/参数名混淆示例脚本），字符替换、随机 UA / 随机源 IP / 代理池" />
+                                            <TextBlock Classes="Secondary" TextWrapping="Wrap" Text="· 支持数据库：MySQL / SQLServer / PostgreSQL / SQLite / Oracle / Access / DB2 / 达梦 等" />
                                         </StackPanel>
                                         <Border Height="1" Background="{DynamicResource DsgBorder}" />
                                         <TextBlock Classes="Secondary" FontSize="12" TextWrapping="Wrap"
@@ -3518,18 +3111,18 @@
                                                 <TextBlock Text="{Binding UpdateStatusText}" Classes="Secondary" VerticalAlignment="Center" />
                                             </StackPanel>
                                             <StackPanel Spacing="4">
-                                                <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· 接入 SoftUpdate 自托管更新服务：勾选「自动检测」后，每次启动在后台检测一次，发现新版本弹窗提示（含更新说明），可选择下载或跳过该版本；" />
-                                                <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· 更新服务连接配置（服务地址/应用标识/渠道/客户端Key）写在 config/update.ini 中，随软件分发，UI 不提供修改，改后重启生效；" />
-                                                <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· 下载位置：更新包按版本号存到软件运行目录 update/{版本号}/ 下，逐文件 SHA256 校验，与安装目录一致的文件直接复制（文件级增量），关闭软件后解压覆盖即可完成升级；" />
-                                                <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· 服务地址为空时不检测、不报错；检测失败仅在运行日志记录，不打断使用；" />
-                                                <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap" Text="· 服务端部署与版本发布见 SoftUpdate 工程 docs/API.md（默认端口 5900，版本需先在管理端发布后客户端可见）。" />
+                                                <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· 接入 SoftUpdate 自托管更新服务：勾选「自动检测」后，每次启动在后台检测一次，发现新版本弹窗提示（含更新说明），可选择下载或跳过该版本；" />
+                                                <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· 更新服务连接配置（服务地址/应用标识/渠道/客户端Key）写在 config/update.ini 中，随软件分发，UI 不提供修改，改后重启生效；" />
+                                                <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· 下载位置：更新包按版本号存到软件运行目录 update/{版本号}/ 下，逐文件 SHA256 校验，与安装目录一致的文件直接复制（文件级增量），关闭软件后解压覆盖即可完成升级；" />
+                                                <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· 服务地址为空时不检测、不报错；检测失败仅在运行日志记录，不打断使用；" />
+                                                <TextBlock Classes="Secondary hint" TextWrapping="Wrap" Text="· 服务端部署与版本发布见 SoftUpdate 工程 docs/API.md（默认端口 5900，版本需先在管理端发布后客户端可见）。" />
                                             </StackPanel>
                                         </StackPanel>
                                     </GroupBox>
                                     <!--  问题反馈卡片  -->
                                     <GroupBox Grid.Row="1" Classes="chgrp" Header="问题反馈" Margin="8,12,0,0" Padding="16,14,16,16">
                                     <StackPanel Spacing="12">
-                                        <TextBlock Classes="Secondary" FontSize="11.5" TextWrapping="Wrap"
+                                        <TextBlock Classes="Secondary" TextWrapping="Wrap"
                                                    Text="使用中遇到的问题、建议或功能需求，欢迎提交反馈。也可在github项目地址中反馈。" />
                                         <StackPanel Spacing="6">
                                             <TextBlock Text="反馈内容" FontSize="12" FontWeight="SemiBold" />
@@ -3548,7 +3141,7 @@
                                                           Content="提交反馈" Command="{Binding SubmitFeedbackCommand}" VerticalAlignment="Center" />
                                             <TextBlock Text="{Binding FeedbackStatusText}" Classes="Secondary" VerticalAlignment="Center" />
                                         </StackPanel>
-                                        <TextBlock Classes="Secondary" FontSize="11" TextWrapping="Wrap"
+                                        <TextBlock Classes="Secondary hint" TextWrapping="Wrap"
                                                    Text="提交依赖上方「软件更新」卡片中的服务地址配置；服务不可达时会提示失败，不影响软件正常使用。" />
                                     </StackPanel>
                                     </GroupBox>
@@ -3564,7 +3157,7 @@
                                 <Grid ColumnDefinitions="Auto,*,Auto">
                                     <StackPanel Orientation="Horizontal" Spacing="7" Margin="12,0,0,0" VerticalAlignment="Center">
                                         <PathIcon Data="{StaticResource IconCodeScript}" Width="14" Height="14" Foreground="{DynamicResource DsgPrimary}" />
-                                        <TextBlock Text="运行日志" FontSize="12.5" FontWeight="Bold" VerticalAlignment="Center" />
+                                        <TextBlock Text="运行日志" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="14,0,0,0" VerticalAlignment="Center">
                                         <Button Classes="chip" Classes.on="{Binding LogFilter0On}" Content="全部"
@@ -3603,22 +3196,22 @@
                                     <ContextMenu>
                                         <MenuItem Header="复制" Click="LogCopyC">
                                             <MenuItem.Icon>
-                                                <PathIcon Data="{StaticResource SemiIconCopyStroked}" />
+                                                <Path Classes="lucm" Data="{StaticResource LgCopy}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <MenuItem Header="全选" Click="LogSelectAllC" >
                                             <MenuItem.Icon>
-                                                <PathIcon Data="{StaticResource IconSelectAll}" />
+                                                <Path Classes="lucm" Data="{StaticResource LgSquareCheckBig}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <MenuItem Header="导出日志" Click="LogExportC">
                                             <MenuItem.Icon>
-                                                <PathIcon Data="{StaticResource SemiIconDownloadStroked}" />
+                                                <Path Classes="lucm" Data="{StaticResource LgDownload}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <MenuItem Header="清空日志" Click="LogClearC">
                                             <MenuItem.Icon>
-                                                <PathIcon Data="{StaticResource SemiIconDelete}" />
+                                                <Path Classes="lucm" Data="{StaticResource LgTrash2}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                     </ContextMenu>
@@ -3632,7 +3225,7 @@
                             Background="{DynamicResource DsgSidebar}"
                             BorderBrush="{DynamicResource DsgBorder}"
                             BorderThickness="0,1,0,0"
-                            TextElement.FontSize="11.5">
+                            TextElement.FontSize="11">
                         <DockPanel VerticalAlignment="Center">
                             <!--  右侧徽章  -->
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -3659,41 +3252,65 @@
                                     </StackPanel>
                                 </Border>
                                 <Border Classes="sbbadge">
-                                    <TextBlock Text="V2.0.0" />
+                                    <TextBlock Text="{Binding AppVersionText}" />
                                 </Border>
                             </StackPanel>
                             <!--  左侧状态组  -->
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <Ellipse Width="7" Height="7" Fill="{Binding DetectStatusBrush}" />
-                                <TextBlock Text="{Binding DetectStatusText}" FontWeight="SemiBold"
+                            <StackPanel Orientation="Horizontal" Spacing="15" VerticalAlignment="Center">
+                                <WrapPanel>
+                                      <Ellipse Width="7" Height="7" Fill="{Binding DetectStatusBrush}" />
+                                    <TextBlock Text="{Binding DetectStatusText}" FontWeight="SemiBold"
                                            Foreground="{Binding DetectStatusBrush}" VerticalAlignment="Center" />
-                                <Border Classes="sbsep" />
-                                <ProgressBar Width="16" Height="16" VerticalAlignment="Center"
-                                             Theme="{DynamicResource ProgressRing}"
-                                             Value="{Binding AppConfig.RuningInfo.Progress}" ShowProgressText="False" />
-                                <TextBlock Text="{Binding AppConfig.RuningInfo.Progress, StringFormat={}{0}&#37;}" VerticalAlignment="Center" />
-                                <Border Classes="sbsep" />
-                                <TextBlock Text="请求" Classes="Secondary" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding AppConfig.RequestCount}" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="26" />
-                                <Border Classes="sbsep" />
-                                <TextBlock Text="耗时" Classes="Secondary" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding ElapsedTime}" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="40" />
-                                <Border Classes="sbsep" />
-                                <TextBlock Text="线程" Classes="Secondary" VerticalAlignment="Center" />
-                                <u:Int32Displayer VerticalAlignment="Center" Value="{Binding AppConfig.RuningInfo.RunThreadCount}" />
+                                    <Border Classes="sbsep" />
+                                </WrapPanel>
+                                <WrapPanel>
+                                    <ProgressBar Width="16" Height="16" VerticalAlignment="Center"
+                                                 Theme="{DynamicResource ProgressRing}"
+                                                 Value="{Binding AppConfig.RuningInfo.Progress}" ShowProgressText="False" />
+                                    <TextBlock Text="{Binding AppConfig.RuningInfo.Progress, StringFormat={}{0}&#37;}" VerticalAlignment="Center" />
+                                    </WrapPanel>
+                                 <WrapPanel>
+                                    <Border Classes="sbsep" />
+                                    <TextBlock Text="请求：" Classes="Secondary" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding AppConfig.RequestCount}" Classes="sbbadge" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <Border Classes="sbsep" />
+                                </WrapPanel>
+                                <WrapPanel>
+                                      <TextBlock Text="耗时：" VerticalAlignment="Center"/>
+                                      <TextBlock Text="{Binding ElapsedTime}"  Classes="sbbadge" Foreground="{DynamicResource DsgInk2}" VerticalAlignment="Center"/>
+                                      <Border Classes="sbsep" />
+                                </WrapPanel>
+                                <WrapPanel>
+                                <TextBlock Text="线程：" Classes="Secondary" VerticalAlignment="Center" />
+                                <u:Int32Displayer  FontWeight="SemiBold"  FontSize="12" VerticalAlignment="Center" Value="{Binding AppConfig.RuningInfo.RunThreadCount}" />
                                 <TextBlock Text="/" Classes="Secondary" VerticalAlignment="Center" />
-                                <u:Int32Displayer VerticalAlignment="Center" Value="{Binding AppConfig.RuningInfo.MaxThreaadCount}" />
-                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding DataStatsVisible}">
-                                <Border Classes="sbsep" />
-                                <TextBlock Text="库" Classes="Secondary" VerticalAlignment="Center" />
-                                <TextBlock VerticalAlignment="Center" Text="{Binding AppConfig.DataDump.DBStructItems.Count}" FontWeight="SemiBold" />
-                                <TextBlock Text="表" Classes="Secondary" VerticalAlignment="Center" />
-                                <TextBlock VerticalAlignment="Center" Text="{Binding AppConfig.DataDump.TablesCount}" FontWeight="SemiBold" />
-                                <TextBlock Text="字段" Classes="Secondary" VerticalAlignment="Center" />
-                                <TextBlock VerticalAlignment="Center" Text="{Binding AppConfig.DataDump.ColumnsCount}" FontWeight="SemiBold" />
-                                <TextBlock Text="数据行" Classes="Secondary" VerticalAlignment="Center" />
-                                <TextBlock VerticalAlignment="Center" Text="{Binding AppConfig.DataDump.DataCount}" FontWeight="SemiBold" />
-                                </StackPanel>
+                                <u:Int32Displayer  FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" Value="{Binding AppConfig.RuningInfo.MaxThreaadCount}" />
+                                    <Border Classes="sbsep" />
+                                </WrapPanel>
+                              
+                                <StackPanel Classes="sbsep" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding DataStatsVisible}">
+                               
+                                <WrapPanel>
+                                    <TextBlock Text="库：" Classes="Secondary" VerticalAlignment="Center" />
+                                <TextBlock VerticalAlignment="Center"  Classes="sbbadge" Text="{Binding AppConfig.DataDump.DBStructItems.Count}"   FontWeight="SemiBold"/>
+                                   </WrapPanel>
+                              
+                                    <WrapPanel>
+                                    <TextBlock Text="表：" Classes="Secondary" VerticalAlignment="Center" />
+                                <TextBlock VerticalAlignment="Center"  Classes="sbbadge" Text="{Binding AppConfig.DataDump.TablesCount}"  FontWeight="SemiBold"/>
+                               
+                                        </WrapPanel>
+                              
+                                    <WrapPanel>
+                                      <TextBlock Text="列：" Classes="Secondary" VerticalAlignment="Center" />
+                                <TextBlock VerticalAlignment="Center"  Classes="sbbadge" Text="{Binding AppConfig.DataDump.ColumnsCount}"  FontWeight="SemiBold"/>
+                                
+                                    </WrapPanel>
+                                     <WrapPanel>
+                                    <TextBlock Text="数据行：" Classes="Secondary" VerticalAlignment="Center" />
+                                 <TextBlock VerticalAlignment="Center"  Classes="sbbadge" Text="{Binding AppConfig.DataDump.DataCount}"  FontWeight="SemiBold"/>
+                                  </WrapPanel>
+                                     </StackPanel>
                             </StackPanel>
                         </DockPanel>
                     </Border>

@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>检测用例 · 暗色主题</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style id="theme-vars">
+:root {
+  /* Brand primary — modern tech blue */
+  --ssqli-brand-50: #eff6ff;
+  --ssqli-brand-100: #dbeafe;
+  --ssqli-brand-200: #bfdbfe;
+  --ssqli-brand-300: #93c5fd;
+  --ssqli-brand-400: #60a5fa;
+  --ssqli-brand-500: #3b82f6;
+  --ssqli-brand-600: #2563eb;
+  --ssqli-brand-700: #1d4ed8;
+  --ssqli-brand-800: #1e40af;
+  --ssqli-brand-900: #1e3a8a;
+
+  /* Light theme surfaces — cool neutral white */
+  --ssqli-light-bg: #f8fafc;
+  --ssqli-light-surface: #ffffff;
+  --ssqli-light-surface-2: #f1f5f9;
+  --ssqli-light-surface-3: #e2e8f0;
+  --ssqli-light-ink: #0f172a;
+  --ssqli-light-ink-2: #475569;
+  --ssqli-light-ink-3: #94a3b8;
+  --ssqli-light-line: #e2e8f0;
+  --ssqli-light-border: #cbd5e1;
+  --ssqli-light-ring: #3b82f6;
+
+  /* Dark theme surfaces — deep charcoal */
+  --ssqli-dark-bg: #0b0b0f;
+  --ssqli-dark-surface: #14141a;
+  --ssqli-dark-surface-2: #1c1c24;
+  --ssqli-dark-surface-3: #272730;
+  --ssqli-dark-ink: #f1f5f9;
+  --ssqli-dark-ink-2: #94a3b8;
+  --ssqli-dark-ink-3: #64748b;
+  --ssqli-dark-line: #272730;
+  --ssqli-dark-border: #3f3f4a;
+  --ssqli-dark-ring: #60a5fa;
+
+  /* State colors */
+  --ssqli-state-success: #10b981;
+  --ssqli-state-warning: #f59e0b;
+  --ssqli-state-error: #f43f5e;
+  --ssqli-state-info: #3b82f6;
+
+  /* Radius */
+  --ssqli-radius-xs: 2px;
+  --ssqli-radius-sm: 4px;
+  --ssqli-radius-md: 6px;
+  --ssqli-radius-lg: 8px;
+  --ssqli-radius-xl: 12px;
+  --ssqli-radius-pill: 999px;
+
+  /* Shadows */
+  --ssqli-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 1px rgba(15, 23, 42, 0.03);
+  --ssqli-shadow-2: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --ssqli-shadow-3: 0 12px 32px rgba(15, 23, 42, 0.18);
+
+  /* Typography — Chakra Petch for UI, Noto Sans SC for CJK, JetBrains Mono for code */
+  --ssqli-font-sans: "Chakra Petch", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ssqli-font-mono: "JetBrains Mono", "Fira Code", "SF Mono", Consolas, monospace;
+
+  /* Default semantic aliases (light) */
+  --ssqli-background: var(--ssqli-light-bg);
+  --ssqli-foreground: var(--ssqli-light-ink);
+  --ssqli-card: var(--ssqli-light-surface);
+  --ssqli-card-foreground: var(--ssqli-light-ink);
+  --ssqli-popover: var(--ssqli-light-surface);
+  --ssqli-popover-foreground: var(--ssqli-light-ink);
+  --ssqli-primary: var(--ssqli-brand-600);
+  --ssqli-primary-foreground: #ffffff;
+  --ssqli-secondary: var(--ssqli-light-surface-2);
+  --ssqli-secondary-foreground: var(--ssqli-light-ink-2);
+  --ssqli-muted: var(--ssqli-light-surface-2);
+  --ssqli-muted-foreground: var(--ssqli-light-ink-3);
+  --ssqli-accent: var(--ssqli-brand-50);
+  --ssqli-accent-foreground: var(--ssqli-brand-700);
+  --ssqli-destructive: var(--ssqli-state-error);
+  --ssqli-destructive-foreground: #ffffff;
+  --ssqli-border: var(--ssqli-light-border);
+  --ssqli-input: var(--ssqli-light-border);
+  --ssqli-ring: var(--ssqli-light-ring);
+  --ssqli-grid-opacity: 0.05;
+}
+
+html.dark {
+  --ssqli-background: var(--ssqli-dark-bg);
+  --ssqli-foreground: var(--ssqli-dark-ink);
+  --ssqli-card: var(--ssqli-dark-surface);
+  --ssqli-card-foreground: var(--ssqli-dark-ink);
+  --ssqli-popover: var(--ssqli-dark-surface-2);
+  --ssqli-popover-foreground: var(--ssqli-dark-ink);
+  --ssqli-primary: var(--ssqli-brand-500);
+  --ssqli-primary-foreground: #0b0b0f;
+  --ssqli-secondary: var(--ssqli-dark-surface-2);
+  --ssqli-secondary-foreground: var(--ssqli-dark-ink-2);
+  --ssqli-muted: var(--ssqli-dark-surface-2);
+  --ssqli-muted-foreground: var(--ssqli-dark-ink-3);
+  --ssqli-accent: var(--ssqli-dark-surface-3);
+  --ssqli-accent-foreground: var(--ssqli-brand-300);
+  --ssqli-destructive: var(--ssqli-state-error);
+  --ssqli-destructive-foreground: #ffffff;
+  --ssqli-border: var(--ssqli-dark-border);
+  --ssqli-input: var(--ssqli-dark-border);
+  --ssqli-ring: var(--ssqli-dark-ring);
+  --ssqli-grid-opacity: 0.08;
+}
+
+html {
+  font-family: var(--ssqli-font-sans);
+  color: var(--ssqli-foreground);
+  background-color: var(--ssqli-background);
+}
+
+pre, code, .font-mono {
+  font-family: var(--ssqli-font-mono);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--ssqli-background);
+    --color-foreground: var(--ssqli-foreground);
+    --color-card: var(--ssqli-card);
+    --color-card-foreground: var(--ssqli-card-foreground);
+    --color-popover: var(--ssqli-popover);
+    --color-popover-foreground: var(--ssqli-popover-foreground);
+    --color-primary: var(--ssqli-primary);
+    --color-primary-foreground: var(--ssqli-primary-foreground);
+    --color-secondary: var(--ssqli-secondary);
+    --color-secondary-foreground: var(--ssqli-secondary-foreground);
+    --color-muted: var(--ssqli-muted);
+    --color-muted-foreground: var(--ssqli-muted-foreground);
+    --color-accent: var(--ssqli-accent);
+    --color-accent-foreground: var(--ssqli-accent-foreground);
+    --color-destructive: var(--ssqli-destructive);
+    --color-destructive-foreground: var(--ssqli-destructive-foreground);
+    --color-border: var(--ssqli-border);
+    --color-input: var(--ssqli-input);
+    --color-ring: var(--ssqli-ring);
+    --color-success: var(--ssqli-state-success);
+    --color-warning: var(--ssqli-state-warning);
+    --color-error: var(--ssqli-state-error);
+    --color-info: var(--ssqli-state-info);
+    --font-sans: var(--ssqli-font-sans);
+    --font-mono: var(--ssqli-font-mono);
+    --radius-sm: var(--ssqli-radius-sm);
+    --radius-md: var(--ssqli-radius-md);
+    --radius-lg: var(--ssqli-radius-lg);
+    --radius-xl: var(--ssqli-radius-xl);
+  }
+  @layer base {
+    body { background: var(--ssqli-background); color: var(--ssqli-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--ssqli-background); }
+      .text-background { color: var(--ssqli-background); }
+      .border-background { border-color: var(--ssqli-background); }
+      .ring-background { --tw-ring-color: var(--ssqli-background); }
+      .bg-foreground { background-color: var(--ssqli-foreground); }
+      .text-foreground { color: var(--ssqli-foreground); }
+      .border-foreground { border-color: var(--ssqli-foreground); }
+      .ring-foreground { --tw-ring-color: var(--ssqli-foreground); }
+      .bg-card { background-color: var(--ssqli-card); }
+      .text-card { color: var(--ssqli-card); }
+      .border-card { border-color: var(--ssqli-card); }
+      .ring-card { --tw-ring-color: var(--ssqli-card); }
+      .bg-card-foreground { background-color: var(--ssqli-card-foreground); }
+      .text-card-foreground { color: var(--ssqli-card-foreground); }
+      .border-card-foreground { border-color: var(--ssqli-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--ssqli-card-foreground); }
+      .bg-popover { background-color: var(--ssqli-popover); }
+      .text-popover { color: var(--ssqli-popover); }
+      .border-popover { border-color: var(--ssqli-popover); }
+      .ring-popover { --tw-ring-color: var(--ssqli-popover); }
+      .bg-popover-foreground { background-color: var(--ssqli-popover-foreground); }
+      .text-popover-foreground { color: var(--ssqli-popover-foreground); }
+      .border-popover-foreground { border-color: var(--ssqli-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--ssqli-popover-foreground); }
+      .bg-primary { background-color: var(--ssqli-primary); }
+      .text-primary { color: var(--ssqli-primary); }
+      .border-primary { border-color: var(--ssqli-primary); }
+      .ring-primary { --tw-ring-color: var(--ssqli-primary); }
+      .bg-primary-foreground { background-color: var(--ssqli-primary-foreground); }
+      .text-primary-foreground { color: var(--ssqli-primary-foreground); }
+      .border-primary-foreground { border-color: var(--ssqli-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--ssqli-primary-foreground); }
+      .bg-secondary { background-color: var(--ssqli-secondary); }
+      .text-secondary { color: var(--ssqli-secondary); }
+      .border-secondary { border-color: var(--ssqli-secondary); }
+      .ring-secondary { --tw-ring-color: var(--ssqli-secondary); }
+      .bg-secondary-foreground { background-color: var(--ssqli-secondary-foreground); }
+      .text-secondary-foreground { color: var(--ssqli-secondary-foreground); }
+      .border-secondary-foreground { border-color: var(--ssqli-secondary-foreground); }
+      .ring-secondary-foreground { --tw-ring-color: var(--ssqli-secondary-foreground); }
+      .bg-muted { background-color: var(--ssqli-muted); }
+      .text-muted { color: var(--ssqli-muted); }
+      .border-muted { border-color: var(--ssqli-muted); }
+      .ring-muted { --tw-ring-color: var(--ssqli-muted); }
+      .bg-muted-foreground { background-color: var(--ssqli-muted-foreground); }
+      .text-muted-foreground { color: var(--ssqli-muted-foreground); }
+      .border-muted-foreground { border-color: var(--ssqli-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--ssqli-muted-foreground); }
+      .bg-accent { background-color: var(--ssqli-accent); }
+      .text-accent { color: var(--ssqli-accent); }
+      .border-accent { border-color: var(--ssqli-accent); }
+      .ring-accent { --tw-ring-color: var(--ssqli-accent); }
+      .bg-accent-foreground { background-color: var(--ssqli-accent-foreground); }
+      .text-accent-foreground { color: var(--ssqli-accent-foreground); }
+      .border-accent-foreground { border-color: var(--ssqli-accent-foreground); }
+      .ring-accent-foreground { --tw-ring-color: var(--ssqli-accent-foreground); }
+      .bg-destructive { background-color: var(--ssqli-destructive); }
+      .text-destructive { color: var(--ssqli-destructive); }
+      .border-destructive { border-color: var(--ssqli-destructive); }
+      .ring-destructive { --tw-ring-color: var(--ssqli-destructive); }
+      .bg-destructive-foreground { background-color: var(--ssqli-destructive-foreground); }
+      .text-destructive-foreground { color: var(--ssqli-destructive-foreground); }
+      .border-destructive-foreground { border-color: var(--ssqli-destructive-foreground); }
+      .ring-destructive-foreground { --tw-ring-color: var(--ssqli-destructive-foreground); }
+      .bg-border { background-color: var(--ssqli-border); }
+      .text-border { color: var(--ssqli-border); }
+      .border-border { border-color: var(--ssqli-border); }
+      .ring-border { --tw-ring-color: var(--ssqli-border); }
+      .bg-input { background-color: var(--ssqli-input); }
+      .text-input { color: var(--ssqli-input); }
+      .border-input { border-color: var(--ssqli-input); }
+      .ring-input { --tw-ring-color: var(--ssqli-input); }
+      .bg-ring { background-color: var(--ssqli-ring); }
+      .text-ring { color: var(--ssqli-ring); }
+      .border-ring { border-color: var(--ssqli-ring); }
+      .ring-ring { --tw-ring-color: var(--ssqli-ring); }
+    </style>
+    <style id="app-style">
+      .bg-grid {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        opacity: var(--ssqli-grid-opacity);
+        background-image: radial-gradient(circle at center, var(--ssqli-primary) 1px, transparent 1px);
+        background-size: 24px 24px;
+      }
+      .nav-item {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        padding: 0.5rem 0.875rem;
+        margin: 0 0.5rem;
+        border-radius: var(--ssqli-radius-md);
+        color: var(--ssqli-muted-foreground);
+        transition: color 150ms ease, background-color 150ms ease;
+      }
+      .nav-item:hover {
+        color: var(--ssqli-foreground);
+        background-color: var(--ssqli-secondary);
+      }
+      .nav-item.active {
+        color: var(--ssqli-primary);
+        background-color: var(--ssqli-accent);
+      }
+      .nav-item.active::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0.5rem;
+        bottom: 0.5rem;
+        width: 3px;
+        border-radius: 0 4px 4px 0;
+        background: var(--ssqli-primary);
+        box-shadow: 0 0 10px var(--ssqli-primary), 0 0 4px var(--ssqli-brand-300);
+      }
+      .nav-group-label {
+        padding: 0.75rem 1.375rem 0.375rem;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ssqli-muted-foreground);
+      }
+      .panel {
+        background-color: var(--ssqli-card);
+        border: 1px solid var(--ssqli-border);
+        border-radius: var(--ssqli-radius-md);
+        box-shadow: var(--ssqli-shadow-1);
+      }
+      .input {
+        background-color: var(--ssqli-background);
+        border: 1px solid var(--ssqli-border);
+        border-radius: var(--ssqli-radius-sm);
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8125rem;
+        color: var(--ssqli-foreground);
+        transition: border-color 150ms ease, box-shadow 150ms ease;
+      }
+      .input:focus {
+        outline: none;
+        border-color: var(--ssqli-primary);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--ssqli-primary) 25%, transparent);
+      }
+      .select {
+        appearance: none;
+        background-color: var(--ssqli-background);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.4rem center;
+        border: 1px solid var(--ssqli-border);
+        border-radius: var(--ssqli-radius-sm);
+        padding: 0.25rem 1.5rem 0.25rem 0.5rem;
+        font-size: 0.8125rem;
+        color: var(--ssqli-foreground);
+        cursor: pointer;
+        transition: border-color 150ms ease, box-shadow 150ms ease;
+      }
+      .select:focus {
+        outline: none;
+        border-color: var(--ssqli-primary);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--ssqli-primary) 25%, transparent);
+      }
+      .checkbox {
+        accent-color: var(--ssqli-primary);
+        width: 0.875rem;
+        height: 0.875rem;
+        cursor: pointer;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.375rem;
+        border-radius: var(--ssqli-radius-sm);
+        padding: 0.375rem 0.75rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        transition: filter 150ms ease, background-color 150ms ease;
+      }
+      .btn-primary {
+        background-color: var(--ssqli-primary);
+        color: var(--ssqli-primary-foreground);
+      }
+      .btn-primary:hover { filter: brightness(1.08); }
+      .btn-secondary {
+        background-color: var(--ssqli-secondary);
+        color: var(--ssqli-secondary-foreground);
+        border: 1px solid var(--ssqli-border);
+      }
+      .btn-secondary:hover { background-color: var(--ssqli-muted); }
+      .btn-destructive {
+        background-color: var(--ssqli-destructive);
+        color: var(--ssqli-destructive-foreground);
+      }
+      .btn-destructive:hover { filter: brightness(1.08); }
+      .code-editor {
+        background-color: var(--ssqli-background);
+        border: 1px solid var(--ssqli-border);
+        border-radius: var(--ssqli-radius-sm);
+        font-family: var(--ssqli-font-mono);
+        font-size: 0.8125rem;
+        line-height: 1.6;
+        overflow: auto;
+      }
+      .tok-method { color: var(--ssqli-primary); font-weight: 600; }
+      .tok-path { color: var(--ssqli-foreground); }
+      .tok-protocol { color: var(--ssqli-muted-foreground); }
+      .tok-header { color: var(--ssqli-primary); }
+      .tok-value { color: var(--ssqli-foreground); }
+      .pulse-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 999px;
+        background-color: var(--ssqli-state-success);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+        70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+      }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+</head>
+<body class="h-screen overflow-hidden bg-background text-foreground font-sans antialiased">
+    <div class="bg-grid"></div>
+    <div class="relative z-10 flex h-full">
+        <!-- Sidebar -->
+        <aside class="flex h-full w-[210px] flex-shrink-0 flex-col border-r border-border bg-card">
+            <div class="flex h-14 items-center gap-2 border-b border-border px-4">
+                <div class="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                    <i data-lucide="shield-alert" class="h-5 w-5"></i>
+                </div>
+                <div class="leading-tight">
+                    <div class="text-sm font-bold tracking-wide">SSQLI V2</div>
+                    <div class="text-[10px] text-muted-foreground">超级 SQL 注入工具</div>
+                </div>
+            </div>
+            <nav class="flex-1 overflow-y-auto py-2 no-scrollbar">
+                <div class="nav-group-label">检测</div>
+                <a href="#" class="nav-item">
+                    <i data-lucide="scan-line" class="h-4 w-4"></i>
+                    <span class="text-sm">注入检测</span>
+                </a>
+                <a href="#" class="nav-item active">
+                    <i data-lucide="list-checks" class="h-4 w-4"></i>
+                    <span class="text-sm">检测用例</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i data-lucide="history" class="h-4 w-4"></i>
+                    <span class="text-sm">注入记录</span>
+                    <span class="ml-auto flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">4</span>
+                </a>
+                <div class="nav-group-label">数据</div>
+                <a href="#" class="nav-item">
+                    <i data-lucide="database" class="h-4 w-4"></i>
+                    <span class="text-sm">数据管理</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i data-lucide="file-spreadsheet" class="h-4 w-4"></i>
+                    <span class="text-sm">取数模板</span>
+                </a>
+                <div class="nav-group-label">工具</div>
+                <a href="#" class="nav-item">
+                    <i data-lucide="network" class="h-4 w-4"></i>
+                    <span class="text-sm">网络设置</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i data-lucide="shield-off" class="h-4 w-4"></i>
+                    <span class="text-sm">防护绕过</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i data-lucide="code-2" class="h-4 w-4"></i>
+                    <span class="text-sm">编码工具</span>
+                </a>
+                <a href="#" class="nav-item">
+                    <i data-lucide="scroll-text" class="h-4 w-4"></i>
+                    <span class="text-sm">请求日志</span>
+                </a>
+                <div class="nav-group-label">帮助</div>
+                <a href="#" class="nav-item">
+                    <i data-lucide="info" class="h-4 w-4"></i>
+                    <span class="text-sm">关于</span>
+                </a>
+            </nav>
+            <div class="border-t border-border p-3 text-[10px] text-muted-foreground">
+                <div class="flex items-center gap-1.5">
+                    <i data-lucide="cpu" class="h-3 w-3"></i>
+                    <span>就绪 · v2.0.0</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main area -->
+        <div class="flex min-w-0 flex-1 flex-col bg-background">
+            <!-- Breadcrumb + tabs -->
+            <div class="flex h-12 flex-shrink-0 items-center justify-between border-b border-border bg-card px-4">
+                <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                    <i data-lucide="home" class="h-3.5 w-3.5"></i>
+                    <span>首页</span>
+                    <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+                    <span class="font-medium text-foreground">检测用例</span>
+                </div>
+                <div class="flex items-center gap-1 rounded-lg bg-muted p-1">
+                    <button class="rounded-md bg-card px-3 py-1 text-xs font-medium text-foreground shadow-sm">检测用例</button>
+                    <button class="rounded-md px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">报错指纹</button>
+                </div>
+                <a href="cases-light.html" class="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground" title="切换主题">
+                    <i data-lucide="sun" class="h-4 w-4"></i>
+                </a>
+            </div>
+
+            <!-- Filter bar -->
+            <div class="flex flex-col gap-3 border-b border-border bg-card p-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-muted-foreground">关键字：</span>
+                        <input type="text" class="input h-8 w-64" placeholder="标题/payload模糊搜索">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-muted-foreground">技术类型：</span>
+                        <select class="select h-8 w-28"><option>全部</option></select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-muted-foreground">级别：</span>
+                        <select class="select h-8 w-20"><option>全部</option></select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-muted-foreground">风险：</span>
+                        <select class="select h-8 w-20"><option>全部</option></select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-muted-foreground">DBMS：</span>
+                        <select class="select h-8 w-28"><option>全部</option></select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-muted-foreground">文件：</span>
+                        <select class="select h-8 w-32"><option>全部</option></select>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button class="btn btn-primary h-8">
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                        新增用例
+                    </button>
+                    <button class="btn btn-secondary h-8">
+                        <i data-lucide="refresh-cw" class="h-4 w-4"></i>
+                        重新加载
+                    </button>
+                    <span class="text-xs text-muted-foreground">
+                        说明：自定义用例建议写入 custom_user.xml，与官方用例文件分离，保存后立即对后续检测生效。
+                    </span>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="flex-1 overflow-auto p-4">
+                <div class="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-muted text-muted-foreground">
+                            <tr>
+                                <th class="px-3 py-2 font-medium">用例标题</th>
+                                <th class="px-3 py-2 font-medium w-24">技术类型</th>
+                                <th class="px-3 py-2 font-medium w-16">级别</th>
+                                <th class="px-3 py-2 font-medium w-16">风险</th>
+                                <th class="px-3 py-2 font-medium w-32">适用DBMS</th>
+                                <th class="px-3 py-2 font-medium w-32">所在文件</th>
+                                <th class="px-3 py-2 font-medium w-20 text-center">命中次数</th>
+                                <th class="px-3 py-2 font-medium w-20 text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border">
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">AND boolean-based blind - WHERE or HAVING clause</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">1</td>
+                                <td class="px-3 py-2 text-center">1</td>
+                                <td class="px-3 py-2">全部</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">1</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">OR boolean-based blind - WHERE or HAVING clause</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">1</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2">全部</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">OR boolean-based blind - WHERE or HAVING clause (NOT)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2">全部</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">AND boolean-based blind - WHERE or HAVING clause (subquery - comment)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">2</td>
+                                <td class="px-3 py-2 text-center">1</td>
+                                <td class="px-3 py-2">全部</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">OR boolean-based blind - WHERE or HAVING clause (subquery - comment)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">2</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2">全部</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">AND boolean-based blind - WHERE or HAVING clause (comment)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">2</td>
+                                <td class="px-3 py-2 text-center">1</td>
+                                <td class="px-3 py-2">全部</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">OR boolean-based blind - WHERE or HAVING clause (comment)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">2</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2">全部</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">OR boolean-based blind - WHERE or HAVING clause (NOT - comment)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">4</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2">全部</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">AND boolean-based blind - WHERE or HAVING clause (MySQL comment)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2 text-center">1</td>
+                                <td class="px-3 py-2">MySQL</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">OR boolean-based blind - WHERE or HAVING clause (MySQL comment)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2">MySQL</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">OR boolean-based blind - WHERE or HAVING clause (NOT - MySQL comment)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2">MySQL</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">AND boolean-based blind - WHERE or HAVING clause (Microsoft Access comment)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2 text-center">1</td>
+                                <td class="px-3 py-2">Microsoft Access</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">OR boolean-based blind - WHERE or HAVING clause (Microsoft Access comment)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2">Microsoft Access</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">MySQL RLIKE boolean-based blind - WHERE, HAVING, ORDER BY or GROUP BY clause</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">2</td>
+                                <td class="px-3 py-2 text-center">1</td>
+                                <td class="px-3 py-2">MySQL</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">MySQL AND boolean-based blind - WHERE, HAVING, ORDER BY or GROUP BY clause (MAKE_SET)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2 text-center">1</td>
+                                <td class="px-3 py-2">MySQL</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">MySQL OR boolean-based blind - WHERE, HAVING, ORDER BY or GROUP BY clause (MAKE_SET)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2">MySQL</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">MySQL AND boolean-based blind - WHERE, HAVING, ORDER BY or GROUP BY clause (ELT)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">4</td>
+                                <td class="px-3 py-2 text-center">1</td>
+                                <td class="px-3 py-2">MySQL</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">MySQL OR boolean-based blind - WHERE, HAVING, ORDER BY or GROUP BY clause (ELT)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">4</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2">MySQL</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">MySQL AND boolean-based blind - WHERE, HAVING, ORDER BY or GROUP BY clause (EXTRACTVALUE)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">4</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2">MySQL</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-muted/50 transition-colors">
+                                <td class="px-3 py-2 font-mono text-[11px]">MySQL OR boolean-based blind - WHERE, HAVING, ORDER BY or GROUP BY clause (EXTRACTVALUE)</td>
+                                <td class="px-3 py-2">布尔盲注</td>
+                                <td class="px-3 py-2 text-center">5</td>
+                                <td class="px-3 py-2 text-center">3</td>
+                                <td class="px-3 py-2">MySQL</td>
+                                <td class="px-3 py-2 font-mono text-[11px] text-muted-foreground">boolean_blind.xml</td>
+                                <td class="px-3 py-2 text-center">0</td>
+                                <td class="px-3 py-2 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="查看"><i data-lucide="eye" class="h-3.5 w-3.5"></i></button>
+                                        <button class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="删除"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="flex h-10 flex-shrink-0 items-center justify-between border-t border-border bg-card px-4 text-xs">
+                <span class="text-muted-foreground">第 1/19 页 · 共 376 条</span>
+                <div class="flex items-center gap-2">
+                    <button class="btn btn-secondary h-7 px-2 text-xs">首页</button>
+                    <button class="btn btn-secondary h-7 px-2 text-xs">上一页</button>
+                    <button class="btn btn-primary h-7 px-2 text-xs">第 1 页</button>
+                    <button class="btn btn-secondary h-7 px-2 text-xs">下一页</button>
+                    <button class="btn btn-secondary h-7 px-2 text-xs">末页</button>
+                </div>
+            </div>
+
+            <!-- Status bar -->
+            <!-- Status bar -->
+            <footer class="flex h-7 flex-shrink-0 items-center justify-between border-t border-border bg-muted px-3 text-[11px] text-muted-foreground">
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <span>存在注入 0%</span>
+                        <div class="h-1.5 w-24 overflow-hidden rounded-full bg-border">
+                            <div class="h-full w-0 rounded-full bg-primary"></div>
+                        </div>
+                    </div>
+                    <span>请求 2</span>
+                    <span>耗时 00:00</span>
+                    <span>线程 0/1</span>
+                    <span>库 0 表 0 字段 0 数据行 0</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="inline-flex items-center gap-1"><i data-lucide="file-text" class="h-3 w-3"></i> 日志</span>
+                    <span>代理模式</span>
+                    <span>302不跟随</span>
+                    <span>UnKnow - UTF-8</span>
+                    <span class="font-mono">v2.0.0</span>
+                </div>
+            </footer>
+        </div>
+    </div>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

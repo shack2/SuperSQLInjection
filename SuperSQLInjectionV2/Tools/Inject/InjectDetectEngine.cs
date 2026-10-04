@@ -2,6 +2,7 @@ using SuperSQLInjectionV2.Bypass;
 using SuperSQLInjectionV2.Models;
 using SuperSQLInjectionV2.Models.Data;
 using SuperSQLInjectionV2.Models.Detect;
+using SuperSQLInjectionV2.Payload;
 using SuperSQLInjectionV2.Tools.Http;
 using SuperSQLInjectionV2.ViewModels;
 using System;
@@ -23,19 +24,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
     /// </summary>
     public static class InjectDetectEngine
     {
-        //默认相似度阈值：真值页>=0.98视为与模板一致，真假差值>=0.02视为可区分
-        private const double UpperBound = 0.98;
-        private const double MinDelta = 0.02;
-        //相似度下界（sqlmap LOWER_RATIO_BOUND同款）：低于此值视为与模板完全不同
-        private const double LowerBound = 0.02;
-        //matchRatio锚点容差（sqlmap DIFF_TOLERANCE同款）：真值页ratio需高出锚点此值才视为与模板一致
-        private const double DiffTolerance = 0.05;
-        //WAF拦截状态码（401未授权/403禁止/406不接受/429限流/501不支持）：Send拦截统计与布尔WAF假象否决共用
-        private static readonly int[] WafBlockCodes = { 401, 403, 406, 429, 501 };
-        //Union列数探测的相似度阈值（默认0.95）
-        private const double UnionBound = 0.95;
-        //检测技术遍历顺序：布尔→报错→Union→堆叠→时间→内联（确认即停）
-        private static readonly int[] TechniqueOrder = { 1, 2, 6, 4, 5, 3 };
+        //判定阈值与技术遍历顺序统一收拢到 DetectTuning（调参只改一处）
 
         /// <summary>Union无信号短路缓存键（边界前缀模板|后缀模板）。不含where/注释符：
         /// 无信号=参数未进SQL解析器，where语义（追加/替换）与注释符（--/#）差异都不可能改变"未执行"结论；
@@ -46,41 +35,12 @@ namespace SuperSQLInjectionV2.Tools.Inject
         }
 
         /// <summary>
-        /// V2数据库类型 → DBMS名称
-        /// </summary>
-        private static readonly Dictionary<DBType, string> V2ToDbmsName = new Dictionary<DBType, string>
-        {
-            { DBType.MySQL, "MySQL" },
-            { DBType.SQLServer, "Microsoft SQL Server" },
-            { DBType.Oracle, "Oracle" },
-            { DBType.PostgreSQL, "PostgreSQL" },
-            { DBType.Access, "Microsoft Access" },
-            { DBType.DB2, "IBM DB2" },
-            { DBType.SQLite, "SQLite" },
-            { DBType.Informix, "Informix" },
-            { DBType.DM, "DM" },
-            { DBType.Kingbase, "KingbaseES" },
-            { DBType.OpenGauss, "openGauss" },
-            { DBType.H2, "H2" },
-            { DBType.HSQLDB, "HSQLDB" },
-            { DBType.ClickHouse, "ClickHouse" }
-        };
-
-        /// <summary>
-        /// 国产库语法兼容映射：达梦兼容Oracle、人大金仓兼容PostgreSQL。
-        /// 用例库无国产库专属用例，过滤/解析用例dbms时按兼容库对待，
-        /// 使Oracle/PG专属用例（报错、时间等）对国产库同样生效。
+        /// 国产库语法兼容映射：达梦兼容Oracle、人大金仓/openGauss兼容PostgreSQL。
+        /// 用例库无国产库专属用例，过滤/解析用例dbms时按兼容库对待（统一查 DbProfile 注册表）。
         /// </summary>
         private static DBType CompatDb(DBType db)
         {
-            return db switch
-            {
-                DBType.DM => DBType.Oracle,
-                DBType.Kingbase => DBType.PostgreSQL,
-                //openGauss基于PostgreSQL 9.2，共用PG检测用例
-                DBType.OpenGauss => DBType.PostgreSQL,
-                _ => db
-            };
+            return DbProfile.CompatOf(db);
         }
 
         private class Ctx
@@ -154,9 +114,11 @@ namespace SuperSQLInjectionV2.Tools.Inject
         /// 对单个参数执行多技术检测，不命中不停：每种技术类型各取一个命中（同类型确认即跳过剩余用例），
         /// 全部技术检测完毕后返回所有命中，列表按利用价值升序排列（最后一个为最优注入点，调用方顺序应用即可）。
         /// place/headerName用于Cookie（level>=2）、User-Agent/Referer等HTTP头（level>=3）、JSON请求体位置的注入检测。
+        /// onHit：每确认一个注入点立即回调（发现顺序，非价值排序），调用方据此即时写注入记录；回调来自工作线程，UI侧需自行封送。
         /// </summary>
         public static async Task<List<InjectPoint>> DetectParam(AppConfig config, string requestTxt, string pname, string pvalue,
-            ParamPlace place = ParamPlace.Query, string headerName = "", int uriIndex = -1)
+            ParamPlace place = ParamPlace.Query, string headerName = "", int uriIndex = -1, DetectSessionState? session = null,
+            Action<InjectPoint>? onHit = null)
         {
             List<InjectPoint> hits = new List<InjectPoint>();
             Ctx ctx = new Ctx { Config = config, PName = pname, PValue = pvalue ?? "", Place = place, HeaderName = headerName, UriIndex = uriIndex };
@@ -241,7 +203,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                         }
                     }
                 }
-                ctx.Stable = minRatio >= UpperBound;
+                ctx.Stable = minRatio >= DetectTuning.UpperBound;
                 if (!ctx.Stable)
                 {
                     //动态特征增量学习（sqlmap findDynamicContent merge同款思路）：页面不稳定时追加2次原始请求，
@@ -274,7 +236,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                             }
                         }
                     }
-                    ctx.Stable = minRatio >= UpperBound;
+                    ctx.Stable = minRatio >= DetectTuning.UpperBound;
                 }
                 if (!ctx.Stable)
                 {
@@ -302,7 +264,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                                 }
                             }
                         }
-                        if (minTextRatio >= UpperBound)
+                        if (minTextRatio >= DetectTuning.UpperBound)
                         {
                             ctx.TemplateTextOnly = texts[0];
                             Log.Show("目标页面结构不稳定但纯文本稳定，切换为text-only比对（sqlmap --text-only同款）！");
@@ -311,7 +273,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 }
                 if (!ctx.Stable && ctx.TemplateSkeleton == null && ctx.TemplateTextOnly == null)
                 {
-                    Log.Warning("目标页面内容不稳定（模板内最小相似度" + minRatio.ToString("F4") + " < " + UpperBound + "），布尔/Union相似度判定可信度下降！建议换稳定页面，或在数据操作页手工指定判断依据（关键字/状态码）。");
+                    Log.Warning("目标页面内容不稳定（模板内最小相似度" + minRatio.ToString("F4") + " < " + DetectTuning.UpperBound + "），布尔/Union相似度判定可信度下降！建议换稳定页面，或在数据操作页手工指定判断依据（关键字/状态码）。");
                 }
                 //JSON结构感知比对（sqlmap jsonMinimize同款）：模板为JSON时预计算最小化形态，后续比对键序/空白无关
                 ctx.TemplateJson = JsonMinimize(ctx.Template);
@@ -343,24 +305,18 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 int evUnchanged = (noiseDyn == false ? 1 : 0) + (quoteDyn == false ? 1 : 0);
                 //两有效证据均未变→非动态；只有一个有效证据时沿用其结论；证据全无效按动态保守处理（与旧失败路径一致）
                 ctx.Dynamic = !(evUnchanged >= 2 || (evKnown == 1 && evUnchanged == 1));
+                bool smart = config.DataConfig.SmartMode;
                 if (!ctx.Dynamic)
                 {
-                    if (config.DataConfig.DetectStopOnNonDynamic)
+                    if (!smart)
                     {
-                        //开关开启：非动态参数直接停止该参数检测（省时）；
-                        //注意头注入/写入型注入（页面不随参数变化）会被跳过，此类目标请关闭该开关重测
-                        Log.Show("参数" + pname + "疑似非动态参数，按开关设置停止对该参数的检测！");
-                        return hits;
+                        //智能模式关闭：与业界惯例一致，仅提示疑似非动态参数，不跳过任何技术（静态误报由比对算法自身兜底）
+                        Log.Show("参数" + pname + "看起来不是动态参数，仍继续全量检测（页面相似度将由各技术用例自行判定）！");
                     }
-                    //与业界惯例一致：仅提示疑似非动态参数，不跳过任何技术（静态误报由比对算法自身兜底）
-                    Log.Show("参数" + pname + "看起来不是动态参数，仍继续全量检测（页面相似度将由各技术用例自行判定）！");
-                }
-
-                //--smart 智能模式：启发式无任何迹象（非动态+后续探针无指纹）时跳过深度检测
-                bool smart = config.DataConfig.SmartMode;
-                if (smart && !ctx.Dynamic)
-                {
-                    Log.Show("智能模式：参数" + pname + "疑似非动态（若启发式探针无错误指纹将跳过深度检测）！");
+                    else
+                    {
+                        Log.Show("智能模式：参数" + pname + "疑似非动态（若启发式探针无错误指纹将跳过页面比对类技术）！");
+                    }
                 }
 
                 //3. 错误信息DBMS指纹合并：5枚探针响应逐个扫描合并（集合操作，与并发完成顺序无关，结果等价串行）
@@ -385,11 +341,35 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 {
                     Log.Show("通过错误信息指纹，数据库可能为：" + string.Join(",", ctx.DbCandidates));
                 }
-                //--smart：启发式（动态性+错误指纹）均无任何迹象时，跳过整个深度检测电池（与 smart 语义一致：positive heuristics才深测）
+                //跨参数信号共享：错误指纹命中的库发布到会话，后续参数优先测试该库专属用例；
+                //会话已有信号时输出复用说明（共享boundary排最前、共享库专属用例优先，未命中自动回退全量）
+                if (session != null)
+                {
+                    foreach (DBType pdb in probeFound)
+                    {
+                        session.Publish(null, pdb, pname);
+                    }
+                    if (session.HasSignal && session.SourceParam != pname)
+                    {
+                        List<DBType> sessDbs = session.Dbs;
+                        string shared = (session.Boundary != null ? "注入边界" : "")
+                            + (sessDbs.Count > 0 ? (session.Boundary != null ? "+" : "") + "命中库[" + string.Join(",", sessDbs) + "]" : "");
+                        Log.Show("跨参数信号共享：复用参数 " + session.SourceParam + " 的" + shared + "，对应用例/边界优先测试，未命中自动回退全量！");
+                    }
+                }
+                //--smart：启发式（动态性+错误指纹）均无任何迹象时的处理（与 smart 语义一致：positive heuristics才深测）
+                //Level<3：跳过整个深度检测电池；Level≥3：保留时间盲注/堆叠（不依赖页面回显，静态页面注入的唯一通道），
+                //页面比对类技术（Bool/报错/Union/内联/DNS外带）在静态页面上无信号源，跳过
+                bool smartBlindOnly = false;
                 if (smart && !ctx.Dynamic && ctx.DbCandidates.Count == 0)
                 {
-                    Log.Show("智能模式：参数" + pname + "启发式无任何迹象（非动态+无错误指纹），跳过深度检测！注意：头注入/写入型注入（页面不随参数变化且无报错回显）会被跳过，此类目标请关闭智能模式重测。");
-                    return hits;
+                    if (level < 3)
+                    {
+                        Log.Show("智能模式：参数" + pname + "启发式无任何迹象（非动态+无错误指纹），跳过深度检测！注意：头注入/写入型注入（页面不随参数变化且无报错回显）会被跳过，此类目标请关闭智能模式或用 Level≥3 重测（保留时间/堆叠通道）。");
+                        return hits;
+                    }
+                    smartBlindOnly = true;
+                    Log.Show("智能模式：参数" + pname + "启发式无任何迹象（非动态+无错误指纹），Level≥3 保留时间盲注/堆叠检测，跳过页面比对类技术（Bool/报错/Union/内联/DNS外带）！");
                 }
 
                 //4. ptype两轮策略（优先排序而非排除，sqlmap intBoundaries同款）：数字值先测数字边界，
@@ -418,12 +398,16 @@ namespace SuperSQLInjectionV2.Tools.Inject
                         Log.Show("数字型边界全部技术未命中，补测引号类边界（后端可能将数字参数引号包裹，如 WHERE id='1'）……");
                     }
                     ctx.Ptypes = ptypeRounds[ptypeRound];
-                foreach (int stype in TechniqueOrder)
+                foreach (int stype in DetectTuning.TechniqueOrder)
                 {
                     config.CheckStop();
                     int wafSent0 = ctx.WafSent, wafBlocked0 = ctx.WafBlocked;
-                    //注1：对疑似非动态参数仅告警不跳过（静态参数上比对类用例天然不命中，无需预过滤）
-                    //注2：--smart只在"非动态+无指纹"时整体跳过（闸门B）；有指纹即全技术检测，不做技术裁剪
+                    //智能模式+非动态+无指纹+Level≥3：只保留时间盲注(stype=5)/堆叠(stype=4)，页面比对类技术无信号源直接跳过
+                    if (smartBlindOnly && stype != 5 && stype != 4)
+                    {
+                        Log.Show("智能模式：" + TechniqueName(stype) + "依赖页面回显/比对，静态页面无信号源，跳过！");
+                        continue;
+                    }
                     List<PayloadTest> tests = InjectPayloadLoader.GetTests(stype, level, risk)
                         .OrderBy(t => t.Level).ThenBy(t => t.Risk).ToList();
                     //extendTests（sqlmap kb.extendTests同款，自动放开）：DBMS已通过错误指纹/布尔探针/前序命中识别后，
@@ -466,6 +450,16 @@ namespace SuperSQLInjectionV2.Tools.Inject
                     {
                         continue;
                     }
+                    //跨参数信号共享：会话命中库的专属用例优先测试（稳定排序保持组内level/risk序；
+                    //优先非限定——未命中则自然走完剩余全量用例，不漏检）
+                    if (session != null)
+                    {
+                        List<DBType> sessDbs = session.Dbs;
+                        if (sessDbs.Count > 0)
+                        {
+                            tests = tests.OrderBy(t => ExtendMatch(t, sessDbs) ? 0 : 1).ToList();
+                        }
+                    }
                     Log.Show("正在进行" + TechniqueName(stype) + "检测（" + tests.Count + "个用例，Level<=" + level + "，Risk<=" + risk + "）……");
                     ctx.Phase = TechniqueName(stype);
                     //跨技术信号共享跳过计数（本技术内因Union无信号+非动态跳过的组合数）
@@ -489,7 +483,8 @@ namespace SuperSQLInjectionV2.Tools.Inject
                         //extendTests同步放开boundary的level上限（sqlmap checks.py:414同款）：
                         //仅对命中已识别库的专属用例生效，通用用例boundary仍按level过滤
                         int effLevel = ExtendMatch(test, ctx.DbCandidates) ? 5 : level;
-                        foreach (PayloadBoundary boundary in MatchBoundaries(test, effLevel, ctx.Ptypes))
+                        //跨参数信号共享：会话命中boundary排到最前（注入上下文大概率同形态；优先非限定，未命中自然回退全量）
+                        foreach (PayloadBoundary boundary in OrderBoundaries(session, MatchBoundaries(test, effLevel, ctx.Ptypes)))
                         {
                             config.CheckStop();
                             //命中后boundary裁剪（sqlmap condBound/condType同款）：注入上下文（引号/括号形态）是注入点属性，
@@ -532,9 +527,18 @@ namespace SuperSQLInjectionV2.Tools.Inject
                                 }).ConfigureAwait(false);
                                 if (hit != null && hit.IsInject)
                                 {
+                                    //base64包装参数：命中即标注AutoTamper（即时回调消费方需要完整命中信息）
+                                    if (ctx.Base64)
+                                    {
+                                        hit.AutoTamper = "base64encode";
+                                    }
                                     hits.Add(hit);
+                                    //命中即时回调：发现一个注入点就通知调用方写记录，不等全部技术测完
+                                    onHit?.Invoke(hit);
                                     //记录首个命中的boundary，后续技术裁剪到该boundary（注入上下文是注入点属性）
                                     ctx.KnownBoundary ??= boundary;
+                                    //跨参数信号共享：命中boundary与命中库发布到会话，后续参数优先复用
+                                    session?.Publish(ctx.KnownBoundary, hit.DBType, ctx.PName);
                                     //记录首个命中的clause（WHERE语义），后续用例按clause交集收敛
                                     ctx.KnownClause ??= test.Clause;
                                     //命中后该数据库可信度提升，后续技术的dbms专属用例按命中库过滤
@@ -571,26 +575,25 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 if (config.DataConfig.DetectDnsOob)
                 {
                     ctx.Phase = "DNS外带";
-                    InjectPoint? dnsHit = await TryDnsOob(ctx, level, risk).ConfigureAwait(false);
+                    InjectPoint? dnsHit = await TryDnsOob(ctx, level, risk, session).ConfigureAwait(false);
                     if (dnsHit != null && dnsHit.IsInject)
                     {
+                        if (ctx.Base64)
+                        {
+                            dnsHit.AutoTamper = "base64encode";
+                        }
                         hits.Add(dnsHit);
+                        onHit?.Invoke(dnsHit);
                         if (dnsHit.DBType != DBType.UnKnow && !ctx.DbCandidates.Contains(dnsHit.DBType))
                         {
                             ctx.DbCandidates.Add(dnsHit.DBType);
                         }
+                        //跨参数信号共享：DNS命中库发布到会话
+                        session?.Publish(null, dnsHit.DBType, ctx.PName);
                     }
                 }
                 //按利用价值升序：调用方顺序应用后，最优注入点（Union>报错>布尔>时间）成为当前生效配置
-                //base64包装参数：命中点记录AutoTamper=base64encode，注入记录持久化后，
-                //恢复记录取数时现有AutoTamper机制自动启用该工具完成编码回写
-                if (ctx.Base64)
-                {
-                    foreach (InjectPoint h in hits)
-                    {
-                        h.AutoTamper = "base64encode";
-                    }
-                }
+                //（base64包装参数的AutoTamper已在命中时逐点标注，注入记录持久化后恢复记录取数自动启用编码回写）
                 return hits.OrderBy(ExploitPriority).ToList();
             }
             catch (OperationCanceledException)
@@ -713,7 +716,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 }
                 string txt = WebPageDiffAnalyzer.ClearDynamicText(ctx.Features, resp.BodyTxt ?? "");
                 txt = InjectTools.StripPayloadReflection(txt, payload);
-                return RatioVsTemplate(ctx, txt) < UpperBound;
+                return RatioVsTemplate(ctx, txt) < DetectTuning.UpperBound;
             }
             catch
             {
@@ -754,23 +757,23 @@ namespace SuperSQLInjectionV2.Tools.Inject
             }
             //WAF拦截假象否决（sqlmap WAF block-artifact guard同款）：真值被拦（406/429等）而假值/原始请求正常，
             //是WAF在应答而非数据库——真值本应复现正常页面，这种状态码非对称是典型误报
-            if (WafBlockCodes.Contains(trueResp.StatusCode) && falseResp.StatusCode < 400 && (ctx.OrigResponse?.StatusCode ?? 200) < 400)
+            if (DetectTuning.WafBlockCodes.Contains(trueResp.StatusCode) && falseResp.StatusCode < 400 && (ctx.OrigResponse?.StatusCode ?? 200) < 400)
             {
                 Log.Show("真值响应状态码" + trueResp.StatusCode + "而假值/原始请求正常，疑似WAF拦截假象（非SQL注入），判定误报，跳过！");
                 return null;
             }
 
-            //matchRatio自适应锚点（sqlmap同款）：假值页ratio落在中区(LowerBound,UpperBound)时以其为锚，
-            //真值页只需比锚高出DiffTolerance即视为与模板一致——适配真假页面差异极小的目标（固定0.98阈值会漏）
-            double anchor = (rFalse >= LowerBound && rFalse <= UpperBound) ? rFalse : -1;
-            bool TrueLike(double r) => r >= UpperBound || (anchor >= 0 && (r - anchor) > DiffTolerance);
+            //matchRatio自适应锚点（sqlmap同款）：假值页ratio落在中区(DetectTuning.LowerBound,DetectTuning.UpperBound)时以其为锚，
+            //真值页只需比锚高出DetectTuning.DiffTolerance即视为与模板一致——适配真假页面差异极小的目标（固定0.98阈值会漏）
+            double anchor = (rFalse >= DetectTuning.LowerBound && rFalse <= DetectTuning.UpperBound) ? rFalse : -1;
+            bool TrueLike(double r) => r >= DetectTuning.UpperBound || (anchor >= 0 && (r - anchor) > DetectTuning.DiffTolerance);
 
             //判定一：状态码差异（与旧检测一致）
             bool byCode = ctx.OrigResponse != null
                 && ctx.OrigResponse.StatusCode == trueResp.StatusCode
                 && trueResp.StatusCode != falseResp.StatusCode;
             //判定二：ratio判定
-            bool byRatio = TrueLike(rTrue) && !TrueLike(rFalse) && (rTrue - rFalse) >= MinDelta;
+            bool byRatio = TrueLike(rTrue) && !TrueLike(rFalse) && (rTrue - rFalse) >= DetectTuning.MinDelta;
             if (!byCode && !byRatio)
             {
                 return null;
@@ -792,7 +795,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
             }
             HttpResponse false2Resp = await Send(ctx, reqTxt2, falsePayload2).ConfigureAwait(false);
             double rFalse2 = RatioVsTemplate(ctx, Clear(ctx, false2Resp.BodyTxt, ReflectionValue(prefix2, falsePayload2, suffix2)));
-            if (TrueLike(rFalse2) || (rTrue2 - rFalse2) < MinDelta)
+            if (TrueLike(rFalse2) || (rTrue2 - rFalse2) < DetectTuning.MinDelta)
             {
                 return null;
             }
@@ -1332,28 +1335,56 @@ namespace SuperSQLInjectionV2.Tools.Inject
             //null=列数来自ORDER BY路径（FROM未定）；非null=填充路径确定的FROM变体
             string? usedFrom = null;
             //1a. ORDER BY路径（仅where=1追加语义，优先路径）：
-            //原查询上递增列号探针，页面保持模板态=列有效，首个报错/剧变列号-1即列数；比NULL填充更耐"内容总变"页面
+            //原查询上二分列号探针：ORDER BY mid保持模板态=mid列有效（lo=mid），报错/页面剧变=超出列数（hi=mid-1），
+            //收敛后lo即列数。ORDER BY列位置语义天然单调（c<=N成功、c>N失败），二分安全；
+            //发包量O(log n)：20列上限从最多20包降到5包。判定语义（错误页/相似度）与线性版完全一致
             if (where == 1)
             {
-                for (int c = 1; c <= colStop; c++)
+                //ORDER BY列号探针：保持模板态=列有效，报错/页面剧变=超出列数
+                async Task<bool> OrderByFails(int c)
                 {
-                    ctx.Config.CheckStop();
                     string oPayload = " ORDER BY " + c + comment;
                     HttpResponse oResp = await Send(ctx, reqTxt, oPayload).ConfigureAwait(false);
                     bool oFail = ConstData.ErrorHttpCode.Contains(oResp.StatusCode) || InjectTools.IsDbErrorPage(oResp.BodyTxt);
                     if (!oFail)
                     {
                         string oTxt = Clear(ctx, oResp.BodyTxt, ReflectionValue(prefix, oPayload, suffix));
-                        oFail = PageLikeTool.CalculateSimilarity(ctx.Template, oTxt) < UnionBound;
+                        oFail = PageLikeTool.CalculateSimilarity(ctx.Template, oTxt) < DetectTuning.UnionBound;
                     }
-                    if (oFail)
+                    return oFail;
+                }
+                int lo = 0, hi = colStop;
+                while (lo < hi)
+                {
+                    ctx.Config.CheckStop();
+                    int mid = (lo + hi + 1) / 2;
+                    if (await OrderByFails(mid).ConfigureAwait(false))
                     {
-                        if (c > 1)
-                        {
-                            foundCount = c - 1;
-                            Log.Show("ORDER BY路径定位列数=" + foundCount + "（第" + c + "列起报错/页面剧变）");
-                        }
-                        break;
+                        hi = mid - 1;
+                    }
+                    else
+                    {
+                        lo = mid;
+                    }
+                }
+                if (lo > 0 && lo < colStop)
+                {
+                    foundCount = lo;
+                    Log.Show("ORDER BY路径定位列数=" + foundCount + "（二分探测）");
+                }
+                else if (lo == colStop)
+                {
+                    //二分全程未见失败：列数>=colStop，无法区分"恰好等于"与"超出上限"，
+                    //补一包探colStop+1：失败=恰好colStop列，成功=超出上限，回退NULL填充路径定列数
+                    ctx.Config.CheckStop();
+                    if (await OrderByFails(colStop + 1).ConfigureAwait(false))
+                    {
+                        foundCount = colStop;
+                        Log.Show("ORDER BY路径定位列数=" + foundCount + "（二分探测，上限确认）");
+                    }
+                    else
+                    {
+                        Log.Show("ORDER BY探测至" + colStop + "列仍未报错，列数超出当前范围，转NULL填充路径！");
                     }
                 }
             }
@@ -1470,7 +1501,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 else
                 {
                     double ratio = PageLikeTool.CalculateSimilarity(ctx.Template, txt);
-                    hit = ratio >= UnionBound;
+                    hit = ratio >= DetectTuning.UnionBound;
                     if (dbg)
                     {
                         Log.Show($"[DBG] Union列数探测 c={c} from='{fromDual}' ratio={ratio:F4} tplLen={ctx.Template?.Length} txtLen={txt?.Length}");
@@ -1482,7 +1513,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                         HttpResponse respNext = await Send(ctx, reqTxt, payloadNext).ConfigureAwait(false);
                         string txtNext = Clear(ctx, respNext.BodyTxt, ReflectionValue(prefix, payloadNext, suffix));
                         double ratioNext = PageLikeTool.CalculateSimilarity(ctx.Template, txtNext);
-                        if (ratioNext >= UnionBound)
+                        if (ratioNext >= DetectTuning.UnionBound)
                         {
                             return (-1, sawError);
                         }
@@ -1536,7 +1567,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 //小页面（全NULL基准<512字节）相似度比对失真：40字符probe占比过大必然低于阈值，
                 //放宽为probe出现+错误页已排除+基准页不含probe（防错误反射误判）
                 bool smallPage = (nullTxt?.Length ?? 0) < 512;
-                if (txt.Contains(probe, StringComparison.Ordinal) && (ratioToNull >= UnionBound || (smallPage && !(nullTxt?.Contains(probe, StringComparison.Ordinal) ?? false))))
+                if (txt.Contains(probe, StringComparison.Ordinal) && (ratioToNull >= DetectTuning.UnionBound || (smallPage && !(nullTxt?.Contains(probe, StringComparison.Ordinal) ?? false))))
                 {
                     return i;
                 }
@@ -1731,7 +1762,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
         /// 替换为 token.DNSLog域名），全部发完后统一轮询DNSLog平台，回收到token解析记录即确认注入。
         /// 不依赖页面响应与延时，可发现无回显无延时的盲注点；需开启"DNS外带探测"开关且配置DNSLog域名+API Token。
         /// </summary>
-        private static async Task<InjectPoint?> TryDnsOob(Ctx ctx, int level, int risk)
+        private static async Task<InjectPoint?> TryDnsOob(Ctx ctx, int level, int risk, DetectSessionState? session = null)
         {
             string domain = ctx.Config.DataConfig.DnsLogDomain?.Trim ()?? "";
             string apiToken = ctx.Config.DataConfig.DnsLogApiToken?.Trim ()?? "";
@@ -1773,7 +1804,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 //DNS外带在主循环之后：数字值两轮ptype已走完，显式取全集（数字+引号类边界都尝试）
                 int[] dnsPtypes = ctx.NumericValue ? new[] { 1, 2, 3, 4, 5, 8 } : ctx.Ptypes;
                 int effLevel = ExtendMatch(test, ctx.DbCandidates) ? 5 : level;
-                foreach (PayloadBoundary boundary in MatchBoundaries(test, effLevel, dnsPtypes))
+                foreach (PayloadBoundary boundary in OrderBoundaries(session, MatchBoundaries(test, effLevel, dnsPtypes)))
                 {
                     ctx.Config.CheckStop();
                     //与主循环一致的命中后boundary裁剪
@@ -2249,7 +2280,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
             CountPhase(ctx);
             //WAF拦截统计：401未授权/403禁止/406不接受/429限流/501不支持 均视为疑似拦截（并发波下Interlocked计数）
             Interlocked.Increment(ref ctx.WafSent);
-            if (WafBlockCodes.Contains(resp.StatusCode))
+            if (DetectTuning.WafBlockCodes.Contains(resp.StatusCode))
             {
                 Interlocked.Increment(ref ctx.WafBlocked);
                 if (ctx.Config.DataConfig.DetectStopOnWaf && ctx.WafBlocked >= WafStopThreshold)
@@ -2262,6 +2293,14 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 }
             }
             return resp;
+        }
+
+        /// <summary>
+        /// 跨参数信号共享：有会话时把共享命中boundary排到枚举最前（优先非限定，未命中自然回退全量）
+        /// </summary>
+        private static IEnumerable<PayloadBoundary> OrderBoundaries(DetectSessionState? session, IEnumerable<PayloadBoundary> boundaries)
+        {
+            return session != null ? session.OrderBoundaries(boundaries) : boundaries;
         }
 
         /// <summary>
@@ -2326,14 +2365,14 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 }).ConfigureAwait(false);
                 HttpResponse arithResp = resB[0].resp;
                 string arithTxt = InjectTools.StripPayloadReflection(WebPageDiffAnalyzer.ClearDynamicText(ctx.Features, arithResp.BodyTxt ?? ""), arith);
-                if (RatioVsTemplate(ctx, arithTxt) >= UpperBound)
+                if (RatioVsTemplate(ctx, arithTxt) >= DetectTuning.UpperBound)
                 {
                     Log.Show("casting探针：参数" + ctx.PName + "的值参与算术求值（" + arith + "页面与原页一致），疑似可注入！");
                     return;
                 }
                 HttpResponse castResp = resB[1].resp;
                 string castTxt = InjectTools.StripPayloadReflection(WebPageDiffAnalyzer.ClearDynamicText(ctx.Features, castResp.BodyTxt ?? ""), cast);
-                if (RatioVsTemplate(ctx, castTxt) >= UpperBound)
+                if (RatioVsTemplate(ctx, castTxt) >= DetectTuning.UpperBound)
                 {
                     Log.Warning("casting检测：参数" + ctx.PName + "疑似被后端强制类型转换（如intval/floatval，" + cast + "页面与原页一致），注入可能性极低，建议跳过此参数节省检测时间！");
                 }
@@ -2384,7 +2423,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                     sb.Append('{');
                     foreach (System.Text.Json.JsonProperty p in el.EnumerateObject().OrderBy(p => p.Name, StringComparer.Ordinal))
                     {
-                        sb.Append(System.Text.Json.JsonSerializer.Serialize(p.Name));
+                        AppendJsonString(sb, p.Name);
                         sb.Append(':');
                         WriteJsonMin(p.Value, sb);
                         sb.Append(',');
@@ -2412,6 +2451,36 @@ namespace SuperSQLInjectionV2.Tools.Inject
                     sb.Append(el.GetRawText());
                     break;
             }
+        }
+
+        /// <summary>JSON字符串字面量转义输出（NativeAOT安全，替代反射版JsonSerializer.Serialize&lt;string&gt;）</summary>
+        private static void AppendJsonString(StringBuilder sb, string s)
+        {
+            sb.Append('"');
+            foreach (char c in s)
+            {
+                switch (c)
+                {
+                    case '"': sb.Append("\\\""); break;
+                    case '\\': sb.Append("\\\\"); break;
+                    case '\b': sb.Append("\\b"); break;
+                    case '\f': sb.Append("\\f"); break;
+                    case '\n': sb.Append("\\n"); break;
+                    case '\r': sb.Append("\\r"); break;
+                    case '\t': sb.Append("\\t"); break;
+                    default:
+                        if (c < ' ')
+                        {
+                            sb.Append("\\u").Append(((int)c).ToString("x4"));
+                        }
+                        else
+                        {
+                            sb.Append(c);
+                        }
+                        break;
+                }
+            }
+            sb.Append('"');
         }
 
         /// <summary>
@@ -2587,49 +2656,12 @@ namespace SuperSQLInjectionV2.Tools.Inject
         }
 
         /// <summary>
-        /// fork/衍生库名（归一化后）→ 本工具技术族。
-        /// fork库与主库注入技术一致（MariaDB/TiDB用MySQL用例，CockroachDB用PG用例等）
-        /// </summary>
-        private static readonly Dictionary<string, DBType> ForkToFamily = new Dictionary<string, DBType>
-        {
-            //MySQL族
-            { "mariadb", DBType.MySQL }, { "percona", DBType.MySQL }, { "drizzle", DBType.MySQL },
-            { "tidb", DBType.MySQL }, { "doris", DBType.MySQL }, { "starrocks", DBType.MySQL }, { "memsql", DBType.MySQL },
-            //PostgreSQL族
-            { "cockroachdb", DBType.PostgreSQL }, { "yugabytedb", DBType.PostgreSQL }, { "cratedb", DBType.PostgreSQL },
-            //openGauss登记为PG的fork，本工具有独立枚举与模板
-            { "opengauss", DBType.OpenGauss }
-        };
-
-        /// <summary>
-        /// DBMS名称 → V2数据库类型（归一化后双向包含匹配，兼容"Microsoft SQL Server"与"SQLServer"等写法）
+        /// DBMS名称 → V2数据库类型（统一查 DbProfile 注册表：fork/衍生库精确映射优先，
+        /// 其后归一化双向包含匹配，兼容"Microsoft SQL Server"与"SQLServer"等写法）
         /// </summary>
         private static DBType DbmsNameToDbType(string name)
         {
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                return DBType.UnKnow;
-            }
-            string n = NormDbName(name);
-            //归一化后过短的名称（如中文文件名被剥成"2"）不参与包含匹配，避免"db2".Contains("2")式误判
-            if (n.Length < 2)
-            {
-                return DBType.UnKnow;
-            }
-            //fork/衍生库精确映射优先（如mariadb→MySQL，防止包含匹配落空或错配）
-            if (ForkToFamily.TryGetValue(n, out DBType fork))
-            {
-                return fork;
-            }
-            foreach (KeyValuePair<DBType, string> kv in V2ToDbmsName)
-            {
-                string m = NormDbName(kv.Value);
-                if (n.Contains(m, StringComparison.Ordinal) || m.Contains(n, StringComparison.Ordinal))
-                {
-                    return kv.Key;
-                }
-            }
-            return DBType.UnKnow;
+            return DbProfile.DbTypeForName(name);
         }
 
         private static DBType ParseDbName(string name)
@@ -2639,11 +2671,6 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 return db;
             }
             return DbmsNameToDbType(name);
-        }
-
-        private static string NormDbName(string name)
-        {
-            return Regex.Replace(name ?? "", "[^a-z0-9]", "", RegexOptions.IgnoreCase).ToLowerInvariant();
         }
 
         private static string TechniqueName(int stype)

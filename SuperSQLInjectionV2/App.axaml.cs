@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -23,7 +23,9 @@ public partial class App : Application
         {
             desktop.MainWindow = new MainWindow
             {
-                DataContext = mainView
+                DataContext = mainView,
+                //窗口标题版本号取全局常量ConstData.AppVersion（发版只改常量）
+                Title = "超级SQL注入工具V2 v" + Models.ConstData.AppVersion
             };
             desktop.Exit += Desktop_Exit;
         }

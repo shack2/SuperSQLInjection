@@ -137,13 +137,11 @@ public partial class BatchDetectViewModel : ObservableObject, IDialogContext
                 }
                 BatchRow row = Rows[i];
                 await Dispatcher.UIThread.InvokeAsync(() => row.Status = "检测中");
-                BatchTargetResult result = await BatchDetectEngine.DetectOne(_template, row.Url, "T" + row.Index, _cts.Token);
+                //命中即时写记录：引擎回调在检测工作线程触发，Post封送UI线程落注入记录（不阻塞检测）
+                BatchTargetResult result = await BatchDetectEngine.DetectOne(_template, row.Url, "T" + row.Index, _cts.Token,
+                    (inp, host, port) => Dispatcher.UIThread.Post(() => _onHit(inp, host, port)));
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    foreach ((InjectPoint inp, string host, int port) in result.Hits)
-                    {
-                        _onHit(inp, host, port);
-                    }
                     row.HitCount = result.Hits.Count;
                     row.TypeSummary = result.TypeSummary;
                     row.DbSummary = result.DbSummary;

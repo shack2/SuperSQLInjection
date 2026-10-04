@@ -19,17 +19,20 @@ SuperSQLInjectionV2.Cmd 是 SuperSQLInjectionV2 的命令行版，Native AOT 单
 
 ## 核心工作流
 
-1. **检测**：`SuperSQLInjectionV2.Cmd -u "URL" [--level 2] [--risk 1]` —— 检出注入点、类型、数据库；结果摘要打印在末尾，并落盘 `session.json`。
-2. **取数**：检出注入后同一条命令追加动作即可，工具自动复用检出的注入点：
+1. **检测**：`SuperSQLInjectionV2.Cmd -u "URL" [--level 2] [--risk 1]` —— 检出注入点、类型、数据库（含 Fork 衍生库如 MariaDB/TiDB/金仓/openGauss）；结果摘要打印在末尾，并落盘 `session.json`。
+2. **会话复用**：同一目标+同一报文+同一检测参数再次运行时自动复用 `session.json` 跳过检测直接取数（免重复发包）；检测参数变化自动失效重测，`--flush-session` 强制重测。
+3. **取数**：检出注入后同一条命令追加动作即可，工具自动复用检出的注入点：
    - `--banner --current-user --current-db --is-dba` 环境信息；`--env` 全部环境变量
    - `--dbs` → `--tables -D 库` → `--columns -D 库 -T 表` → `--dump -D 库 -T 表 [-C 列] [--start/--stop] [--where]`
    - `--sql-query="SQL"` 自定义查询；`--passwords` Hash；`--privileges` 权限角色
-3. **文件/命令**：`--file-read=远程路径`、`--file-write=本地文件 --file-dest=远程路径`、`--os-cmd=命令`（自动按数据库类型选择 UDF/xp_cmdshell 等通道）。
-4. **结果回收**：dump 同时打印 ASCII 表格并保存 CSV 到 output 目录；向用户汇报时给出 CSV 绝对路径。
+4. **文件/命令**：`--file-read=远程路径`、`--file-write=本地文件 --file-dest=远程路径`、`--os-cmd=命令`（自动按数据库类型选择 UDF/xp_cmdshell 等通道）。
+5. **批量检测**：`-m urls.txt`（逐行一个 URL，`#` 注释），仅检测不取数；`--parallel --threads 5` 多目标并发；末尾输出汇总报告，各目标会话分别落盘。
+6. **结果回收**：dump 同时打印 ASCII 表格并保存 CSV 到 output 目录；向用户汇报时给出 CSV 绝对路径。
 
 ## 关键规则
 
 - 报文级目标（复杂头/Cookie/JSON/XML 注入点）：让用户提供原始报文存成文件，用 `-r 文件 [-p 参数]`。
-- 检测失败再逐步升级：先 `--level 2`，仍无结果加 `--dbms` 收窄 + `--exhaustive`；疑似 WAF 加 `--tamper`（内置编码工具链）或 `--random-agent --delay`。
+- 检测失败再逐步升级：先 `--level 2`，仍无结果加 `--dbms` 收窄 + `--exhaustive`；疑似 WAF 加 `--tamper`（内置编码工具链）或 `--random-agent --delay`。注意：检测参数（level/risk/technique/dbms/tamper 等）变化会使会话指纹失效自动重测，无需手动清理。
+- 重复跑同一目标想强制重测用 `--flush-session`；换动作（先 `--dbs` 后 `--dump`）不会触发重测。
 - 盲注慢时加 `--threads 5`；中文乱码加 `--hex`。
 - 完整参数与场景示例见 [references/cli-reference.md](references/cli-reference.md)。

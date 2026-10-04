@@ -8,7 +8,6 @@
     xmlns:viewModels="clr-namespace:SuperSQLInjectionV2.ViewModels"
     xmlns:views="clr-namespace:SuperSQLInjectionV2.Views"
     xmlns:iri="https://irihi.tech/shared"
-    Title="超级SQL注入工具V2 v2.0.0"
     Width="1500"
     Height="1050"
     d:DesignHeight="1500"
@@ -26,14 +25,5 @@
         <views:TitleBarRightContent />
     </u:UrsaWindow.RightContent>
 
-    <u:UrsaWindow.Styles>
-        <!--This style is created to demonstrate Dialog StyleClass feature. This style is applied to dialogs in MainWindow OverlayDialogHost -->
-        <Style Selector="u|StandardDialogControl.Custom">
-            <Style Selector="^ /template/ Button#PART_OKButton">
-                <Setter Property="Content" Value="CUSTOM" />
-                <Setter Property="iri:ClassHelper.Classes" Value="Warning" />
-            </Style>
-        </Style>
-    </u:UrsaWindow.Styles>
     <views:MainView />
 </u:UrsaWindow>

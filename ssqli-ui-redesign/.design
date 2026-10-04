@@ -1,0 +1,107 @@
+{
+  "data": [
+    {
+      "id": "page-main-light",
+      "title": "主界面 · 浅色主题",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1791004800000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-7bac616b",
+          "measuredAt": 1791026138604
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/main-light.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-main-dark",
+      "title": "主界面 · 暗色主题",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1791004800000,
+      "canvasData": {
+        "x": 480,
+        "y": 0,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-29c9774c",
+          "measuredAt": 1791026138604
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/main-dark.html",
+        "interactions": [],
+        "stateGroupId": "main-theme-states",
+        "stateRole": "derived",
+        "derivedFromHtmlSrc": "pages/main-light.html"
+      }
+    },
+    {
+      "id": "page-cases-light",
+      "title": "检测用例 · 浅色主题",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1791004800000,
+      "canvasData": {
+        "x": 960,
+        "y": 0,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-08961293",
+          "measuredAt": 1791030671657
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/cases-light.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-cases-dark",
+      "title": "检测用例 · 暗色主题",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1791004800000,
+      "canvasData": {
+        "x": 1440,
+        "y": 0,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 900,
+          "viewportWidth": 1440,
+          "sourceHash": "fnv1a-00862c04",
+          "measuredAt": 1791030671657
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/cases-dark.html",
+        "interactions": [],
+        "stateGroupId": "cases-theme-states",
+        "stateRole": "derived",
+        "derivedFromHtmlSrc": "pages/cases-light.html"
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": true,
+    "deviceType": "desktop",
+    "projectName": "SSQLI V2 UI Redesign"
+  }
+}

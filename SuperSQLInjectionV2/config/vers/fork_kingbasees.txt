@@ -1,0 +1,4 @@
+Base: postgresql
+-当前数据库
+当前数据库：current_database()
+当前模式：current_schema()

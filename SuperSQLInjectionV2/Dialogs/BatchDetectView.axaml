@@ -12,7 +12,7 @@
     x:DataType="dialogs:BatchDetectViewModel"
     mc:Ignorable="d">
     <Grid Width="820" Height="600" RowDefinitions="Auto,120,Auto,*,Auto" Margin="12" RowSpacing="8">
-        <TextBlock Grid.Row="0" Classes="Secondary" FontSize="11" TextWrapping="Wrap"
+        <TextBlock Grid.Row="0" Classes="Secondary hint" TextWrapping="Wrap"
                    Text="一行一个URL（缺省协议自动补 http://）。每个目标以当前界面检测配置（Level/Risk/tamper/代理等）构造GET请求逐参数检测；命中点自动写入注入记录，可在注入记录中恢复配置后取数。目标需要登录态/Cookie时请用单目标完整报文检测。" />
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <TextBox Grid.Column="0" Classes="TextArea" AcceptsReturn="True" ScrollViewer.VerticalScrollBarVisibility="Auto"

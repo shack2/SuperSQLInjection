@@ -20,7 +20,7 @@ public static class DbCapabilities
     {
         return Cache.GetOrAdd(db, static t =>
         {
-            Dictionary<string, string> dict = FileTool.ReadSQLPayload(BasePayload.GetTemplateRelativePath(t));
+            Dictionary<string, string> dict = BasePayload.ReadTemplateMerged(BasePayload.GetTemplateRelativePath(t));
             bool error = dict.TryGetValue("ErrorData", out string? ed) && !string.IsNullOrWhiteSpace(ed);
             bool dns = dict.TryGetValue("DnsChannel", out string? dc)
                 && string.Equals(dc.Trim(), "yes", System.StringComparison.OrdinalIgnoreCase);

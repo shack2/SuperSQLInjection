@@ -1,5 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using SuperSQLInjectionV2.Payload;
 using SuperSQLInjectionV2.ViewModels;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 namespace SuperSQLInjectionV2.Models
 {
@@ -39,6 +42,67 @@ namespace SuperSQLInjectionV2.Models
 
         /// <summary>数据库类型（UnKnow=未识别）</summary>
         [ObservableProperty] private DBType _dbType = DBType.UnKnow;
+
+        /// <summary>识别/选择到的Fork/衍生库显示名（如KingbaseES/openGauss/DM/MariaDB；空=无/族宿主本库）</summary>
+        [ObservableProperty] private string _dbForkName = "";
+
+        /// <summary>
+        /// 数据库族（族宿主库）：DbType为forkMode变体库时归一到族宿主；设置后清空Fork选择
+        /// </summary>
+        public DBType DbFamily
+        {
+            get => DbProfile.CompatOf(DbType);
+            set
+            {
+                if (DbFamily == value)
+                {
+                    return;
+                }
+                DbType = value;
+                if (!DbProfile.ForkDisplayNamesOf(value).Contains(DbForkName))
+                {
+                    DbForkName = "";
+                }
+            }
+        }
+
+        /// <summary>当前族的Fork选项（"无（宿主库）" + 该族全部fork显示名），随族切换刷新</summary>
+        [ObservableProperty] private ObservableCollection<string> _forkOptions = new() { "无（宿主库）" };
+
+        /// <summary>Fork下拉选中项（"无（宿主库）"⇔空Fork名）</summary>
+        public string DbForkSelection
+        {
+            get => string.IsNullOrEmpty(DbForkName) ? "无（宿主库）" : DbForkName;
+            set => DbForkName = value == "无（宿主库）" ? "" : value ?? "";
+        }
+
+        /// <summary>当前族是否有Fork变体（控制Fork下拉可用性）</summary>
+        public bool HasForks => ForkOptions.Count > 1;
+
+        partial void OnDbTypeChanged(DBType value)
+        {
+            OnPropertyChanged(nameof(DbFamily));
+            RefreshForkOptions();
+        }
+
+        partial void OnDbForkNameChanged(string value)
+        {
+            OnPropertyChanged(nameof(DbForkSelection));
+        }
+
+        private void RefreshForkOptions()
+        {
+            List<string> list = new List<string> { "无（宿主库）" };
+            list.AddRange(DbProfile.ForkDisplayNamesOf(DbFamily));
+            //识别到的fork名不在注册表时也保留显示（如新版本fork）
+            if (!string.IsNullOrEmpty(DbForkName) && !list.Contains(DbForkName))
+            {
+                list.Add(DbForkName);
+            }
+            ForkOptions = new ObservableCollection<string>(list);
+            OnPropertyChanged(nameof(HasForks));
+            OnPropertyChanged(nameof(DbForkSelection));
+        }
 
         /// <summary>数据库编码</summary>
         [ObservableProperty] private string _dbEncoding = "UTF-8";

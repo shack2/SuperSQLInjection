@@ -1,4 +1,4 @@
-//@name: chunked分块发包
+//@name: chunked分块发包(示例)
 //@usage: request
 //@enable: false
 // 报文级：chunked分块发包（POST体按 Transfer-Encoding: chunked 随机分块发送，绕过长body WAF）

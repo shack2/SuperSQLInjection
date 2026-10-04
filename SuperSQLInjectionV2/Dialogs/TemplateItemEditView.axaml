@@ -35,7 +35,7 @@
             <TextBox Grid.Row="1" Classes="TextArea" AcceptsReturn="True" TextWrapping="Wrap"
                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                      VerticalContentAlignment="Top"
-                     FontFamily="{StaticResource CodeFontFamily}" FontSize="12.5"
+                     FontFamily="{StaticResource CodeFontFamily}" FontSize="12"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                      Text="{Binding Value}"
                      PlaceholderText="命名占位符：{expr} {cols} {db} {table} {start} {len} {where} {batchSize} {split} {startMark} {endMark} ..." />

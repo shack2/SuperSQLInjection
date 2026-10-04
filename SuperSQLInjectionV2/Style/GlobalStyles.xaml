@@ -3,9 +3,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:iri="https://irihi.tech/shared"
     xmlns:semi="https://irihi.tech/semi"
+    
     xmlns:semiae="clr-namespace:Semi.Avalonia.AvaloniaEdit;assembly=Semi.Avalonia.AvaloniaEdit">
 
-  
 
     <semi:SemiTheme Locale="zh-CN" />
     <semi:UrsaSemiTheme Locale="zh-CN" />
@@ -22,7 +22,26 @@
 
         <!--  全局 ComboBox 统一带边框样式  -->
     <Style Selector="ComboBox">
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontSize" Value="14" />
         <Setter Property="iri:ClassHelper.Classes" Value="Bordered" />
+        <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
     </Style>
+     
+      <Style Selector="TextBlock">
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+    <Style Selector="CheckBox">
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
+    </Style>
+     <Style Selector="TextBox">
+        <Setter Property="FontWeight" Value="Normal" />
+         <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+     
 
 </Styles>

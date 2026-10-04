@@ -491,6 +491,18 @@ namespace SuperSQLInjectionV2.Models
             }
         }
 
+        /// <summary>数据管理页请求方式（GET/POST，URL栏前下拉；与取数报文双向联动：切换方式重新生成/原地转换报文，改报文回同步，语义同DetectMethod）</summary>
+        [ObservableProperty] public partial string DataMethod { get; set; } = "GET";
+
+        /// <summary>历史脏数据兜底：null/空串/非法值统一回落GET</summary>
+        partial void OnDataMethodChanged(string value)
+        {
+            if (value != "GET" && value != "POST")
+            {
+                DataMethod = "GET";
+            }
+        }
+
         partial void OnUrlChanged(string value)
         {
             if (string.IsNullOrEmpty(value))

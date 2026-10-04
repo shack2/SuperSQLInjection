@@ -1,0 +1,14 @@
+Base: postgresql
+DnsChannel: no
+CmdExec:
+CmdExec@PlPython:
+CmdData:
+CmdDataCount:
+CmdCreateTable:
+CmdDropTable:
+FileReadCopy:
+FileWriteCopy:
+FileInsertLine:
+FileContent:
+FileContentCount:
+FileContentData:

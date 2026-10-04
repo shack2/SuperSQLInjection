@@ -10,6 +10,7 @@ using SuperSQLInjectionV2.Tools.Inject;
 using SuperSQLInjectionV2.ViewModels;
 using SuperSQLInjectionV2.ViewModels.Tools;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 
@@ -24,7 +25,7 @@ public static class Program
 {
     /// <summary>版本号（ConstData 为 internal，CLI 读程序集信息版本）</summary>
     public static string AppVersion =>
-        Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "2.0.0";
+        Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "2.0.2";
 
     /// <summary>--selftest 探针：自定义 JS 项强制走 QuickJS 池化执行（非内置 C# 委托），验证原生库加载与 eval 链路</summary>
     private sealed class SelfTestTamper : ITamperItem
@@ -38,6 +39,8 @@ public static class Program
     public static async Task<int> Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
+        //注册GB18030/GB2312等代码页编码提供程序（页面编码解析/报文文件读取依赖）
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         LogTools.Headless = true;
         Log.Sink = new ConsoleLogSink();
 
@@ -84,9 +87,9 @@ public static class Program
             Console.WriteLine(CliOptions.HelpText);
             return args.Length == 0 && !opt.ShowHelp ? 2 : 0;
         }
-        if (string.IsNullOrWhiteSpace(opt.Url) && string.IsNullOrWhiteSpace(opt.RequestFile))
+        if (string.IsNullOrWhiteSpace(opt.Url) && string.IsNullOrWhiteSpace(opt.RequestFile) && string.IsNullOrWhiteSpace(opt.BatchFile))
         {
-            Console.Error.WriteLine("缺少目标：用 -u 指定 URL 或 -r 指定请求报文文件");
+            Console.Error.WriteLine("缺少目标：用 -u 指定 URL、-r 指定请求报文文件或 -m 指定批量URL文件");
             return 2;
         }
 
@@ -115,6 +118,313 @@ public static class Program
 
     private static async Task<int> Run(CliOptions opt)
     {
+        //批量检测模式（-m/--batch-file）：URL列表逐目标检测（仅检测不取数）
+        if (!string.IsNullOrWhiteSpace(opt.BatchFile))
+        {
+            return await RunBatch(opt).ConfigureAwait(false);
+        }
+
+        var tr = await DetectTarget(opt).ConfigureAwait(false);
+        if (tr.Error != null)
+        {
+            Log.Error(tr.Error);
+            return 2;
+        }
+        if (tr.Hits.Count == 0)
+        {
+            Log.Warning("未发现注入点。可提高 --level/--risk，或加 --no-smart 全量重测，或换个参数试试");
+            return 1;
+        }
+        PrintReport(tr.Hits);
+        if (!tr.Resumed)
+        {
+            SessionStore.Save(opt, tr.Config, tr.DisplayUrl, tr.RequestTxt, tr.Hits);
+        }
+        if (!opt.HasAction)
+        {
+            Log.Show("未指定取数动作（--dbs/--tables/--dump/--sql-query 等），检测结束");
+            return 0;
+        }
+        AppConfig config = tr.Config;
+        List<InjectPoint> allHits = tr.Hits;
+
+        // ---------- 选择注入点并应用 ----------
+        InjectPoint best = PickBest(allHits, opt);
+        Log.Highlight($"采用注入点: {best.PName}（{TypeName(best)}，{best.DBType}{ForkSuffix(best)}）");
+        foreach (var h in allHits)
+        {
+            InjectChannelRegistry.Register(config.Host, config.Port, new InjectRecord
+            {
+                Target = config.Host + ":" + config.Port,
+                PName = h.PName ?? "",
+                DBType = h.DBType,
+                InjectType = h.InjectType,
+                BoolInjectType = h.BoolInjectType,
+                CheckValue = h.CheckValue ?? "",
+                Revers = h.Revers,
+                SumColumnCount = h.SumColumnCount,
+                ShowColumnIndex = h.ShowColumnIndex,
+                RequestTxt = h.RequestTxt ?? ""
+            });
+        }
+        ApplyHit(config, best);
+        //fork化归一：检测命中的变体库型（金仓/openGauss/达梦）归一到族宿主+Fork名，取数=族模板+fork overlay
+        var (fam0, fork0) = SuperSQLInjectionV2.Payload.DbProfile.ToFamilyFork(best.DBType);
+        if (fam0 != best.DBType)
+        {
+            best.ForkName = string.IsNullOrEmpty(best.ForkName) ? fork0 : best.ForkName;
+            best.DBType = fam0;
+        }
+        DBType dbType = best.DBType;
+        if (dbType == DBType.UnKnow && !string.IsNullOrWhiteSpace(opt.Dbms))
+        {
+            dbType = ParseDbms(opt.Dbms!);
+            //--dbms 指定变体库时同样归一到族+Fork名
+            var (fam1, fork1) = SuperSQLInjectionV2.Payload.DbProfile.ToFamilyFork(dbType);
+            if (fam1 != dbType)
+            {
+                best.ForkName = fork1;
+                dbType = fam1;
+            }
+            config.DataConfig.SelectedDBType = dbType;
+        }
+        if (dbType == DBType.UnKnow)
+        {
+            Log.Error("未识别数据库类型，用 --dbms 指定后重试取数");
+            return 1;
+        }
+        config.DataConfig.SelectedDBType = dbType;
+        if (!string.IsNullOrEmpty(best.ForkName))
+        {
+            config.DataConfig.SelectedForkName = best.ForkName;
+        }
+        PayloadFactory.ForkName = config.DataConfig.SelectedForkName ?? "";
+        PayloadFactory.Init(dbType);
+        if (!string.IsNullOrWhiteSpace(opt.Dbms) && best.DBType != dbType)
+            Log.Show($"--dbms 指定: {dbType}");
+
+        //族→Fork精确识别（金仓/openGauss/达梦/MariaDB/TiDB等banner特征）：用户显式--dbms时尊重指定不纠偏
+        if (string.IsNullOrWhiteSpace(opt.Dbms) && best.DBType != DBType.UnKnow)
+        {
+            var result = await SuperSQLInjectionV2.Tools.Inject.DbVariantResolver.ResolveAsync(config, best);
+            if (!string.IsNullOrEmpty(result.ForkName) && result.ForkName != best.ForkName)
+            {
+                best.ForkName = result.ForkName;
+                config.DataConfig.SelectedForkName = result.ForkName;
+                PayloadFactory.ForkName = result.ForkName;
+                PayloadFactory.Init(dbType);
+                Log.Show($"Fork库识别: {dbType}({result.ForkName})");
+                //fork识别后重新登记通道注册表，取数自动通道升级带上Fork名
+                InjectChannelRegistry.Register(config.Host, config.Port, new InjectRecord
+                {
+                    Target = config.Host + ":" + config.Port,
+                    PName = best.PName ?? "",
+                    DBType = best.DBType,
+                    ForkName = best.ForkName ?? "",
+                    InjectType = best.InjectType,
+                    BoolInjectType = best.BoolInjectType,
+                    CheckValue = best.CheckValue ?? "",
+                    Revers = best.Revers,
+                    SumColumnCount = best.SumColumnCount,
+                    ShowColumnIndex = best.ShowColumnIndex,
+                    RequestTxt = best.RequestTxt ?? ""
+                });
+            }
+        }
+
+        // ---------- 执行动作 ----------
+        await RunActions(opt, config, dbType, best);
+        return 0;
+    }
+
+    // ================== 批量检测（-m/--batch-file） ==================
+
+    /// <summary>
+    /// 批量检测（对齐GUI批量检测与sqlmap -m）：URL列表逐行读取（#开头为注释，空行跳过，自动补http:// scheme并去重），
+    /// 仅检测不取数；默认串行，--parallel 时多目标并发（并发度取 --threads 上限5）；
+    /// 每目标独立配置/会话落盘 output/&lt;host&gt;_&lt;port&gt;/，末尾输出汇总报告；任一目标检出注入返回0
+    /// </summary>
+    private static async Task<int> RunBatch(CliOptions opt)
+    {
+        if (!File.Exists(opt.BatchFile!))
+        {
+            Log.Error("批量目标文件不存在: " + opt.BatchFile);
+            return 2;
+        }
+        var urls = new List<string>();
+        foreach (var raw in File.ReadAllLines(opt.BatchFile!))
+        {
+            string line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith('#'))
+            {
+                continue;
+            }
+            var uri = BatchDetectEngine.NormalizeUrl(line);
+            if (uri == null)
+            {
+                Log.Warning("跳过非法URL: " + line);
+                continue;
+            }
+            urls.Add(uri.ToString());
+        }
+        urls = urls.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (urls.Count == 0)
+        {
+            Log.Error("批量文件中没有有效URL");
+            return 2;
+        }
+        if (opt.HasAction)
+        {
+            Log.Warning("批量模式仅执行注入检测，取数动作已忽略（检出后可对单目标再执行取数）");
+        }
+        int maxPar = opt.Parallel ? Math.Clamp(opt.Threads, 1, 5) : 1;
+        Log.Highlight($"批量检测开始：{urls.Count} 个目标（{(maxPar > 1 ? "并发=" + maxPar : "串行")}）");
+
+        var results = new TargetResult?[urls.Count];
+        var swAll = Stopwatch.StartNew();
+        async Task One(int idx)
+        {
+            string url = urls[idx];
+            var sw = Stopwatch.StartNew();
+            Log.Highlight($"[{idx + 1}/{urls.Count}] ▶ {url}");
+            try
+            {
+                var r = await DetectTarget(opt.CloneForUrl(url)).ConfigureAwait(false);
+                r.Elapsed = sw.Elapsed;
+                results[idx] = r;
+            }
+            catch (Exception e)
+            {
+                string reason = e switch
+                {
+                    TargetUnreachableException => "目标无法连接: " + e.Message,
+                    OperationCanceledException => "检测中断: " + e.Message,
+                    _ => "运行异常: " + e.Message
+                };
+                results[idx] = new TargetResult { DisplayUrl = url, Error = reason, Elapsed = sw.Elapsed };
+            }
+            var rr = results[idx]!;
+            if (rr.Error != null)
+            {
+                Log.Error($"[{idx + 1}/{urls.Count}] {url} {rr.Error}");
+            }
+            else if (rr.Hits.Count > 0)
+            {
+                Log.Success($"[{idx + 1}/{urls.Count}] {url} 检出 {rr.Hits.Count} 个注入点（{HitSummary(rr.Hits)}）{(rr.Resumed ? "，会话复用" : "")}，耗时 {rr.Elapsed.TotalSeconds:F1}s");
+            }
+            else
+            {
+                Log.Show($"[{idx + 1}/{urls.Count}] {url} 未检出注入，耗时 {rr.Elapsed.TotalSeconds:F1}s");
+            }
+        }
+
+        if (maxPar > 1)
+        {
+            using var gate = new SemaphoreSlim(maxPar);
+            var tasks = Enumerable.Range(0, urls.Count).Select(async i =>
+            {
+                await gate.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    await One(i).ConfigureAwait(false);
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            }).ToList();
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+        else
+        {
+            for (int i = 0; i < urls.Count; i++)
+            {
+                await One(i).ConfigureAwait(false);
+            }
+        }
+
+        // ---------- 汇总报告 ----------
+        Console.WriteLine();
+        Log.Success("========== 批量检测报告 ==========");
+        int hitTargets = 0;
+        for (int i = 0; i < urls.Count; i++)
+        {
+            var r = results[i]!;
+            if (r.Error != null)
+            {
+                Console.WriteLine($"  [{i + 1}] {urls[i]}  失败（{r.Error}）");
+            }
+            else if (r.Hits.Count > 0)
+            {
+                hitTargets++;
+                Console.WriteLine($"  [{i + 1}] {urls[i]}  注入点 {r.Hits.Count} 个（{HitSummary(r.Hits)}）{(r.Resumed ? "  会话复用" : "")}  {r.Elapsed.TotalSeconds:F1}s");
+            }
+            else
+            {
+                Console.WriteLine($"  [{i + 1}] {urls[i]}  未检出  {r.Elapsed.TotalSeconds:F1}s");
+            }
+        }
+        Log.Show($"合计 {urls.Count} 个目标，{hitTargets} 个检出注入，总耗时 {swAll.Elapsed.TotalSeconds:F1}s；各目标会话已分别落盘 output/<host>_<port>/");
+        return hitTargets > 0 ? 0 : 1;
+    }
+
+    /// <summary>单目标检测结果（批量汇总/单目标流程共用）</summary>
+    private sealed class TargetResult
+    {
+        public AppConfig Config = null!;
+        public string RequestTxt = "";
+        public string DisplayUrl = "";
+        public List<InjectPoint> Hits = [];
+        /// <summary>致命错误消息（目标不可达/无参数等）；非空即失败</summary>
+        public string? Error;
+        /// <summary>会话复用命中（未实际发包检测，无需重复落盘）</summary>
+        public bool Resumed;
+        public TimeSpan Elapsed;
+    }
+
+    /// <summary>单目标检测报告（控制台）</summary>
+    private static void PrintReport(List<InjectPoint> hits)
+    {
+        Console.WriteLine();
+        Log.Success("========== 注入检测报告 ==========");
+        foreach (var h in hits)
+        {
+            Console.WriteLine($"  参数: {h.PName}  类型: {TypeName(h)}  数据库: {h.DBType}{ForkSuffix(h)}" +
+                              (h.InjectType == InjectType.Union ? $"  列数: {h.SumColumnCount} 显示位: {h.ShowColumnIndex}" : "") +
+                              (h.InjectType == InjectType.Blind ? $"  判断: {h.BoolInjectType}" : ""));
+        }
+    }
+
+    /// <summary>命中点概要：参数(类型,数据库) 列表（批量汇总行用）</summary>
+    private static string HitSummary(List<InjectPoint> hits) =>
+        string.Join("; ", hits.GroupBy(h => h.PName ?? "").Select(g =>
+        {
+            string types = string.Join("/", g.Select(h => TypeName(h)).Distinct());
+            string dbs = string.Join("/", g.Select(h => h.DBType + ForkSuffix(h)).Where(d => !d.StartsWith("UnKnow", StringComparison.Ordinal)).Distinct());
+            return g.Key + "(" + types + (dbs.Length > 0 ? "," + dbs : "") + ")";
+        }));
+
+    /// <summary>Fork库显示后缀（识别到衍生库时附加，如 MySQL(TiDB)）</summary>
+    private static string ForkSuffix(InjectPoint h) => string.IsNullOrEmpty(h.ForkName) ? "" : $"({h.ForkName})";
+
+    /// <summary>--technique 技术筛选（B布尔/E报错/U联合/T时间/S堆叠/D DNS外带；新检出与会话复用结果共用）</summary>
+    private static List<InjectPoint> FilterByTechnique(List<InjectPoint> hits, string? technique)
+    {
+        if (string.IsNullOrWhiteSpace(technique))
+        {
+            return hits;
+        }
+        var allow = technique!.Select(LetterToType).Where(t => t != InjectType.UnKnow).ToHashSet();
+        return hits.Where(h => allow.Contains(h.InjectType)).ToList();
+    }
+
+    /// <summary>
+    /// 单目标检测全流程：配置→报文→会话复用（指纹匹配跳过检测）→参数发现→多技术检测→技术筛选；
+    /// 异常上抛（单目标由Main归类退出码，批量由RunBatch记为该目标失败）
+    /// </summary>
+    private static async Task<TargetResult> DetectTarget(CliOptions opt)
+    {
+        var swDetect = Stopwatch.StartNew();
         // ---------- 配置 ----------
         var config = new AppConfig
         {
@@ -129,12 +439,9 @@ public static class Program
         RuleStore.LoadAll(config, opt.RulesDir);
         config.DataConfig.DetectLevel = Math.Clamp(opt.Level, 1, 5);
         config.DataConfig.DetectRisk = Math.Clamp(opt.Risk, 1, 3);
-        config.DataConfig.SmartMode = opt.Smart;
+        config.DataConfig.SmartMode = !opt.NoSmart; //智能模式默认开：--smart 兼容保留（等同默认），--no-smart 关闭
         config.DataConfig.DetectExhaustive = opt.Exhaustive;
         config.DataConfig.DetectStopOnWaf = opt.StopOnWaf;
-        //非动态停止默认开：显式 --no-stop-non-dynamic 才关；--stop-non-dynamic 为兼容保留（等同默认）
-        if (opt.NoStopOnNonDynamic) config.DataConfig.DetectStopOnNonDynamic = false;
-        else if (opt.StopOnNonDynamic) config.DataConfig.DetectStopOnNonDynamic = true;
         //检出即停默认开：--keep-testing 关闭（完整画像场景）
         config.DataConfig.DetectStopOnHit = !opt.KeepTesting;
         config.DataConfig.HexDecode = opt.HexDecode;
@@ -152,7 +459,7 @@ public static class Program
         ParamPlace defaultPlace = ParamPlace.Query;
         if (!string.IsNullOrWhiteSpace(opt.RequestFile))
         {
-            if (!File.Exists(opt.RequestFile)) { Log.Error("请求报文文件不存在: " + opt.RequestFile); return 2; }
+            if (!File.Exists(opt.RequestFile)) { return new TargetResult { Error = "请求报文文件不存在: " + opt.RequestFile, Elapsed = swDetect.Elapsed }; }
             requestTxt = File.ReadAllText(opt.RequestFile).Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\r\n", StringComparison.Ordinal);
             ApplyHostFromRequest(config, requestTxt);
         }
@@ -177,18 +484,27 @@ public static class Program
         Log.Show($"检测配置: Level={config.DataConfig.DetectLevel} Risk={config.DataConfig.DetectRisk}" +
                  $"{(opt.Smart ? " Smart" : "")}{(string.IsNullOrWhiteSpace(opt.Technique) ? "" : " Technique=" + opt.Technique)}");
 
+        // ---------- 会话复用（sqlmap session 同款：同目标+同报文+同检测参数免重复发包） ----------
+        if (!opt.FlushSession && SessionStore.TryLoad(opt, config, requestTxt, out var resumedHits))
+        {
+            resumedHits = FilterByTechnique(resumedHits, opt.Technique);
+            Log.Success($"会话指纹匹配，复用 {resumedHits.Count} 个已检出注入点，跳过重复检测（--flush-session 可强制重新检测）");
+            return new TargetResult { Config = config, RequestTxt = requestTxt, DisplayUrl = displayUrl, Hits = resumedHits, Resumed = true, Elapsed = swDetect.Elapsed };
+        }
+
         // ---------- 参数发现 ----------
         var candidates = DiscoverParams(config, requestTxt, defaultPlace, opt);
         if (candidates.Count == 0)
         {
-            Log.Error("未发现可测试参数（用 -p 指定，或检查 URL/报文是否带参数）");
-            return 2;
+            return new TargetResult { Error = "未发现可测试参数（用 -p 指定，或检查 URL/报文是否带参数）", Elapsed = swDetect.Elapsed };
         }
         Log.Show($"待检测参数: {string.Join(", ", candidates.Select(c => c.Name + "(" + c.Place + ")"))}");
 
         // ---------- 注入检测 ----------
         //检测日志全程带目标URL前缀（多目标/多参数并行日志归属一目了然；keepChannel保持原日志通道）
         IDisposable logScope = Log.PushScope(new PrefixLogSink("[" + displayUrl + "] ", Log.Sink, keepChannel: true));
+        //跨参数信号共享会话：参数间共享命中boundary/命中库（优先排序非限定）
+        var detectSession = new SuperSQLInjectionV2.Tools.Inject.DetectSessionState();
         var allHits = new List<InjectPoint>();
         if (opt.Parallel && candidates.Count > 1)
         {
@@ -208,7 +524,7 @@ public static class Program
                         return (c.Name, Hits: new List<InjectPoint>());
                     }
                     Log.Highlight($"▶ 检测参数 {c.Name} ...");
-                    var hits = await InjectDetectEngine.DetectParam(config, requestTxt, c.Name, c.Value, c.Place, c.Header, c.UriIdx).ConfigureAwait(false) ?? [];
+                    var hits = await InjectDetectEngine.DetectParam(config, requestTxt, c.Name, c.Value, c.Place, c.Header, c.UriIdx, detectSession).ConfigureAwait(false) ?? [];
                     foreach (var h in hits) h.PName ??= c.Name;
                     if (hits.Count > 0) Volatile.Write(ref parHitFound, 1);
                     return (c.Name, Hits: hits);
@@ -233,7 +549,7 @@ public static class Program
             foreach (var (name, value, place, header, uriIdx) in candidates)
             {
                 Log.Highlight($"▶ 检测参数 {name} ...");
-                var hits = await InjectDetectEngine.DetectParam(config, requestTxt, name, value, place, header, uriIdx) ?? [];
+                var hits = await InjectDetectEngine.DetectParam(config, requestTxt, name, value, place, header, uriIdx, detectSession) ?? [];
                 if (hits.Count > 0)
                 {
                     foreach (var h in hits) h.PName ??= name;
@@ -255,73 +571,8 @@ public static class Program
         logScope.Dispose();
 
         // --technique 过滤
-        if (!string.IsNullOrWhiteSpace(opt.Technique))
-        {
-            var allow = opt.Technique!.Select(LetterToType).Where(t => t != InjectType.UnKnow).ToHashSet();
-            allHits = allHits.Where(h => allow.Contains(h.InjectType)).ToList();
-        }
-
-        if (allHits.Count == 0)
-        {
-            Log.Warning("未发现注入点。可提高 --level/--risk，或加 --smart 之外换个参数试试");
-            return 1;
-        }
-
-        // ---------- 检测报告 ----------
-        Console.WriteLine();
-        Log.Success("========== 注入检测报告 ==========");
-        foreach (var h in allHits)
-        {
-            Console.WriteLine($"  参数: {h.PName}  类型: {TypeName(h)}  数据库: {h.DBType}" +
-                              (h.InjectType == InjectType.Union ? $"  列数: {h.SumColumnCount} 显示位: {h.ShowColumnIndex}" : "") +
-                              (h.InjectType == InjectType.Blind ? $"  判断: {h.BoolInjectType}" : ""));
-        }
-        SaveSession(opt, config, allHits);
-
-        if (!opt.HasAction)
-        {
-            Log.Show("未指定取数动作（--dbs/--tables/--dump/--sql-query 等），检测结束");
-            return 0;
-        }
-
-        // ---------- 选择注入点并应用 ----------
-        InjectPoint best = PickBest(allHits, opt);
-        Log.Highlight($"采用注入点: {best.PName}（{TypeName(best)}，{best.DBType}）");
-        foreach (var h in allHits)
-        {
-            InjectChannelRegistry.Register(config.Host, config.Port, new InjectRecord
-            {
-                Target = config.Host + ":" + config.Port,
-                PName = h.PName ?? "",
-                DBType = h.DBType,
-                InjectType = h.InjectType,
-                BoolInjectType = h.BoolInjectType,
-                CheckValue = h.CheckValue ?? "",
-                Revers = h.Revers,
-                SumColumnCount = h.SumColumnCount,
-                ShowColumnIndex = h.ShowColumnIndex,
-                RequestTxt = h.RequestTxt ?? ""
-            });
-        }
-        ApplyHit(config, best);
-        DBType dbType = best.DBType;
-        if (dbType == DBType.UnKnow && !string.IsNullOrWhiteSpace(opt.Dbms))
-        {
-            dbType = ParseDbms(opt.Dbms!);
-            config.DataConfig.SelectedDBType = dbType;
-        }
-        if (dbType == DBType.UnKnow)
-        {
-            Log.Error("未识别数据库类型，用 --dbms 指定后重试取数");
-            return 1;
-        }
-        PayloadFactory.Init(dbType);
-        if (!string.IsNullOrWhiteSpace(opt.Dbms) && best.DBType != dbType)
-            Log.Show($"--dbms 指定: {dbType}");
-
-        // ---------- 执行动作 ----------
-        await RunActions(opt, config, dbType, best);
-        return 0;
+        allHits = FilterByTechnique(allHits, opt.Technique);
+        return new TargetResult { Config = config, RequestTxt = requestTxt, DisplayUrl = displayUrl, Hits = allHits, Elapsed = swDetect.Elapsed };
     }
 
     // ================== 动作执行 ==================
@@ -558,7 +809,15 @@ public static class Program
                 }
                 else
                 {
-                    vm.FileContent = File.ReadAllText(opt.FileWrite);
+                    //文本写文件通道按 UTF-8 传输：先探测本地文件是否为二进制，避免静默损坏（验证会按损坏后内容自洽通过）
+                    byte[] raw = File.ReadAllBytes(opt.FileWrite);
+                    bool isBinary = Array.IndexOf(raw, (byte)0) >= 0
+                        || !Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(raw))).Equals(Encoding.UTF8.GetString(raw), StringComparison.Ordinal);
+                    if (isBinary)
+                    {
+                        Log.Warning($"本地文件 {opt.FileWrite} 疑似二进制（含NUL字节或非UTF-8文本），文本写文件方式会损坏内容！建议加 --file-method \"二进制上传\"");
+                    }
+                    vm.FileContent = Encoding.UTF8.GetString(raw);
                 }
                 Log.Show($"方式: {method}");
                 await FileCmdTools.ExecuteFile(config, vm);
@@ -966,43 +1225,6 @@ public static class Program
         return dir;
     }
 
-    private static void SaveSession(CliOptions opt, AppConfig config, List<InjectPoint> hits)
-    {
-        try
-        {
-            string dir = OutputRoot(opt, config);
-            string file = Path.Combine(dir, "session.json");
-            // AOT 下禁用反射序列化，手写 JSON（字段固定）
-            var sb = new StringBuilder("[");
-            bool first = true;
-            foreach (var h in hits)
-            {
-                if (!first) sb.Append(',');
-                first = false;
-                sb.Append("\n  {")
-                  .Append("\"PName\":").Append(JsonStr(h.PName)).Append(',')
-                  .Append("\"DBType\":\"").Append(h.DBType).Append("\",")
-                  .Append("\"InjectType\":\"").Append(h.InjectType).Append("\",")
-                  .Append("\"BoolInjectType\":\"").Append(h.BoolInjectType).Append("\",")
-                  .Append("\"CheckValue\":").Append(JsonStr(h.CheckValue)).Append(',')
-                  .Append("\"Revers\":").Append(h.Revers ? "true" : "false").Append(',')
-                  .Append("\"SumColumnCount\":").Append(h.SumColumnCount).Append(',')
-                  .Append("\"ShowColumnIndex\":").Append(h.ShowColumnIndex).Append(',')
-                  .Append("\"Place\":\"").Append(h.Place).Append("\",")
-                  .Append("\"TrueCode\":").Append(h.TrueCode).Append(',')
-                  .Append("\"FalseCode\":").Append(h.FalseCode)
-                  .Append('}');
-            }
-            sb.Append("\n]\n");
-            File.WriteAllText(file, sb.ToString());
-            Log.Show($"检测会话已保存: {file}");
-        }
-        catch (Exception e)
-        {
-            Log.Warning("会话保存失败（不影响结果）: " + e.Message);
-        }
-    }
-
     private static void SaveDumpCsv(CliOptions opt, AppConfig config, string db, string table, List<string> cols, List<DynamicDataItem> rows)
     {
         try
@@ -1023,10 +1245,4 @@ public static class Program
 
     private static string CsvEscape(string s) => s.Contains(',', StringComparison.Ordinal) || s.Contains('"', StringComparison.Ordinal) || s.Contains('\n', StringComparison.Ordinal)
         ? "\"" + s.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"" : s;
-
-    private static string JsonStr(string? s)
-    {
-        if (s == null) return "null";
-        return "\"" + s.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal).Replace("\r", "\\r", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal) + "\"";
-    }
 }

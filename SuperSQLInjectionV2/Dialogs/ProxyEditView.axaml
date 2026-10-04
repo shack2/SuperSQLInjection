@@ -1,0 +1,54 @@
+<UserControl
+    x:Class="SuperSQLInjectionV2.Dialogs.ProxyEditView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialogs="clr-namespace:SuperSQLInjectionV2.Dialogs"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="200"
+    d:DesignWidth="560"
+    x:CompileBindings="True"
+    x:DataType="dialogs:ProxyEditViewModel"
+    mc:Ignorable="d">
+    <Grid Width="560" Height="200" RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="12">
+
+        <!-- 主机 + 端口 -->
+        <Grid ColumnDefinitions="Auto,*,Auto,100">
+            <TextBlock Text="主机：" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" VerticalAlignment="Center" Text="{Binding Host}"
+                     PlaceholderText="IP或域名" />
+            <TextBlock Grid.Column="2" Text="端口：" Margin="10,0,0,0" VerticalAlignment="Center" />
+            <TextBox Grid.Column="3" VerticalAlignment="Center" Text="{Binding Port}" />
+        </Grid>
+
+        <!-- 类型 + 启用 -->
+        <Grid Grid.Row="1" Margin="0,10,0,0" ColumnDefinitions="Auto,120,Auto">
+            <TextBlock Text="类型：" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding TypeItems}" SelectedItem="{Binding ProxyType}" />
+            <CheckBox Grid.Column="2" Margin="14,0,0,0" Content="启用该代理"
+                      IsChecked="{Binding IsEnabled}" VerticalAlignment="Center" />
+        </Grid>
+
+        <!-- 账号 + 密码 -->
+        <Grid Grid.Row="2" Margin="0,10,0,0" ColumnDefinitions="Auto,*,Auto,*">
+            <TextBlock Text="用户名：" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" VerticalAlignment="Center" Text="{Binding Username}"
+                     PlaceholderText="可空" />
+            <TextBlock Grid.Column="2" Text="密码：" Margin="10,0,0,0" VerticalAlignment="Center" />
+            <TextBox Grid.Column="3" VerticalAlignment="Center" Text="{Binding Password}"
+                     PasswordChar="●" PlaceholderText="可空" />
+        </Grid>
+
+        <!-- 状态 + 按钮 -->
+        <Grid Grid.Row="4" Margin="0,10,0,0" ColumnDefinitions="*,Auto">
+            <TextBlock VerticalAlignment="Center" Opacity="0.7" Text="{Binding Status}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                <Button Theme="{DynamicResource SolidButton}" Width="90"
+                        Content="保 存" Command="{Binding ConfirmCommand}" />
+                <Button Theme="{DynamicResource OutlineButton}" Width="90"
+                        Content="取 消" Command="{Binding CancelCommand}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

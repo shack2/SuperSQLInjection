@@ -53,7 +53,9 @@ jobs:
           rm -f "$PUBDIR"/*.pdb "$PUBDIR"/*.dbg "$PUBDIR"/*.dwarf 2>/dev/null || true
           # 只保留本平台的 libquickjs，剔除异平台库（约省 8MB）
           case "${{ matrix.rid }}" in
-            win-x64)   rm -f "$PUBDIR/libquickjs.so" "$PUBDIR/libquickjs.dylib";;
+            win-x64)   rm -f "$PUBDIR/libquickjs.so" "$PUBDIR/libquickjs.dylib"
+                       # ANGLE OpenGL ES 后备渲染库：Windows 默认走 D3D11 不需要（约省 5MB）
+                       rm -f "$PUBDIR/av_libglesv2.dll";;
             linux-x64) rm -f "$PUBDIR/libquickjs.dll" "$PUBDIR/libquickjs.dylib";;
             osx-arm64) rm -f "$PUBDIR/libquickjs.dll" "$PUBDIR/libquickjs.so";;
           esac

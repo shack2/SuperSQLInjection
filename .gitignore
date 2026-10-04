@@ -472,8 +472,8 @@ skills/*/assets/bin/
 # CLI 注入会话输出目录
 /output/
 
-# CLI 在仓库根目录运行产生的运行时状态（盲注进度/取值缓存）
-/config/sessions/
+# CLI/桌面端在仓库根目录运行产生的运行时状态（盲注进度/取值缓存/注入记录/运行配置等）
+/config/
 
 # sqlite 靶场数据库文件（TestWebApp 运行时生成）
 sqli_test.db

@@ -66,9 +66,9 @@
             <TextBlock Text="注释：" Classes="Secondary" VerticalAlignment="Center" />
             <TextBox Grid.Column="1" Width="220" VerticalAlignment="Center" HorizontalAlignment="Left" Text="{Binding Comment}"
                      PlaceholderText="闭合注释，如 # / --" />
-            <TextBlock Grid.Column="2" Margin="14,0,0,0" VerticalAlignment="Center" Classes="Secondary" FontSize="11"
+            <TextBlock Grid.Column="2" Margin="14,0,0,0" VerticalAlignment="Center" Classes="Secondary hint"
                        Text="{Binding FileName, StringFormat='文件：{0}'}" />
-            <TextBlock Grid.Column="3" Margin="14,0" VerticalAlignment="Center" Classes="Secondary" FontSize="11"
+            <TextBlock Grid.Column="3" Margin="14,0" VerticalAlignment="Center" Classes="Secondary hint"
                        Text="{Binding Status}" />
             <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="10">
                 <Button Theme="{DynamicResource SolidButton}" Width="90"

@@ -80,7 +80,7 @@
     "Order": 15
   },
   {
-    "Script": "chunked\u5206\u5757\u53D1\u5305_\u793A\u4F8B_.js",
+    "Script": "chunked\u5206\u5757\u53d1\u5305.js",
     "Enable": false,
     "Order": 16
   },
@@ -145,7 +145,7 @@
     "Order": 28
   },
   {
-    "Script": "hex.js",
+    "Script": "Hex\u7f16\u7801.js",
     "Enable": false,
     "Order": 29
   },
@@ -170,7 +170,7 @@
     "Order": 33
   },
   {
-    "Script": "HPP\u53C2\u6570\u6C61\u67D3_\u793A\u4F8B_.js",
+    "Script": "HPP\u53c2\u6570\u6c61\u67d3_.js",
     "Enable": false,
     "Order": 34
   },
@@ -465,7 +465,7 @@
     "Order": 92
   },
   {
-    "Script": "\u53C2\u6570\u540D\u5927\u5C0F\u5199\u6DF7\u6DC6_\u793A\u4F8B_.js",
+    "Script": "\u53c2\u6570\u540d\u5927\u5c0f\u5199\u6df7\u6dc6.js",
     "Enable": false,
     "Order": 93
   }

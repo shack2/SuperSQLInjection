@@ -1,0 +1,5 @@
+Base: oracle
+UnionFillStr:1
+SleepBoolData: (select count(dbms_pipe.receive_message('dm',{sleep})) from dual where ({cond}))=1
+ErrorData:
+ErrorChunkLen:

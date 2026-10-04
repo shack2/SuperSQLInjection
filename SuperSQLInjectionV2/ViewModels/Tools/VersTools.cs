@@ -21,19 +21,31 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         /// <summary>
         /// 按数据库类型加载取数模板：哈希/DBA类条目分流到 hash 集合（Hash读取选项卡），
         /// 权限/角色类条目分流到 priv 集合（权限角色选项卡），其余进环境变量集合；
-        /// hash/priv 为 null 时全部进环境变量集合（兼容旧调用）
+        /// hash/priv 为 null 时全部进环境变量集合（兼容旧调用）；
+        /// forkName非空且磁盘存在 vers/fork_&lt;归一化名&gt;.txt 时以fork差异词表为准（其Base声明继承族词表）
         /// </summary>
-        public static void ReadVersByDBType(DBType dbType, ObservableCollection<VersModel> vers, ObservableCollection<VersModel>? hash, ObservableCollection<VersModel>? priv = null)
+        public static void ReadVersByDBType(DBType dbType, ObservableCollection<VersModel> vers, ObservableCollection<VersModel>? hash, ObservableCollection<VersModel>? priv = null, string forkName = "")
         {
            if (dbType.Equals(DBType.UnKnow)) return;
-           string versPath = "/config/vers/" + dbType.ToString().ToLower() + ".txt";
-           //无取数模板的数据库（如 Access 无环境变量函数）：提示不支持而不是抛文件不存在异常
-           if (!System.IO.File.Exists(AppDomain.CurrentDomain.BaseDirectory + versPath))
+           string? versPath = DbProfile.VersPathOf(dbType);
+           if (!string.IsNullOrWhiteSpace(forkName))
+           {
+               string forkPath = "/config/vers/fork_" + DbProfile.ForkKeyOf(forkName) + ".txt";
+               if (System.IO.File.Exists(AppDomain.CurrentDomain.BaseDirectory + forkPath))
+               {
+                   versPath = forkPath;
+               }
+           }
+           //无环境变量词表的数据库（如 Access 无环境变量函数）：提示不支持而不是抛文件不存在异常
+           if (versPath == null || !System.IO.File.Exists(AppDomain.CurrentDomain.BaseDirectory + versPath))
            {
                Log.Show($"当前数据库（{dbType}）不支持环境变量读取！");
                return;
            }
            List<string> list=FileTool.readFileToList(versPath);
+           //overlay继承：首行 "Base: xxx"（半角冒号）声明族基准词表（如金仓→postgresql），
+           //本文件条目按名称覆盖/新增，"-名称"行显式删除基准条目；递归最多3层防环
+           list = MergeVersWithBase(list, 0);
            list.ForEach(x => {
                string[] data=x.Split("：");
                if (data.Length == 2) {
@@ -57,6 +69,49 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                }
            });
         }
+        /// <summary>
+        /// vers词表overlay合并：首行 "Base: xxx" 声明族基准词表，后续条目按名称（全角冒号前部分）覆盖/新增，
+        /// "-名称"行删除基准条目；返回保持先基准后覆盖的顺序
+        /// </summary>
+        private static List<string> MergeVersWithBase(List<string> own, int depth)
+        {
+            if (depth >= 3 || own.Count == 0 || !own[0].StartsWith("Base:", StringComparison.OrdinalIgnoreCase))
+            {
+                return own;
+            }
+            string baseFile = own[0].Substring(5).Trim().ToLowerInvariant();
+            own.RemoveAt(0);
+            if (string.IsNullOrEmpty(baseFile))
+            {
+                return own;
+            }
+            List<string> merged = MergeVersWithBase(FileTool.readFileToList("/config/vers/" + baseFile + ".txt"), depth + 1);
+            foreach (string line in own)
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+                if (line.StartsWith("-", StringComparison.Ordinal))
+                {
+                    string delName = line.Substring(1).Trim();
+                    merged.RemoveAll(b => b.Split("：")[0].Equals(delName, StringComparison.OrdinalIgnoreCase));
+                    continue;
+                }
+                string name = line.Split("：")[0];
+                int idx = merged.FindIndex(b => b.Split("：")[0].Equals(name, StringComparison.OrdinalIgnoreCase));
+                if (idx >= 0)
+                {
+                    merged[idx] = line;
+                }
+                else
+                {
+                    merged.Add(line);
+                }
+            }
+            return merged;
+        }
+
         /// <summary>哈希/权限类条目判定（Hash读取选项卡分流规则）</summary>
         private static bool IsHashItem(string name)
         {

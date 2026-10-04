@@ -30,6 +30,9 @@ namespace SuperSQLInjectionV2.Models
 
         public DBType DBType { get; set; } = DBType.UnKnow;
 
+        /// <summary>识别到的Fork/衍生库名（如MariaDB/TiDB，DBType仍为族宿主库；空=未识别或非fork），随记录持久化</summary>
+        public string ForkName { get; set; } = "";
+
         public InjectType InjectType { get; set; } = InjectType.UnKnow;
 
         public BoolInjectType BoolInjectType { get; set; } = BoolInjectType.KeyWord;
@@ -148,8 +151,13 @@ namespace SuperSQLInjectionV2.Models
 
         public string TimeStr => Time.ToString("MM-dd HH:mm:ss");
 
-        /// <summary>下拉选择器显示文本（目标 · 参数 · 类型 · 数据库；数字型为默认上下文不显示后缀，其余上下文附加显示；base64包装参数附加标识）</summary>
+        /// <summary>Fork库显示文本：未识别/非fork显示"-"（列表展示用；DBType始终为族宿主库）</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string ForkNameText => string.IsNullOrEmpty(ForkName) ? "-" : ForkName;
+
+        /// <summary>下拉选择器显示文本（目标 · 参数 · 类型 · 数据库(Fork)；数字型为默认上下文不显示后缀，其余上下文附加显示；base64包装参数附加标识）</summary>
         public string DisplayText => TimeStr + "  " + Target + " · " + PName + " · " + InjectTypeDesc + " · " + DBType
+            + (string.IsNullOrEmpty(ForkName) ? "" : "(" + ForkName + ")")
             + (BoundaryDesc == "数字型" ? "" : " · " + BoundaryDesc)
             + ("base64encode".Equals(AutoTamper, StringComparison.OrdinalIgnoreCase) ? " · base64" : "");
 

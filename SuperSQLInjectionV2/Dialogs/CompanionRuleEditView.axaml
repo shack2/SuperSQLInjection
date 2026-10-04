@@ -46,10 +46,10 @@
                       ItemsSource="{Binding Methods}"
                       SelectedItem="{Binding Rule.Method}"
                       IsVisible="{Binding Rule.UrlRowVisible}" />
-            <TextBlock VerticalAlignment="Center" Classes="Secondary" FontSize="11.5"
+            <TextBlock VerticalAlignment="Center" Classes="Secondary hint"
                        IsVisible="{Binding IsBefore}"
                        Text="主请求含&lt;DRule&gt;标记时，每次发包前自动执行本规则抓取/生成动态值并回填" />
-            <TextBlock VerticalAlignment="Center" Classes="Secondary" FontSize="11.5"
+            <TextBlock VerticalAlignment="Center" Classes="Secondary hint"
                        IsVisible="{Binding !IsBefore}"
                        Text="每次注入请求后自动执行本规则，并以其响应替代主响应取数（二次注入场景）" />
         </WrapPanel>
@@ -76,7 +76,7 @@
                 <CheckBox Content="使用脚本提取" VerticalAlignment="Center"
                           IsChecked="{Binding Rule.UseScript}"
                           ToolTip.Tip="脚本输入为抓取请求返回的完整HTTP响应报文（头+body），输出动态值" />
-                <TextBlock VerticalAlignment="Center" Classes="Secondary" FontSize="11.5"
+                <TextBlock VerticalAlignment="Center" Classes="Secondary hint"
                            Text="脚本在 防护绕过-动态值脚本 页统一管理" />
             </WrapPanel>
             <WrapPanel ItemSpacing="10" IsVisible="{Binding Rule.SubstrRowVisible}">

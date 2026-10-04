@@ -37,6 +37,9 @@ namespace SuperSQLInjectionV2.Models
         public InjectType InjectType { get; set; }= InjectType.UnKnow;
 
         public DBType DBType { get; set; } = DBType.UnKnow;
+
+        /// <summary>识别到的Fork/衍生库名（如MariaDB/TiDB，DBType仍为族宿主库；空=未识别或非fork）</summary>
+        public string ForkName { get; set; } = "";
         public BoolInjectType BoolInjectType { get; set; }= BoolInjectType.KeyWord;
         public string CheckValue { get; set; } = "";
 

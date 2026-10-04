@@ -723,7 +723,7 @@ namespace SuperSQLInjectionV2.Bypass
                     {
                         config.ProxyConfig.ProxyItems.Add(new Proxy
                         {
-                            Host = d.Host, Port = d.Port, proxyType = d.Type, username = d.Username, password = d.Password
+                            Host = d.Host, Port = d.Port, proxyType = NormalizeProxyType(d.Type), username = d.Username, password = d.Password
                         });
                     }
                 }
@@ -732,6 +732,12 @@ namespace SuperSQLInjectionV2.Bypass
             {
                 Log.SysLog("代理池解析失败（按空处理）：" + e.Message);
             }
+        }
+
+        /// <summary>代理类型归一化：仅 Socks5/HTTP 两值合法，脏数据（旧版误存的 ComboBoxItem 文本等）归一为 HTTP</summary>
+        private static string NormalizeProxyType(string? type)
+        {
+            return "Socks5".Equals(type, StringComparison.Ordinal) ? "Socks5" : "HTTP";
         }
 
         //================================================ 保存 ================================================

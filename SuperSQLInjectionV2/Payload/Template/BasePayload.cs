@@ -14,29 +14,54 @@ namespace SuperSQLInjectionV2.Payload
     {
         public Dictionary<string, string> PayLoadSQL { get; } =new();
 
+        /// <summary>模板继承声明key：overlay文件首行 "Base: postgresql" 表示继承族基准模板，本文件只存差异行</summary>
+        public const string BaseKey = "Base";
+
         /// <summary>
-        /// 取数模板文件相对路径（供UI模板管理与加载共用，保证一致）
+        /// 读取取数模板（支持overlay继承）：文件含 "Base: xxx" 声明时先加载族基准模板（如金仓→postgresql.txt），
+        /// 再用本文件差异行覆盖同名key；值为空的key视为显式关闭该能力（从合并结果移除，如openGauss关闭COPY命令执行）。
+        /// 递归继承最多3层防环。模板保存/能力探测/取数加载统一走此方法，保证合并语义一致
+        /// </summary>
+        public static Dictionary<string, string> ReadTemplateMerged(string path)
+        {
+            return ReadTemplateMerged(path, 0);
+        }
+
+        private static Dictionary<string, string> ReadTemplateMerged(string path, int depth)
+        {
+            Dictionary<string, string> own = FileTool.ReadSQLPayload(path);
+            if (depth >= 3 || !own.TryGetValue(BaseKey, out string? baseName) || string.IsNullOrWhiteSpace(baseName))
+            {
+                own.Remove(BaseKey);
+                return own;
+            }
+            string basePath = "config/payload/" + baseName.Trim().ToLowerInvariant() + ".txt";
+            Dictionary<string, string> merged = ReadTemplateMerged(basePath, depth + 1);
+            foreach (KeyValuePair<string, string> kv in own)
+            {
+                if (kv.Key.Equals(BaseKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                if (string.IsNullOrWhiteSpace(kv.Value))
+                {
+                    //overlay空值行=显式关闭能力（从族基准继承来的同名key移除）
+                    merged.Remove(kv.Key);
+                }
+                else
+                {
+                    merged[kv.Key] = kv.Value;
+                }
+            }
+            return merged;
+        }
+
+        /// <summary>
+        /// 取数模板文件相对路径（统一查 DbProfile 注册表；供UI模板管理与加载共用，保证一致）
         /// </summary>
         public static string GetTemplateRelativePath(DBType dBType)
         {
-            return dBType switch
-            {
-                DBType.MySQL => "config/payload/mysql.txt",
-                DBType.SQLServer => "config/payload/sqlserver.txt",
-                DBType.PostgreSQL => "config/payload/postgresql.txt",
-                DBType.Oracle => "config/payload/oracle.txt",
-                DBType.DB2 => "config/payload/db2.txt",
-                DBType.Informix => "config/payload/informix.txt",
-                DBType.SQLite => "config/payload/sqlite.txt",
-                DBType.Access => "config/payload/access.txt",
-                DBType.DM => "config/payload/dm.txt",
-                DBType.Kingbase => "config/payload/kingbase.txt",
-                DBType.OpenGauss => "config/payload/opengauss.txt",
-                DBType.H2 => "config/payload/h2.txt",
-                DBType.HSQLDB => "config/payload/hsqldb.txt",
-                DBType.ClickHouse => "config/payload/clickhouse.txt",
-                _ => "config/payload/mysql.txt"
-            };
+            return DbProfile.TemplatePathOf(dBType);
         }
 
         /// <summary>
@@ -105,6 +130,7 @@ namespace SuperSQLInjectionV2.Payload
             ["exists_column"] = "列存在性判断（字典猜解字段名），{cols}=候选列名 {table}=表名",
             //命令执行（堆叠注入：SQLServer xp_cmdshell / PostgreSQL COPY FROM PROGRAM，输出落临时表ssqlinjection再取回）
             ["CmdExec"] = "命令执行堆叠payload（建临时表执行命令并把输出写入），{cmd}=命令（SQLServer为hex形式0x..，PG为明文字符串）",
+            ["CmdExec@PlPython"] = "命令执行变体-PlPython：PG plpython3u扩展函数通道（CREATE EXTENSION+CREATE FUNCTION纯SQL部署无二进制，需superuser且允许装扩展），{cmd}=命令，输出行落临时表ssqlinjection复用CmdData取回",
             ["CmdData"] = "按行取命令输出，{index}=行序号",
             ["CmdDataCount"] = "命令输出行数查询",
             ["CmdCreateTable"] = "建临时表ssqlinjection（PG命令执行/文件读写的准备工作）",
@@ -140,12 +166,30 @@ namespace SuperSQLInjectionV2.Payload
             {
                 return $"报错注入方式变体[{key.Trim().Substring(ErrorVariantPrefix.Length)}]：报错方式下拉可选中本项替代ErrorData作为报错触发函数，{{cols}}=拼接后的数据表达式";
             }
+            if (!string.IsNullOrWhiteSpace(key) && key.Trim().StartsWith("CmdExec@", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"命令执行方式变体[{key.Trim().Substring("CmdExec@".Length)}]：命令执行方式下拉可选中本项替代CmdExec作为执行通道，{{cmd}}=命令，输出行落临时表ssqlinjection复用CmdData取回";
+            }
             return "自定义/扩展项（当前取数代码未直接引用，可通过Get(key)方式在扩展逻辑中使用）";
         }
 
-        public BasePayload(DBType dBType) {
+        public BasePayload(DBType dBType) : this(dBType, "") { }
+
+        /// <summary>
+        /// 加载取数模板：forkName非空且磁盘存在 config/payload/fork_&lt;归一化名&gt;.txt 时，
+        /// 以fork差异文件为准（其Base声明继承族模板），否则按库型模板加载
+        /// </summary>
+        public BasePayload(DBType dBType, string forkName) {
             string configPath = GetTemplateRelativePath(dBType);
-            PayLoadSQL=FileTool.ReadSQLPayload(configPath);
+            if (!string.IsNullOrWhiteSpace(forkName))
+            {
+                string forkPath = "config/payload/fork_" + DbProfile.ForkKeyOf(forkName) + ".txt";
+                if (System.IO.File.Exists(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, forkPath.Replace('/', System.IO.Path.DirectorySeparatorChar))))
+                {
+                    configPath = forkPath;
+                }
+            }
+            PayLoadSQL=ReadTemplateMerged(configPath);
             DBNames = PayLoadSQL["DBNames"];
             TableNames = PayLoadSQL["TableNames"];
             ColumnNames= PayLoadSQL["ColumnNames"];

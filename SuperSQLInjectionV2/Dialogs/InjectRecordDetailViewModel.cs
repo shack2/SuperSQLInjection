@@ -31,6 +31,7 @@ public partial class InjectRecordDetailViewModel : ObservableObject, IDialogCont
         Line("注入参数", r.PName);
         Line("注入位置", r.PlaceDesc);
         Line("数据库类型", r.DBType.ToString());
+        Line("Fork库", string.IsNullOrEmpty(r.ForkName) ? "-（宿主库）" : r.ForkName);
         Line("注入类型", r.InjectTypeDesc);
         Line("盲注判断值", r.CheckValue);
         Line("判断取反", r.Revers ? "是" : "否");

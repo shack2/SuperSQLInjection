@@ -8,8 +8,8 @@ namespace SuperSQLInjectionV2.Models
 {
     internal class ConstData
     {
-        /// <summary>当前软件版本（语义化版本，更新检测以此作为当前版本上报）</summary>
-        public const string AppVersion = "2.0.0";
+        /// <summary>当前软件版本（语义化版本，全局唯一来源：窗口标题/状态栏/关于页/更新检测/意见反馈均取此常量；发版时只改这里，并同步各 csproj 的 Version 字段）</summary>
+        public const string AppVersion = "2.0.2";
 
         public const string StartPoint = "<Encode>";
         public const string EndPoint = "</Encode>";

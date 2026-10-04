@@ -8,6 +8,7 @@ public sealed class CliOptions
     // ---- 目标 ----
     public string? Url;                    // -u / --url
     public string? RequestFile;            // -r
+    public string? BatchFile;              // -m / --batch-file（批量目标URL列表，逐行一个，仅检测）
     public string? Data;                   // --data（POST 表单体）
     public string? Cookie;                 // --cookie
     public List<string> Headers = [];      // --header（可多次，"Name: value"）
@@ -19,13 +20,13 @@ public sealed class CliOptions
     public int Risk = 1;                   // --risk 1-3
     public string? Technique;              // --technique BEUTSDQ
     public string? Dbms;                   // --dbms mysql/sqlserver/...
-    public bool Smart;                     // --smart
+    public bool Smart;                     // --smart（默认已开启，该参数仅为兼容保留）
+    public bool NoSmart;                   // --no-smart 关闭智能模式（头注入/写入型低Level目标全量重测用）
     public bool Exhaustive;                // --exhaustive 穷举模式
     public bool Parallel;                  // --parallel 多参数并行检测
     public bool StopOnWaf;                 // --stop-waf WAF拦截5次停止检测
-    public bool StopOnNonDynamic;          // --stop-non-dynamic 非动态参数停止检测（默认已开，保留兼容）
-    public bool NoStopOnNonDynamic;        // --no-stop-non-dynamic 关闭「非动态参数停止检测」（头注入/写入型注入目标用）
     public bool KeepTesting;               // --keep-testing 检出注入后仍继续检测其余参数（关闭默认开启的检出即停）
+    public bool FlushSession;              // --flush-session 忽略历史检测会话强制重新检测（默认同目标同报文同参数自动复用会话）
     public string? DnsDomain;              // --dns-domain（DNS外带）
     public string? DnsToken;               // --dns-token
 
@@ -82,6 +83,15 @@ public sealed class CliOptions
         Banner || CurrentUser || CurrentDb || Hostname || IsDba || AllEnv || Passwords || Privileges ||
         Dbs || Tables || Columns || Dump || SqlQuery != null || FileRead != null || FileWrite != null || OsCmd != null;
 
+    /// <summary>批量检测子目标克隆：浅拷贝共享只读字段（Headers等），替换目标URL并清除报文文件（批量仅支持URL列表）</summary>
+    public CliOptions CloneForUrl(string url)
+    {
+        var c = (CliOptions)MemberwiseClone();
+        c.Url = url;
+        c.RequestFile = null;
+        return c;
+    }
+
     public static CliOptions Parse(string[] args)
     {
         var o = new CliOptions();
@@ -100,6 +110,7 @@ public sealed class CliOptions
                 switch (a.Split('=')[0])
                 {
                     case "--url": o.Url = Val(); break;
+                    case "--batch-file": o.BatchFile = Val(); break;
                     case "--data": o.Data = Val(); break;
                     case "--cookie": o.Cookie = Val(); break;
                     case "--header": o.Headers.Add(Val()); break;
@@ -109,12 +120,12 @@ public sealed class CliOptions
                     case "--technique": o.Technique = Val().ToUpperInvariant(); break;
                     case "--dbms": o.Dbms = Val(); break;
                     case "--smart": o.Smart = true; break;
+                    case "--no-smart": o.NoSmart = true; break;
                     case "--exhaustive": o.Exhaustive = true; break;
                     case "--parallel": o.Parallel = true; break;
                     case "--stop-waf": o.StopOnWaf = true; break;
-                    case "--stop-non-dynamic": o.StopOnNonDynamic = true; break;
-                    case "--no-stop-non-dynamic": o.NoStopOnNonDynamic = true; break;
                     case "--keep-testing": o.KeepTesting = true; break;
+                    case "--flush-session": o.FlushSession = true; break;
                     case "--dns-domain": o.DnsDomain = Val(); break;
                     case "--dns-token": o.DnsToken = Val(); break;
                     case "--proxy": o.Proxy = Val(); break;
@@ -166,6 +177,7 @@ public sealed class CliOptions
                 {
                     case "-u": o.Url = Next(); break;
                     case "-r": o.RequestFile = Next(); break;
+                    case "-m": o.BatchFile = Next(); break;
                     case "-p": o.TestParam = Next(); break;
                     case "-D": o.Db = Next(); break;
                     case "-T": o.Table = Next(); break;
@@ -191,6 +203,7 @@ public sealed class CliOptions
         目标:
           -u URL                  目标 URL（自动识别 GET 参数）
           -r FILE                 从文件加载原始 HTTP 请求报文
+          -m FILE                 批量检测：URL 列表文件（逐行一个，# 开头注释；仅检测不取数，--parallel 多目标并发）
           --data=DATA             POST 表单数据（k=v&k2=v2）
           --cookie=COOKIE         Cookie 头
           --header="K: V"         自定义请求头（可多次）
@@ -202,13 +215,13 @@ public sealed class CliOptions
           --risk=N                风险级别 1-3（默认 1）
           --technique=BEUTSD      技术筛选：B布尔 E报错 U联合 T时间 S堆叠 D DNS外带
           --dbms=DBMS             指定数据库（mysql/pgsql/sqlserver/sqlite/oracle/...）
-          --smart                 智能模式（无迹象参数快速跳过）
+          --smart                 智能模式（默认已开启，该参数仅为兼容保留；非动态+无指纹参数 Level<3 跳过、Level≥3 仅保留时间/堆叠）
+          --no-smart              关闭智能模式（非动态参数也全量检测，头注入/写入型低Level目标用）
           --exhaustive            穷举模式（同技术测完全部用例）
           --parallel              多参数并行检测（并发度取 --threads，上限 10）
           --stop-waf              WAF 拦截累计 5 次即停止检测（防持续触发封禁）
-          --stop-non-dynamic      非动态参数停止检测（默认已开启，该参数仅为兼容保留）
-          --no-stop-non-dynamic   关闭「非动态参数停止检测」（头注入/写入型注入目标用）
           --keep-testing          检出注入后仍继续检测其余参数（默认检出即停，sqlmap同款）
+          --flush-session         强制重新检测（默认同目标+同报文+同检测参数自动复用 output 下的会话文件，免重复发包）
           --dns-domain=D          DNS 外带接收域名（配合 --dns-token）
 
         请求:

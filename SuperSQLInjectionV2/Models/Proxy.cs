@@ -37,7 +37,8 @@ namespace SuperSQLInjectionV2.Models
 
         [ObservableProperty]
         public partial int Port { get; set; } = 80;
-        public string proxyType { get; set; } = "";//socks5，或HTTP/HTTPS
+        [ObservableProperty]
+        public partial string proxyType { get; set; } = "Socks5";//Socks5 或 HTTP
         public string username { get; set; } = "";//代理账户
         public string password { get; set; } = "";//代理密码
 

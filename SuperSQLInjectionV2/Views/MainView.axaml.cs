@@ -40,6 +40,9 @@ public partial class MainView : UserControl
     {
         InitializeComponent();
 
+        //TxtLog（运行日志编辑器）无Document绑定：显式初始化空文档，避免Semi模板PART_Watermark绑定$templatedParent.Document.Text时Document为null报绑定错误
+        TxtLog.Document = new AvaloniaEdit.Document.TextDocument();
+
         //TableView(Avalonia12.1)的SelectionMode暂不支持XAML字符串赋值，统一在代码中设置多选（Multiple=按住Ctrl/Shift多选，对应DataGrid的Extended；检测用例页保持默认单选）
         VersDataGrid.SelectionMode = SelectionMode.Multiple;
         HashDataGrid.SelectionMode = SelectionMode.Multiple;
@@ -105,6 +108,51 @@ public partial class MainView : UserControl
     private void ClearRequestC(object? sender, RoutedEventArgs e)
     {
         ActiveRequestEditor.Document.Text = "";
+    }
+
+    /// <summary>
+    /// 请求报文面板：从文本文件导入HTTP请求报文。
+    /// 写入编辑器文档后由联动回路自动解析回同步请求方式与URL（SyncUrlFromDetectRequest/SyncUrlFromDataRequest）。
+    /// 编码：优先UTF-8（含BOM），出现替换符时回落GB18030（抓包工具导出的ANSI报文）。
+    /// </summary>
+    private async void ImportRequestFromFileC(object? sender, RoutedEventArgs e)
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel == null)
+        {
+            return;
+        }
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = "选择HTTP请求报文文件",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new Avalonia.Platform.Storage.FilePickerFileType("报文文本") { Patterns = new[] { "*.txt", "*.log", "*.http", "*.req" } },
+                new Avalonia.Platform.Storage.FilePickerFileType("所有文件") { Patterns = s_allPatterns }
+            }
+        });
+        if (files.Count == 0)
+        {
+            return;
+        }
+        string path = files[0].Path.LocalPath;
+        try
+        {
+            string content = await Task.Run(() => RequestRewriter.ReadRequestFile(path));
+            string? invalid = RequestRewriter.ValidateHttpRequest(content);
+            if (invalid != null)
+            {
+                Log.Warning("导入报文失败（不是有效的HTTP请求报文）：" + invalid + "——" + path);
+                return;
+            }
+            ActiveRequestEditor.Document.Text = content;
+            Log.Show("已从文件导入请求报文：" + path + "（已自动解析请求方式与URL）");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("导入报文异常：" + ex.Message);
+        }
     }
 
     //---------------- 请求日志页：剪切/复制/粘贴 + 右键解码 ----------------
@@ -692,6 +740,26 @@ public partial class MainView : UserControl
         {
             _viewModel?.CheckProxyCommand.Execute(x);
         });
+    }
+
+    /// <summary>编辑选中的代理（取第一个选中行，弹窗修改）</summary>
+    private void EditProxySelect(object? sender, RoutedEventArgs e)
+    {
+        Proxy? proxy = ProxyDataGrid.SelectedItems?.Cast<Proxy>().FirstOrDefault();
+        if (proxy != null)
+        {
+            _viewModel?.EditProxyCommand.Execute(proxy);
+        }
+    }
+
+    /// <summary>把选中代理设为固定代理（取第一个选中行）</summary>
+    private void SetFixedProxySelect(object? sender, RoutedEventArgs e)
+    {
+        Proxy? proxy = ProxyDataGrid.SelectedItems?.Cast<Proxy>().FirstOrDefault();
+        if (proxy != null)
+        {
+            _viewModel?.SetFixedProxyCommand.Execute(proxy);
+        }
     }
 
     /// <summary>

@@ -160,32 +160,59 @@ namespace SuperSQLInjectionV2.Tools.Http
         }
 
         /// <summary>
-        /// 异步版代理验证：全异步TCP连接/Socks5握手，不占线程池线程（UI批量验证代理时使用）
+        /// 异步版代理验证：全异步TCP连接/Socks5握手，不占线程池线程（UI批量验证代理时使用）。
+        /// 通过 config.ProxyConfig.ProxyTestUrl 指定的地址验证代理真实转发能力：
+        /// Socks5=握手CONNECT到测试地址；HTTP代理=http走absolute-form GET、https走CONNECT隧道，读到合法HTTP响应才算可用。
         /// </summary>
         public static async Task<bool> CheckProxyAsync(AppConfig config, Proxy proxy)
         {
             int timeOut = config.TimeOut * 1000;
             try
             {
+                //解析验证地址：缺省/非法时回退当前目标；无scheme按http处理
+                string testUrl = config.ProxyConfig.ProxyTestUrl?.Trim() ?? "";
+                if (string.IsNullOrEmpty(testUrl))
+                {
+                    testUrl = (config.IsSSL ? "https://" : "http://") + config.Host + ":" + config.Port;
+                }
+                if (!testUrl.Contains("://"))
+                {
+                    testUrl = "http://" + testUrl;
+                }
+                Uri uri = new Uri(testUrl);
+                string testHost = uri.Host;
+                int testPort = uri.Port > 0 ? uri.Port : (uri.Scheme == "https" ? 443 : 80);
+                bool testHttps = uri.Scheme == "https";
+
                 if (Socks5ProxyType.Equals(proxy.proxyType, StringComparison.Ordinal))
                 {
                     SocketProxy sp = new SocketProxy();
                     using TcpClient client = await sp.CreatProxySocketAsync(proxy.Host, proxy.Port, timeOut).ConfigureAwait(false);
-                    bool isok = await sp.ConnectProxyServerAsync(config.Host, config.Port, client, proxy.username, proxy.password, config.TimeOut).ConfigureAwait(false);
+                    bool isok = await sp.ConnectProxyServerAsync(testHost, testPort, client, proxy.username, proxy.password, config.TimeOut).ConfigureAwait(false);
                     proxy.UseTime = sp.ConectProxyUseTime;
                     return isok;
                 }
                 else
                 {
-                    //HTTP代理，V2采用直接替换IP和端口的方式发包，验证TCP连通即可
+                    //HTTP代理：连上代理端口后真实发一次请求验证转发能力（http=absolute-form GET，https=CONNECT隧道）
                     long ts = Stopwatch.GetTimestamp();
                     try
                     {
                         using TcpClient client = new TcpClient();
                         using CancellationTokenSource cts = new CancellationTokenSource(timeOut);
                         await client.ConnectAsync(proxy.Host, proxy.Port, cts.Token).ConfigureAwait(false);
+                        NetworkStream stream = client.GetStream();
+                        string head = testHttps
+                            ? $"CONNECT {testHost}:{testPort} HTTP/1.1\r\nHost: {testHost}:{testPort}\r\n\r\n"
+                            : $"GET {uri.PathAndQuery} HTTP/1.1\r\nHost: {testHost}\r\nUser-Agent: Mozilla/5.0\r\nConnection: close\r\n\r\n";
+                        byte[] outBytes = Encoding.ASCII.GetBytes(head);
+                        await stream.WriteAsync(outBytes, cts.Token).ConfigureAwait(false);
+                        byte[] buf = new byte[64];
+                        int read = await stream.ReadAsync(buf, cts.Token).ConfigureAwait(false);
                         proxy.UseTime = (int)Stopwatch.GetElapsedTime(ts).TotalMilliseconds;
-                        return client.Connected;
+                        //合法HTTP响应行/CONNECT 200 均视为代理可用
+                        string line = Encoding.ASCII.GetString(buf, 0, read);
+                        return line.StartsWith("HTTP/", StringComparison.Ordinal);
                     }
                     catch
                     {

@@ -9,10 +9,10 @@
     <AssemblyName>SuperSQLInjectionV2.Cmd</AssemblyName>
     <!-- QuickJS P/Invoke 封装（主库传递引用）使用指针 -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>2.0.0</Version>
-    <AssemblyVersion>2.0.0.0</AssemblyVersion>
-    <FileVersion>2.0.0.0</FileVersion>
-    <InformationalVersion>2.0.0</InformationalVersion>
+    <Version>2.0.2</Version>
+    <AssemblyVersion>2.0.2.0</AssemblyVersion>
+    <FileVersion>2.0.2.0</FileVersion>
+    <InformationalVersion>2.0.2</InformationalVersion>
     <Description>SuperSQLInjectionV2 命令行版：SQL 注入检测与利用工具</Description>
   </PropertyGroup>
 

@@ -1,4 +1,5 @@
 using System.Text;
+using System.IO;
 using System.Text.RegularExpressions;
 using SuperSQLInjectionV2.Models;
 using System.Text.Json;
@@ -20,6 +21,60 @@ namespace SuperSQLInjectionV2.Tools.Http
     public partial class RequestRewriter
     {
         private static readonly char[] s_nameBreakChars = { ' ', '\t', '\r', '\n', '>' };
+
+        /// <summary>
+        /// 从文本文件读取HTTP请求报文：优先UTF-8（含BOM），出现替换符时回落GB18030（抓包工具导出的ANSI报文），
+        /// GB18030不可用（未注册CodePagesEncodingProvider）时保持UTF-8结果；剔除BOM字符。
+        /// </summary>
+        public static string ReadRequestFile(string path)
+        {
+            byte[] bytes = File.ReadAllBytes(path);
+            string content = Encoding.UTF8.GetString(bytes);
+            if (content.Contains('\uFFFD'))
+            {
+                try
+                {
+                    content = Encoding.GetEncoding("GB18030").GetString(bytes);
+                }
+                catch
+                {
+                    //编码提供程序不可用时保持UTF-8结果
+                }
+            }
+            return content.TrimStart('\uFEFF');
+        }
+
+        /// <summary>
+        /// 校验文本是否为HTTP请求报文：首条非空行须为请求行（METHOD 路径 HTTP/版本），且含Host头。
+        /// 合法返回null；不合法返回中文原因（供导入时提示）。
+        /// </summary>
+        public static string? ValidateHttpRequest(string content)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return "文件内容为空";
+            }
+            string firstLine = "";
+            foreach (string line in content.Split('\n'))
+            {
+                string t = line.TrimEnd('\r');
+                if (!string.IsNullOrWhiteSpace(t))
+                {
+                    firstLine = t.Trim();
+                    break;
+                }
+            }
+            if (!Regex.IsMatch(firstLine, @"^[A-Za-z]+\s+\S+\s+HTTP/\d+(\.\d+)?$"))
+            {
+                return "首行不是有效的HTTP请求行（应为：方法 路径 HTTP/版本）："
+                    + (firstLine.Length > 60 ? firstLine[..60] + "…" : firstLine);
+            }
+            if (!Regex.IsMatch(content, @"(?im)^Host:\s*\S+"))
+            {
+                return "缺少Host请求头，无法确定目标主机";
+            }
+            return null;
+        }
 
         /// <summary>
         /// 剥离请求报文中的人工/自动标记，还原为干净报文（注入检测前置处理）：
@@ -252,55 +307,6 @@ namespace SuperSQLInjectionV2.Tools.Http
             }
             bool https = host.EndsWith(":443", StringComparison.Ordinal) || (!host.Contains(':') && isSsl);
             return (method, (https ? "https://" : "http://") + host + (path.StartsWith('/') ? path : "/" + path));
-        }
-
-        /// <summary>
-        /// 原地重定向：保留原报文的请求方式、请求头（Cookie/UA等）与Body，仅把请求行路径与Host头改为新URL。
-        /// 用于URL栏变更后让定制报文跟随目标而不丢失人工配置的请求头。报文/URL不完整返回null。
-        /// </summary>
-        public static string? RetargetRequest(string requestTxt, string newUrl)
-        {
-            if (string.IsNullOrWhiteSpace(requestTxt) || string.IsNullOrWhiteSpace(newUrl)
-                || !Uri.TryCreate(newUrl, UriKind.Absolute, out Uri? uri))
-            {
-                return null;
-            }
-            int lineEnd = requestTxt.IndexOf('\n', StringComparison.Ordinal);
-            if (lineEnd <= 0)
-            {
-                return null;
-            }
-            string firstLine = requestTxt[..lineEnd].TrimEnd('\r');
-            if (!Regex.IsMatch(firstLine, @"^([A-Za-z]+)\s+(\S+)\s+HTTP/\d"))
-            {
-                return null;
-            }
-            //路径截取同BuildGetRequestFromUrl：从原始URL串手工截取，避免PathAndQuery重编码破坏标记
-            int schemeEnd = newUrl.IndexOf("://", StringComparison.Ordinal);
-            int pathStart = schemeEnd >= 0 ? newUrl.IndexOf('/', schemeEnd + 3) : -1;
-            string path = pathStart >= 0 ? newUrl.Substring(pathStart) : "/";
-            int frag = path.IndexOf('#', StringComparison.Ordinal);
-            if (frag >= 0)
-            {
-                path = path.Substring(0, frag);
-            }
-            if (string.IsNullOrEmpty(path))
-            {
-                path = "/";
-            }
-            string host = uri.IsDefaultPort ? uri.Host : $"{uri.Host}:{uri.Port}";
-            string newFirstLine = Regex.Replace(firstLine, @"^([A-Za-z]+)\s+\S+\s+(HTTP/\S+)\s*$", $"$1 {path} $2");
-            string body = newFirstLine + requestTxt.Substring(lineEnd);
-            if (Regex.IsMatch(body, @"(?im)^Host:"))
-            {
-                body = Regex.Replace(body, @"(?im)^Host:[^\r\n]*", "Host: " + host);
-            }
-            else
-            {
-                int eol = body.IndexOf('\n', StringComparison.Ordinal);
-                body = body.Insert(eol + 1, "Host: " + host + "\r\n");
-            }
-            return body;
         }
 
         /// <summary>

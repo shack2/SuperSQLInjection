@@ -12,6 +12,7 @@ public partial class MainWindow : UrsaWindow
     public MainWindow()
     {
         InitializeComponent();
+        Title = "超级SQL注入工具V2 v" + Models.ConstData.AppVersion;
         NotificationManager = new WindowNotificationManager(this) { MaxItems = 3, Position = NotificationPosition.BottomRight };
     }
 

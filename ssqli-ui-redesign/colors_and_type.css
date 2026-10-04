@@ -1,0 +1,115 @@
+:root {
+  /* Brand primary — modern tech blue */
+  --ssqli-brand-50: #eff6ff;
+  --ssqli-brand-100: #dbeafe;
+  --ssqli-brand-200: #bfdbfe;
+  --ssqli-brand-300: #93c5fd;
+  --ssqli-brand-400: #60a5fa;
+  --ssqli-brand-500: #3b82f6;
+  --ssqli-brand-600: #2563eb;
+  --ssqli-brand-700: #1d4ed8;
+  --ssqli-brand-800: #1e40af;
+  --ssqli-brand-900: #1e3a8a;
+
+  /* Light theme surfaces — cool neutral white */
+  --ssqli-light-bg: #f8fafc;
+  --ssqli-light-surface: #ffffff;
+  --ssqli-light-surface-2: #f1f5f9;
+  --ssqli-light-surface-3: #e2e8f0;
+  --ssqli-light-ink: #0f172a;
+  --ssqli-light-ink-2: #475569;
+  --ssqli-light-ink-3: #94a3b8;
+  --ssqli-light-line: #e2e8f0;
+  --ssqli-light-border: #cbd5e1;
+  --ssqli-light-ring: #3b82f6;
+
+  /* Dark theme surfaces — deep charcoal */
+  --ssqli-dark-bg: #0b0b0f;
+  --ssqli-dark-surface: #14141a;
+  --ssqli-dark-surface-2: #1c1c24;
+  --ssqli-dark-surface-3: #272730;
+  --ssqli-dark-ink: #f1f5f9;
+  --ssqli-dark-ink-2: #94a3b8;
+  --ssqli-dark-ink-3: #64748b;
+  --ssqli-dark-line: #272730;
+  --ssqli-dark-border: #3f3f4a;
+  --ssqli-dark-ring: #60a5fa;
+
+  /* State colors */
+  --ssqli-state-success: #10b981;
+  --ssqli-state-warning: #f59e0b;
+  --ssqli-state-error: #f43f5e;
+  --ssqli-state-info: #3b82f6;
+
+  /* Radius */
+  --ssqli-radius-xs: 2px;
+  --ssqli-radius-sm: 4px;
+  --ssqli-radius-md: 6px;
+  --ssqli-radius-lg: 8px;
+  --ssqli-radius-xl: 12px;
+  --ssqli-radius-pill: 999px;
+
+  /* Shadows */
+  --ssqli-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 1px rgba(15, 23, 42, 0.03);
+  --ssqli-shadow-2: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --ssqli-shadow-3: 0 12px 32px rgba(15, 23, 42, 0.18);
+
+  /* Typography — Chakra Petch for UI, Noto Sans SC for CJK, JetBrains Mono for code */
+  --ssqli-font-sans: "Chakra Petch", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ssqli-font-mono: "JetBrains Mono", "Fira Code", "SF Mono", Consolas, monospace;
+
+  /* Default semantic aliases (light) */
+  --ssqli-background: var(--ssqli-light-bg);
+  --ssqli-foreground: var(--ssqli-light-ink);
+  --ssqli-card: var(--ssqli-light-surface);
+  --ssqli-card-foreground: var(--ssqli-light-ink);
+  --ssqli-popover: var(--ssqli-light-surface);
+  --ssqli-popover-foreground: var(--ssqli-light-ink);
+  --ssqli-primary: var(--ssqli-brand-600);
+  --ssqli-primary-foreground: #ffffff;
+  --ssqli-secondary: var(--ssqli-light-surface-2);
+  --ssqli-secondary-foreground: var(--ssqli-light-ink-2);
+  --ssqli-muted: var(--ssqli-light-surface-2);
+  --ssqli-muted-foreground: var(--ssqli-light-ink-3);
+  --ssqli-accent: var(--ssqli-brand-50);
+  --ssqli-accent-foreground: var(--ssqli-brand-700);
+  --ssqli-destructive: var(--ssqli-state-error);
+  --ssqli-destructive-foreground: #ffffff;
+  --ssqli-border: var(--ssqli-light-border);
+  --ssqli-input: var(--ssqli-light-border);
+  --ssqli-ring: var(--ssqli-light-ring);
+  --ssqli-grid-opacity: 0.05;
+}
+
+html.dark {
+  --ssqli-background: var(--ssqli-dark-bg);
+  --ssqli-foreground: var(--ssqli-dark-ink);
+  --ssqli-card: var(--ssqli-dark-surface);
+  --ssqli-card-foreground: var(--ssqli-dark-ink);
+  --ssqli-popover: var(--ssqli-dark-surface-2);
+  --ssqli-popover-foreground: var(--ssqli-dark-ink);
+  --ssqli-primary: var(--ssqli-brand-500);
+  --ssqli-primary-foreground: #0b0b0f;
+  --ssqli-secondary: var(--ssqli-dark-surface-2);
+  --ssqli-secondary-foreground: var(--ssqli-dark-ink-2);
+  --ssqli-muted: var(--ssqli-dark-surface-2);
+  --ssqli-muted-foreground: var(--ssqli-dark-ink-3);
+  --ssqli-accent: var(--ssqli-dark-surface-3);
+  --ssqli-accent-foreground: var(--ssqli-brand-300);
+  --ssqli-destructive: var(--ssqli-state-error);
+  --ssqli-destructive-foreground: #ffffff;
+  --ssqli-border: var(--ssqli-dark-border);
+  --ssqli-input: var(--ssqli-dark-border);
+  --ssqli-ring: var(--ssqli-dark-ring);
+  --ssqli-grid-opacity: 0.08;
+}
+
+html {
+  font-family: var(--ssqli-font-sans);
+  color: var(--ssqli-foreground);
+  background-color: var(--ssqli-background);
+}
+
+pre, code, .font-mono {
+  font-family: var(--ssqli-font-mono);
+}

@@ -24,6 +24,12 @@
         <error regexp="MemSQL does not support this type of query" fork="MemSQL"/>
         <error regexp="is not supported by MemSQL" fork="MemSQL"/>
         <error regexp="unsupported nested scalar subselect" fork="MemSQL"/>
+        <!-- 国产MySQL系fork：按公开驱动包名/产品词带上下文登记，未经靶场实测 -->
+        <error regexp="com\.(alipay\.)?oceanbase\." fork="OceanBase"/>
+        <error regexp="OceanBase.{0,80}(ERROR|error|错误|异常)" fork="OceanBase"/>
+        <error regexp="TDSQL.{0,80}(ERROR|error|错误|异常)" fork="TDSQL"/>
+        <error regexp="GoldenDB.{0,80}(ERROR|error|错误|异常)" fork="GoldenDB"/>
+        <error regexp="PolarDB.{0,80}(ERROR|error|错误|异常)" fork="PolarDB"/>
         <error regexp="syntax to use near"/>
         <error regexp="SQL syntax"/>
     </dbms>
@@ -34,6 +40,12 @@
         <error regexp="com\.yugabyte\.(util\.PSQLException|core\.v3)" fork="YugabyteDB"/>
         <error regexp="\(yb/\w+/\w+\.cc:\d+\)" fork="YugabyteDB"/>
         <error regexp="org\.opengauss\.(util\.PSQLException|core\.v3)" fork="OpenGauss"/>
+        <!-- 国产PG系fork：按公开驱动包名/产品词带上下文登记，未经靶场实测 -->
+        <error regexp="com\.huawei\.gauss" fork="GaussDB"/>
+        <error regexp="GaussDB.{0,80}(ERROR|error|错误|异常)" fork="GaussDB"/>
+        <error regexp="MogDB.{0,80}(ERROR|error|错误|异常)" fork="MogDB"/>
+        <error regexp="HighGo.{0,80}(ERROR|error|错误|异常)" fork="HighGo"/>
+        <error regexp="Vastbase.{0,80}(ERROR|error|错误|异常)" fork="Vastbase"/>
         <error regexp="(duckdb\.duckdb|_duckdb)\.(Parser|Binder|Catalog|Conversion)Exception" fork="DuckDB"/>
         <error regexp="org\.duckdb\.DuckDB" fork="DuckDB"/>
         <error regexp="Parser Error: [^\n]{0,40}at or near" fork="DuckDB"/>

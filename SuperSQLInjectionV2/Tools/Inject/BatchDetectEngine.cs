@@ -85,8 +85,10 @@ namespace SuperSQLInjectionV2.Tools.Inject
         /// <summary>
         /// 检测单个目标：GET参数逐一过检测引擎（跳过Token参数），再按level测扩展位置（JSON/XML/Cookie/头部/URI段）。
         /// 取消信号联动配置的停止标记（引擎内部CheckStop抛OperationCanceledException收敛）。
+        /// onHit：每确认一个注入点立即回调（检测工作线程触发，调用方需自行封送UI线程），实现发现一个写一个记录。
         /// </summary>
-        public static async Task<BatchTargetResult> DetectOne(AppConfig template, string url, string tag, CancellationToken ct)
+        public static async Task<BatchTargetResult> DetectOne(AppConfig template, string url, string tag, CancellationToken ct,
+            Action<InjectPoint, string, int>? onHit = null)
         {
             var result = new BatchTargetResult { Url = url };
             Uri? uri = NormalizeUrl(url);
@@ -107,6 +109,8 @@ namespace SuperSQLInjectionV2.Tools.Inject
                     string requestTxt = BuildGetRequestText(uri);
                     config.RequestTxt = requestTxt;
                     var request = new HttpRequest(config, requestTxt);
+                    //跨参数信号共享会话（目标级）：本目标参数间共享命中boundary/命中库
+                    var detectSession = new DetectSessionState();
                     if (request.Params.Count < 1)
                     {
                         //无查询参数也继续：扩展位置（URI段/头部）仍可能命中
@@ -127,8 +131,8 @@ namespace SuperSQLInjectionV2.Tools.Inject
                             wafChecked = true;
                             await InjectTools.CheckWaf(config, requestTxt, kv.Key, kv.Value).ConfigureAwait(false);
                         }
-                        List<InjectPoint> hits = await InjectDetectEngine.DetectParam(config, requestTxt, kv.Key, kv.Value).ConfigureAwait(false);
-                        CollectHits(result, hits, config);
+                        List<InjectPoint> hits = await InjectDetectEngine.DetectParam(config, requestTxt, kv.Key, kv.Value, session: detectSession,
+                            onHit: h => CollectHit(result, h, config, onHit)).ConfigureAwait(false);
                         //检出即停：本目标已检出注入，跳过后续参数与扩展位置，直接下一目标
                         if (hits.Count > 0 && config.DataConfig.DetectStopOnHit)
                         {
@@ -147,8 +151,8 @@ namespace SuperSQLInjectionV2.Tools.Inject
                         {
                             break;
                         }
-                        List<InjectPoint> hits = await InjectDetectEngine.DetectParam(config, requestTxt, t.Name, t.Value, t.Place, t.Header, t.UriIdx).ConfigureAwait(false);
-                        CollectHits(result, hits, config);
+                        List<InjectPoint> hits = await InjectDetectEngine.DetectParam(config, requestTxt, t.Name, t.Value, t.Place, t.Header, t.UriIdx, detectSession,
+                            h => CollectHit(result, h, config, onHit)).ConfigureAwait(false);
                         if (hits.Count > 0 && config.DataConfig.DetectStopOnHit)
                         {
                             Log.SysLog("已检出注入点，按「检出即停」设置跳过本目标剩余扩展位置检测！");
@@ -179,16 +183,16 @@ namespace SuperSQLInjectionV2.Tools.Inject
             return result;
         }
 
-        private static void CollectHits(BatchTargetResult result, List<InjectPoint> hits, AppConfig config)
+        /// <summary>命中即收集：追加结果集+记日志+即时回调（发现一个注入点就通知调用方写记录，不等目标收尾）</summary>
+        private static void CollectHit(BatchTargetResult result, InjectPoint inp, AppConfig config, Action<InjectPoint, string, int>? onHit)
         {
-            foreach (InjectPoint inp in hits)
+            if (!inp.IsInject)
             {
-                if (inp.IsInject)
-                {
-                    result.Hits.Add((inp, config.Host, config.Port));
-                    Log.Success("发现注入点：" + inp.PName + "（" + inp.InjectType + "，" + inp.DBType + "）");
-                }
+                return;
             }
+            result.Hits.Add((inp, config.Host, config.Port));
+            Log.Success("发现注入点：" + inp.PName + "（" + inp.InjectType + "，" + inp.DBType + "）");
+            onHit?.Invoke(inp, config.Host, config.Port);
         }
     }
 }

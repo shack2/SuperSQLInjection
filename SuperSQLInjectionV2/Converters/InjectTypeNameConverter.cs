@@ -15,6 +15,16 @@ public class InjectTypeNameConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
+        //族分组显示（数据库下拉开辟）：衍生/变体库缩进并标注族宿主，如"└ 人大金仓KingbaseES（PostgreSQL族）"
+        if (value is DBType fdt && parameter is string fp && string.Equals(fp, "family", StringComparison.Ordinal))
+        {
+            return FamilyDisplay(fdt);
+        }
+        //Fork库下拉显示：UnKnow项表示"无（宿主库）"，其余显示库名
+        if (value is DBType fkt && parameter is string kp && string.Equals(kp, "fork", StringComparison.Ordinal))
+        {
+            return fkt == DBType.UnKnow ? "无（宿主库）" : Convert(fkt, targetType, null, culture);
+        }
         return value switch
         {
             InjectType it => it switch
@@ -84,6 +94,18 @@ public class InjectTypeNameConverter : IValueConverter
             Enum e => e.ToString(),
             _ => value?.ToString() ?? ""
         };
+    }
+
+    /// <summary>族分组显示名：族宿主库显示原名；衍生/变体库缩进并标注族宿主（族判定取DbProfile.CompatDb注册表）</summary>
+    private string FamilyDisplay(DBType d)
+    {
+        string name = (string)Convert(d, typeof(string), null, CultureInfo.InvariantCulture);
+        DBType compat = SuperSQLInjectionV2.Payload.DbProfile.CompatOf(d);
+        if (compat != d && compat != DBType.UnKnow)
+        {
+            return "└ " + name + "（" + SuperSQLInjectionV2.Payload.DbProfile.DbmsNameOf(compat) + "族）";
+        }
+        return name;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

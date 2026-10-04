@@ -23,22 +23,19 @@ namespace SuperSQLInjectionV2.Models
         /// <summary>当前注入参数名（检测命中/恢复记录时写入，检测概览实时显示）</summary>
         [ObservableProperty] public partial string InjectParamName { get; set; } = "";
 
-        /// <summary>数据库类型选项（代码内置清单；标记JsonIgnore防止旧版lastconfig.json中的短列表反序列化覆盖新清单）</summary>
+        /// <summary>数据库族宿主选项（主下拉用：仅族宿主库，衍生/变体库走Fork库下拉；判定取DbProfile.CompatDb注册表）</summary>
         [JsonIgnore]
-        public List<DBType> DBTypes { get; set; } =
+        public List<DBType> DbFamilies { get; set; } =
         [
             DBType.UnKnow,
             DBType.MySQL,
             DBType.SQLServer,
-            DBType.DB2,
             DBType.Oracle,
             DBType.PostgreSQL,
+            DBType.Access,
+            DBType.DB2,
             DBType.SQLite,
             DBType.Informix,
-            DBType.Access,
-            DBType.DM,
-            DBType.Kingbase,
-            DBType.OpenGauss,
             DBType.H2,
             DBType.HSQLDB,
             DBType.ClickHouse
@@ -107,6 +104,10 @@ namespace SuperSQLInjectionV2.Models
         }
 
         [ObservableProperty] public partial DBType SelectedDBType { get; set; } = DBType.UnKnow;
+
+        /// <summary>当前fork/衍生库名（识别或手工选择；空=族宿主本库）。取数=族模板+fork overlay差异文件（config/payload|vers/fork_*.txt）</summary>
+        [ObservableProperty] public partial string SelectedForkName { get; set; } = "";
+
         [ObservableProperty] public partial InjectType SelectedInjectType { get; set; } = InjectType.UnKnow;
         [ObservableProperty] public partial int SumColumnCount { get; set; } = 4;
         [ObservableProperty] public partial int ShowColumnIndex { get; set; } = 2;
@@ -125,8 +126,42 @@ namespace SuperSQLInjectionV2.Models
 
         private static readonly object _dbTypeChangeLock = new object();
 
+        /// <summary>fork化归一中（防止族宿主回写时清空刚设置的Fork名）</summary>
+        private bool _forkNormalizing;
+
+        /// <summary>fork切换后重建模板/方言/词表/报错方式（与切库同链路，fork overlay差异即时生效）</summary>
+        partial void OnSelectedForkNameChanged(string value)
+        {
+            PayloadFactory.ForkName = value ?? "";
+            lock (_dbTypeChangeLock)
+            {
+                PayloadFactory.Init(SelectedDBType);
+            }
+            RefreshInjectTypes(SelectedDBType);
+            MeasuredErrorChunkLen = 0;
+            ReloadVersAndErrorMethods();
+        }
+
         partial void OnSelectedDBTypeChanged(DBType value)
         {
+            //fork化归一：金仓/openGauss/达梦等forkMode库不再作为独立取数库型，
+            //归一到族宿主库型+Fork名（取数=族模板+fork overlay差异文件）
+            var prof = SuperSQLInjectionV2.Payload.DbProfile.Get(value);
+            if (prof.ForkMode && prof.CompatDb != value && prof.CompatDb != DBType.UnKnow)
+            {
+                _forkNormalizing = true;
+                SelectedForkName = prof.DbmsName;
+                SelectedDBType = prof.CompatDb;
+                _forkNormalizing = false;
+                return;
+            }
+            //显式切到族宿主库时清空Fork名（归一化回写除外）；fork由识别/记录恢复重新写入
+            if (!_forkNormalizing && !string.IsNullOrEmpty(SelectedForkName)
+                && !SuperSQLInjectionV2.Payload.DbProfile.ForkDisplayNamesOf(value).Contains(SelectedForkName))
+            {
+                SelectedForkName = "";
+            }
+            PayloadFactory.ForkName = SelectedForkName ?? "";
             //Payload模板加载是纯文件读取，与UI线程无关，直接同步完成（保证后续取数模板就绪）
             lock (_dbTypeChangeLock)
             {
@@ -136,7 +171,12 @@ namespace SuperSQLInjectionV2.Models
             RefreshInjectTypes(value);
             //切换库后实测报错容量作废（容量随注入点+报错方式而变，恢复记录时会重新写入）
             MeasuredErrorChunkLen = 0;
-            //刷新报错方式下拉：默认+模板中的ErrorData@变体，并复位为默认
+            ReloadVersAndErrorMethods();
+        }
+
+        /// <summary>重载环境变量词表（fork overlay生效）+ 报错方式下拉（默认+ErrorData@变体，复位默认）</summary>
+        private void ReloadVersAndErrorMethods()
+        {
             void RefreshErrorMethods()
             {
                 ErrorMethods.Clear();
@@ -155,18 +195,19 @@ namespace SuperSQLInjectionV2.Models
                 VersItems.Clear();
                 HashItems.Clear();
                 PrivItems.Clear();
-                VersTools.ReadVersByDBType(value, VersItems, HashItems, PrivItems);
+                VersTools.ReadVersByDBType(SelectedDBType, VersItems, HashItems, PrivItems, SelectedForkName);
                 RefreshErrorMethods();
             }
             else
             {
                 //不用Invoke：后台线程同步等待UI线程会死锁/卡顿，改为Post异步派发
+                string fork = SelectedForkName;
                 Dispatcher.UIThread.Post( ()=>
                 {
                     VersItems.Clear();
                     HashItems.Clear();
                     PrivItems.Clear();
-                    VersTools.ReadVersByDBType(value, VersItems, HashItems, PrivItems);
+                    VersTools.ReadVersByDBType(SelectedDBType, VersItems, HashItems, PrivItems, fork);
                     RefreshErrorMethods();
                 });
             }
@@ -229,18 +270,16 @@ namespace SuperSQLInjectionV2.Models
         /// </summary>
         [ObservableProperty] public partial int DetectRisk { get; set; } = 1;
 
-        /// <summary>智能模式（smart 能力）：启发式无任何迹象（非动态参数+无错误指纹）时跳过深度检测；非动态参数跳过页面比对类技术</summary>
-        [ObservableProperty] public partial bool SmartMode { get; set; } = false;
+        /// <summary>智能模式（sqlmap --smart 同款，默认开）：启发式无任何迹象（非动态参数+无错误指纹）时跳过深度检测；
+        /// 非动态+无指纹但 Level≥3 时保留时间盲注/堆叠检测（这两类不依赖页面回显，是静态页面注入的唯一通道）；
+        /// 非动态+有指纹仍全技术检测。头注入/写入型低Level目标可关闭本开关全量重测</summary>
+        [ObservableProperty] public partial bool SmartMode { get; set; } = true;
 
         /// <summary>穷举模式（G2）：某技术命中后继续测完其余技术，注入记录给出完整画像；默认关（命中即跳到下一技术省时）</summary>
         [ObservableProperty] public partial bool DetectExhaustive { get; set; } = false;
 
         /// <summary>WAF拦截停止：检测过程中被拦截（HTTP 401/403/406/429/501）累计5次即停止整个检测，避免持续触发防护/封禁；默认关</summary>
         [ObservableProperty] public partial bool DetectStopOnWaf { get; set; } = false;
-
-        /// <summary>非动态参数停止：动态性预检判定参数为非动态（页面不随参数值变化）时跳过该参数全部检测（省时）；默认开；
-        /// 注意头注入/写入型注入（页面不随参数变化但SQL在后台执行）会被跳过，此类目标请关闭该开关重测</summary>
-        [ObservableProperty] public partial bool DetectStopOnNonDynamic { get; set; } = true;
 
         /// <summary>检出即停（sqlmap「keep testing the others」默认N同款）：某参数检出注入后停止其余参数的检测（省时）；默认开；
         /// 需要完整画像（所有参数×所有技术）时关闭本开关或配合穷举模式使用</summary>

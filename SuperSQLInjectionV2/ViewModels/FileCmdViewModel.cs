@@ -154,6 +154,17 @@ namespace SuperSQLInjectionV2.ViewModels
                     FileMethodHint = "日志写WebShell需堆叠注入；Union写文件需Union注入；二进制下载全通道可用，二进制上传需Union(小文件)/堆叠(分片)";
                     break;
                 case DBType.PostgreSQL:
+                    string pgFork = AppConfig.DataConfig.SelectedForkName ?? "";
+                    if (pgFork.Equals("openGauss", StringComparison.OrdinalIgnoreCase)
+                        || pgFork.Equals("MogDB", StringComparison.OrdinalIgnoreCase))
+                    {
+                        //openGauss系fork：COPY FROM PROGRAM已移除，不支持命令执行；COPY文件读写保留
+                        FileMethods.Add("Copy读文件");
+                        FileMethods.Add("Copy写文件");
+                        CmdMethodHint = pgFork + " 不支持 COPY FROM PROGRAM，命令执行不可用";
+                        FileMethodHint = "Copy读写需堆叠注入+superuser（fork overlay模板控制具体能力）";
+                        break;
+                    }
                     FileMethods.Add("Copy读文件");
                     FileMethods.Add("Copy写文件");
                     FileMethods.Add("大对象读文件");
@@ -161,8 +172,10 @@ namespace SuperSQLInjectionV2.ViewModels
                     FileMethods.Add("二进制下载(大对象)");
                     FileMethods.Add("二进制上传(大对象)");
                     CmdMethods.Add("COPY FROM PROGRAM");
+                    CmdMethods.Add("PlPython命令执行(COPY兜底)");
                     CmdMethods.Add("UDF sys_eval");
-                    CmdMethodHint = "COPY FROM PROGRAM（9.3+，需superuser/pg_execute_server_program）；UDF sys_eval（8.2~9.4，需堆叠注入）";
+                    CmdMethodHint = "COPY FROM PROGRAM（9.3+，需superuser/pg_execute_server_program，执行前实测探针验证）；PlPython（plpython3u扩展函数，纯SQL部署，需superuser+可装扩展）；UDF sys_eval（8.2~9.4，需堆叠注入）"
+                        + (string.IsNullOrEmpty(pgFork) ? "" : "；当前fork：" + pgFork);
                     FileMethodHint = "Copy读写需堆叠注入；大对象读写需superuser或pg_read/write_server_files；二进制上传堆叠分片，小文件可Union/报错单发";
                     break;
                 case DBType.SQLServer:
@@ -224,6 +237,15 @@ namespace SuperSQLInjectionV2.ViewModels
                     FileMethodHint = "file()仅能读 user_files 目录内文件；二进制下载走RawBLOB整读+hex传输；不支持写文件（INTO OUTFILE仅clickhouse-client客户端侧生效，HTTP接口注入不可用）";
                     break;
                 case DBType.Oracle:
+                    string oraFork = AppConfig.DataConfig.SelectedForkName ?? "";
+                    if (oraFork.Equals("DM", StringComparison.OrdinalIgnoreCase))
+                    {
+                        //达梦fork（实测2026-09 DM8）：无DBMS_XMLQUERY/DBMS_JAVA包；DmProvider堆叠批内禁DDL；UTL_FILE需预建目录对象。
+                        //纯Web注入下无可用通道，不提供文件/命令操作。
+                        CmdMethodHint = "DM 暂不支持命令执行（无DBMS_XMLQUERY，驱动堆叠禁DDL；Java外部函数需jar预置external_jar目录+ENABLE_EXTERNAL_CALL开参+重启）";
+                        FileMethodHint = "DM 暂不支持文件操作（UTL_FILE需DBA预建DIRECTORY对象，Java外部函数需预置jar，纯注入均不可达）";
+                        break;
+                    }
                     //GETXML Java通道：dbms_xmlquery.getxml可执行匿名PL/SQL块（实测23ai拒绝PL/SQL仅收SELECT，
                     //社区资料确认适用9i~11g；18c弃用该包/21c起移除）。借此免堆叠部署Java存储过程。
                     FileMethods.Add("Java读文件");
