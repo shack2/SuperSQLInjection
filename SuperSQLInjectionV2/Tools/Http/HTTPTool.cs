@@ -615,6 +615,12 @@ namespace SuperSQLInjectionV2.Tools.Http
             //本请求实际使用的代理（ip:port），空=直连；写入请求日志与控制台HTTP日志
             string proxyInfo = "";
             MemoryStream bodyData = new MemoryStream();
+            //复用的空闲连接可能已被服务端关闭（Apache默认KeepAliveTimeout=5s，远小于池TTL 30s）：
+            //连接来自池且首轮失败时静默丢弃、换新连接重发一次——不占外层重试次数、不刷误导性错误日志；
+            //仅吞连接类异常（IOException/SocketException=EOF/写失败），读超时与真实HTTP错误不受影响
+            CancellationTokenSource? readCts = null;   //读超时CTS：stale重发时替换，finally统一释放
+            CancellationToken rct = CancellationToken.None;
+            HttpStreamReader reader = null!;             //缓冲读取器：over-read字节留给body，须在循环外存活
             try
             {
                 if (request.Port <= 0 || request.Port > 65535)
@@ -638,91 +644,110 @@ namespace SuperSQLInjectionV2.Tools.Http
                     ? request.PoolKeySuffix
                     : $"px:{cproxy.proxyType}:{cproxy.Host}:{cproxy.Port}->{request.PoolKeySuffix}";
 
-                //信号量槽位制：租不到时排队等归还（线程数>池大小不再新建-丢弃造成握手风暴）
-                bool dbgHttp = Environment.GetEnvironmentVariable("SQLI_DEBUG_HTTP") == "1";
-                long tsRent = Stopwatch.GetTimestamp();
-                conn = await HttpConnectionPool.RentAsync(poolKey, ct).ConfigureAwait(false);
-                long tsRented = Stopwatch.GetTimestamp();
-                bool newConn = conn == null;
-                if (conn == null)
+                for (int staleRetry = 0; ; staleRetry++)
                 {
+                    bool fromPool = false;
                     try
                     {
-                        conn = await ConnectAsync(config, request, cproxy, poolKey, timeOutMs, ct).ConfigureAwait(false);
-                        HttpConnectionPool.AttachSlot(conn);
-                    }
-                    catch
+
+                    //信号量槽位制：租不到时排队等归还（线程数>池大小不再新建-丢弃造成握手风暴）
+                    bool dbgHttp = Environment.GetEnvironmentVariable("SQLI_DEBUG_HTTP") == "1";
+                    long tsRent = Stopwatch.GetTimestamp();
+                    conn = await HttpConnectionPool.RentAsync(poolKey, ct).ConfigureAwait(false);
+                    long tsRented = Stopwatch.GetTimestamp();
+                    bool newConn = conn == null;
+                    fromPool = !newConn; //连接来自池（复用）还是新建
+                    if (conn == null)
                     {
-                        //新建失败必须释放已占槽位，否则后续请求永久排队
-                        HttpConnectionPool.ReleaseSlot(poolKey);
-                        throw;
+                        try
+                        {
+                            conn = await ConnectAsync(config, request, cproxy, poolKey, timeOutMs, ct).ConfigureAwait(false);
+                            HttpConnectionPool.AttachSlot(conn);
+                        }
+                        catch
+                        {
+                            //新建失败必须释放已占槽位，否则后续请求永久排队
+                            HttpConnectionPool.ReleaseSlot(poolKey);
+                            throw;
+                        }
                     }
-                }
-                if (dbgHttp)
-                {
-                    Console.WriteLine($"[HTTP-T] rent={Stopwatch.GetElapsedTime(tsRent, tsRented).TotalMilliseconds:F0}ms new={newConn} connect={Stopwatch.GetElapsedTime(tsRented).TotalMilliseconds:F0}ms");
-                }
-                //NTLM连接级认证：未认证连接先发Type1/Type3握手（同一连接），认证成功后标记并复用
-                if (HttpAuthTool.IsNtlm(config) && !conn.NtlmAuthenticated)
-                {
-                    bool ntlmOk = await HttpAuthTool.HandshakeNtlmAsync(config, request, conn, timeOutMs, ct).ConfigureAwait(false);
-                    if (!ntlmOk)
+                    if (dbgHttp)
+                    {
+                        Console.WriteLine($"[HTTP-T] rent={Stopwatch.GetElapsedTime(tsRent, tsRented).TotalMilliseconds:F0}ms new={newConn} connect={Stopwatch.GetElapsedTime(tsRented).TotalMilliseconds:F0}ms");
+                    }
+                    //NTLM连接级认证：未认证连接先发Type1/Type3握手（同一连接），认证成功后标记并复用
+                    if (HttpAuthTool.IsNtlm(config) && !conn.NtlmAuthenticated)
+                    {
+                        bool ntlmOk = await HttpAuthTool.HandshakeNtlmAsync(config, request, conn, timeOutMs, ct).ConfigureAwait(false);
+                        if (!ntlmOk)
+                        {
+                            HttpConnectionPool.Discard(conn);
+                            conn = null;
+                            Log.SysLog("NTLM认证握手失败（凭据错误或服务器拒绝NTLMv1）！");
+                            return response;
+                        }
+                        conn.NtlmAuthenticated = true;
+                    }
+                    EnsureKeepAlive(request);
+                    //HTTP代理（非Socks5）：HTTP目标改absolute-form请求行/补Proxy-Authorization；HTTPS目标CONNECT隧道已建好，报文不动
+                    if (cproxy != null && !Socks5ProxyType.Equals(cproxy.proxyType, StringComparison.Ordinal))
+                    {
+                        ApplyHttpProxyForm(request, cproxy);
+                    }
+                    byte[] sendBytes = Encoding.UTF8.GetBytes(request.HeaderAndBody);
+                    long tsWrite = Stopwatch.GetTimestamp();
+                    await conn.Stream.WriteAsync(sendBytes, ct).ConfigureAwait(false);
+                    long tsWrote = Stopwatch.GetTimestamp();
+
+                    //读取超时预算 = 总超时 - 已耗时（P0-3修复：不再出现负值SendTimeout）
+                    readCts?.Dispose(); //stale重发：释放上一轮CTS
+                    readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    int remain = timeOutMs - (int)Stopwatch.GetElapsedTime(startTs).TotalMilliseconds;
+                    readCts.CancelAfter(Math.Max(1000, remain));
+                    rct = readCts.Token;
+
+                    reader = new HttpStreamReader(conn.Stream);
+                    //缓冲读header（替代逐字节ReadByte；over-read字节留给body）
+                    byte[] headBytes;
+                    try
+                    {
+                        headBytes = await reader.ReadUntilAsync(HeaderTerminator, rct).ConfigureAwait(false);
+                        if (dbgHttp)
+                        {
+                            long rh = (long)Stopwatch.GetElapsedTime(tsWrote).TotalMilliseconds;
+                            Console.WriteLine($"[HTTP-T] write={Stopwatch.GetElapsedTime(tsWrite, tsWrote).TotalMilliseconds:F0}ms readHead={rh}ms headLen={headBytes.Length}");
+                            if (rh > 1000)
+                            {
+                                Console.WriteLine("[HTTP-T] 慢请求原始报文<<<" + (request.HeaderAndBody ?? "") + ">>>");
+                                Console.WriteLine("[HTTP-T] 慢响应头<<<" + Encoding.ASCII.GetString(headBytes) + ">>>");
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        //读header超时：返回未完成响应（StatusCode=0触发上层重试）
+                        return response;
+                    }
+                    if (headBytes.Length < HeaderTerminator.Length)
+                    {
+                        throw new IOException("对端关闭连接或未返回有效HTTP响应头");
+                    }
+                    response.HeaderTxt = Encoding.ASCII.GetString(headBytes);
+                    if (response.StatusCode > 501 && response.StatusCode < 505)
+                    {
+                        throw new Exception("http访问异常-code:" + response.StatusCode + "！");
+                    }
+                        break;
+                    }
+                    catch (Exception e) when (fromPool && staleRetry == 0 && !ct.IsCancellationRequested
+                                              && (e is IOException or SocketException))
                     {
                         HttpConnectionPool.Discard(conn);
                         conn = null;
-                        Log.SysLog("NTLM认证握手失败（凭据错误或服务器拒绝NTLMv1）！");
-                        return response;
-                    }
-                    conn.NtlmAuthenticated = true;
-                }
-                EnsureKeepAlive(request);
-                //HTTP代理（非Socks5）：HTTP目标改absolute-form请求行/补Proxy-Authorization；HTTPS目标CONNECT隧道已建好，报文不动
-                if (cproxy != null && !Socks5ProxyType.Equals(cproxy.proxyType, StringComparison.Ordinal))
-                {
-                    ApplyHttpProxyForm(request, cproxy);
-                }
-                byte[] sendBytes = Encoding.UTF8.GetBytes(request.HeaderAndBody);
-                long tsWrite = Stopwatch.GetTimestamp();
-                await conn.Stream.WriteAsync(sendBytes, ct).ConfigureAwait(false);
-                long tsWrote = Stopwatch.GetTimestamp();
-
-                //读取超时预算 = 总超时 - 已耗时（P0-3修复：不再出现负值SendTimeout）
-                using CancellationTokenSource readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                int remain = timeOutMs - (int)Stopwatch.GetElapsedTime(startTs).TotalMilliseconds;
-                readCts.CancelAfter(Math.Max(1000, remain));
-                CancellationToken rct = readCts.Token;
-
-                using HttpStreamReader reader = new HttpStreamReader(conn.Stream);
-                //缓冲读header（替代逐字节ReadByte；over-read字节留给body）
-                byte[] headBytes;
-                try
-                {
-                    headBytes = await reader.ReadUntilAsync(HeaderTerminator, rct).ConfigureAwait(false);
-                    if (dbgHttp)
-                    {
-                        long rh = (long)Stopwatch.GetElapsedTime(tsWrote).TotalMilliseconds;
-                        Console.WriteLine($"[HTTP-T] write={Stopwatch.GetElapsedTime(tsWrite, tsWrote).TotalMilliseconds:F0}ms readHead={rh}ms headLen={headBytes.Length}");
-                        if (rh > 1000)
-                        {
-                            Console.WriteLine("[HTTP-T] 慢请求原始报文<<<" + (request.HeaderAndBody ?? "") + ">>>");
-                            Console.WriteLine("[HTTP-T] 慢响应头<<<" + Encoding.ASCII.GetString(headBytes) + ">>>");
-                        }
+                        Log.SysLog("复用连接已被服务端空闲关闭，自动换新连接重发（不占用重试次数）");
                     }
                 }
-                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-                {
-                    //读header超时：返回未完成响应（StatusCode=0触发上层重试）
-                    return response;
-                }
-                if (headBytes.Length < HeaderTerminator.Length)
-                {
-                    throw new IOException("对端关闭连接或未返回有效HTTP响应头");
-                }
-                response.HeaderTxt = Encoding.ASCII.GetString(headBytes);
-                if (response.StatusCode > 501 && response.StatusCode < 505)
-                {
-                    throw new Exception("http访问异常-code:" + response.StatusCode + "！");
-                }
+
 
                 //按响应头读取body
                 bool responseClose = response.Headers.TryGetValue(HttpConst.Connection, out string? connHeader)
@@ -780,6 +805,7 @@ namespace SuperSQLInjectionV2.Tools.Http
             }
             finally
             {
+                readCts?.Dispose();
                 response.RunTime = (long)Stopwatch.GetElapsedTime(startTs).TotalMilliseconds;
                 if (conn != null)
                 {
