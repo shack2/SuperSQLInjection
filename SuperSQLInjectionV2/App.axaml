@@ -44,8 +44,8 @@
 
         <!--  ======== 右键菜单 Lucide 线性图标（全局样式：ContextMenu/Flyout渲染在Popup层，Panel级样式无法触达；描边1.5与导航图标一致） ========  -->
         <Style Selector="Path.lucm">
-            <Setter Property="Width" Value="14" />
-            <Setter Property="Height" Value="14" />
+            <Setter Property="Width" Value="13" />
+            <Setter Property="Height" Value="13" />
             <Setter Property="Stretch" Value="Uniform" />
             <Setter Property="Stroke" Value="{DynamicResource DsgInk2}" />
             <Setter Property="StrokeThickness" Value="1.5" />
@@ -99,7 +99,7 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="TableViewCell TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
+            <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
             <Setter Property="FontSize" Value="12" />
         </Style>
 
@@ -126,20 +126,7 @@
             <Setter Property="Padding" Value="5" />
             <Setter Property="MinHeight" Value="30" />
         </Style>
-      
-        <Style Selector="u|IconButton.opadd">
-            <Setter Property="Background" Value="{DynamicResource DsgOpAdd}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource DsgOpAdd}" />
-            <Setter Property="Foreground" Value="White" />
-        </Style>
-        <Style Selector="u|IconButton.opadd:pointerover /template/ Border#PART_Background">
-            <Setter Property="Background" Value="{DynamicResource DsgOpAddHover}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource DsgOpAddHover}" />
-        </Style>
-        <Style Selector="u|IconButton.opadd:pressed /template/ Border#PART_Background">
-            <Setter Property="Background" Value="{DynamicResource DsgOpAddPressed}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource DsgOpAddPressed}" />
-        </Style>
+     
         <Style Selector="u|IconButton.opedit">
             <Setter Property="Background" Value="{DynamicResource DsgOpEdit}" />
             <Setter Property="BorderBrush" Value="{DynamicResource DsgOpEdit}" />
@@ -218,7 +205,7 @@
                                 Background="{DynamicResource DsgInput}"
                                 BorderThickness="1" BorderBrush="{DynamicResource DsgLineStrong}">
                             <Panel Name="PART_MovingKnobs">
-                                <Border Name="PART_Knob" Width="14" Height="12" CornerRadius="6"
+                                <Border Name="PART_Knob" Width="14" Height="14" CornerRadius="6"
                                         Background="{DynamicResource DsgCard}"
                                         HorizontalAlignment="Left" Margin="2,0,0,0" />
                             </Panel>
@@ -274,7 +261,7 @@
                 <SolidColorBrush x:Key="DsgLineStrong" Color="#D3D9E4" />
                  <SolidColorBrush x:Key="DsgInk0" Color="#111111" />
                 <SolidColorBrush x:Key="DsgInk1" Color="#333333" />
-                <SolidColorBrush x:Key="DsgInk2" Color="#555555" />
+                <SolidColorBrush x:Key="DsgInk2" Color="#666666" />
                 <SolidColorBrush x:Key="DsgInk3" Color="#939CAB" />
                 <SolidColorBrush x:Key="DsgPrimary" Color="#1D4ED8" />
                 <Color x:Key="DsgPrimaryColor">#2563EB</Color>
@@ -307,9 +294,7 @@
                 <SolidColorBrush x:Key="ButtonSolidForeground" Color="#FFFFFF" />
 
                 <!--  表格工具栏操作按钮色板（浅色，取自参考设计稿）：新增蓝/修改薄荷绿/删除粉，白字纯色柔和风  -->
-                <SolidColorBrush x:Key="DsgOpAdd" Color="#6A9DF7" />
-                <SolidColorBrush x:Key="DsgOpAddHover" Color="#3E74D1" />
-                <SolidColorBrush x:Key="DsgOpAddPressed" Color="#4D86E5" />
+     
                 <SolidColorBrush x:Key="DsgOpEdit" Color="#6CD9C3" />
                 <SolidColorBrush x:Key="DsgOpEditHover" Color="#86E0CD" />
                 <SolidColorBrush x:Key="DsgOpEditPressed" Color="#4CC3AB" />
@@ -370,9 +355,7 @@
                 <SolidColorBrush x:Key="DsgCodeBg" Color="#13161D" />
                 <SolidColorBrush x:Key="DsgMarkerBg" Color="#24FBBF24" />
                 <!--  表格工具栏操作按钮色板（深色）：同色系加深一档，保证深底上白字对比度  -->
-                <SolidColorBrush x:Key="DsgOpAdd" Color="#0891B2" />
-                <SolidColorBrush x:Key="DsgOpAddHover" Color="#06B6D4" />
-                <SolidColorBrush x:Key="DsgOpAddPressed" Color="#0E7490" />
+            
                 <SolidColorBrush x:Key="DsgOpEdit" Color="#2F8A74" />
                 <SolidColorBrush x:Key="DsgOpEditHover" Color="#3FA98F" />
                 <SolidColorBrush x:Key="DsgOpEditPressed" Color="#267060" />

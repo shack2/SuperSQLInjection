@@ -23,24 +23,24 @@
         <!--  全局 ComboBox 统一带边框样式  -->
     <Style Selector="ComboBox">
         <Setter Property="FontWeight" Value="Normal" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="iri:ClassHelper.Classes" Value="Bordered" />
         <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
     </Style>
      
       <Style Selector="TextBlock">
         <Setter Property="FontWeight" Value="Normal" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13" />
     </Style>
     <Style Selector="CheckBox">
         <Setter Property="FontWeight" Value="Normal" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
     </Style>
      <Style Selector="TextBox">
         <Setter Property="FontWeight" Value="Normal" />
          <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13" />
     </Style>
      
 

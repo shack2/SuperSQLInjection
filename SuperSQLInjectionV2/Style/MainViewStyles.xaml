@@ -21,14 +21,14 @@
             <!--  左侧导航项  -->
             <Style Selector="Button.navitem">
                 <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Height" Value="40" />
+                <Setter Property="Height" Value="35" />
                 <Setter Property="CornerRadius" Value="4" />
                 <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
                 <Setter Property="HorizontalContentAlignment" Value="Left" />
                 <Setter Property="Padding" Value="10,0" />
-                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontSize" Value="13" />
                 <!--  菜单文字用Light字重（300）：Inter/YaHei的Regular笔画偏厚，Light更接近设计稿观感；选中态SemiBold保持对比  -->
                 <Setter Property="FontWeight" Value="Normal"/>
                 <Setter Property="BorderThickness" Value="0" />
@@ -64,9 +64,8 @@
             <!--  导航项内图标：16px（设计稿 h-4/w-4，与14px文字形成层级）、比全局luc更浅一档、描边更细；
                   Margin上下±1.5视觉下移约1.5px对齐中文文字视觉中心（14px雅黑行盒内glyph偏上，图标几何居中显低）  -->
             <Style Selector="Button.navitem Path.luc">
-                <Setter Property="Width" Value="14" />
-                <Setter Property="Height" Value="14" />
-                <Setter Property="Margin" Value="0,1.5,0,-1.5" />
+                <Setter Property="Width" Value="13" />
+                <Setter Property="Height" Value="13" />
                 <Setter Property="Stroke" Value="{DynamicResource DsgNavIcon}" />
                 <Setter Property="StrokeThickness" Value="1.5" />
             </Style>
@@ -138,10 +137,8 @@
                     <ControlTemplate>
                         <Grid RowDefinitions="Auto,*">
                             <Border Grid.RowSpan="2" BorderBrush="{DynamicResource DsgBorder}" BorderThickness="1" CornerRadius="4" Margin="0,9,0,0" />
-                            <Border Background="{DynamicResource DsgCard}" HorizontalAlignment="Left" Margin="10,0,0,0" Padding="5,1">
-                                <ContentPresenter Content="{TemplateBinding Header}"
-                                                  TextElement.FontSize="14" 
-                                                  TextElement.Foreground="{DynamicResource DsgPrimary}" />
+                            <Border Background="{DynamicResource DsgCard}"  HorizontalAlignment="Left" Margin="10,0,0,0" Padding="5,1">
+                                <TextBlock Text="{TemplateBinding Header}" FontSize="12" FontWeight="SemiBold" TextBlock.Foreground="{DynamicResource DsgInk1}"/>
                             </Border>
                             <ContentPresenter Grid.Row="1" Content="{TemplateBinding Content}" Margin="{TemplateBinding Padding}" />
                         </Grid>
@@ -259,6 +256,7 @@
                 <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FontWeight" Value="Normal" />
             </Style>
             <Style Selector="Button.chip:pointerover">
                 <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
@@ -274,7 +272,7 @@
 
 
              <Style Selector="TextBlock.Normal">
-                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontSize" Value="13" />
               <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
             </Style>
 
@@ -297,11 +295,10 @@
                 <!--  值文本用最深的主题墨色（浅色主题下近黑；随暗色主题自动反白，不写死纯黑防止暗色不可读）  -->
                 <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
                 <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
             <!--  工具列面板标题  -->
             <Style Selector="TextBlock.toolshead">
-                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontSize" Value="13" />
                 <Setter Property="FontWeight" Value="Bold" />
                 <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
             </Style>
