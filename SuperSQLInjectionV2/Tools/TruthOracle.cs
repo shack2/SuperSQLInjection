@@ -169,21 +169,51 @@ namespace SuperSQLInjectionV2.Tools
 
                 case BoolInjectType.Similarity:
                     //页面相似度判断（sqlmap同款取数oracle）：高动态页面离散判断依据不可靠时的三档兜底。
-                    //响应页按检测期确定的模式投影后与比对基准算相似度，ratio≥阈值判真；基准缺失时判假（不误判真）
+                    //三段式硬判（检测期/一次性校验场景）：≥0.98快判真、≤0.02快判假、其余按阈值分界；
+                    //取数链路应改用JudgeSimilarity（灰区返回null交由上层重发）。基准缺失时判假（不误判真）
                     {
-                        bool hit = false;
-                        if (!string.IsNullOrEmpty(simTemplate))
-                        {
-                            string projection = WebPageDiffAnalyzer.ProjectForMode(response.BodyTxt, simMode);
-                            double ratio = PageLikeTool.CalculateSimilarity(simTemplate, projection);
-                            hit = ratio >= simCutoff;
-                        }
+                        bool hit = !string.IsNullOrEmpty(simTemplate)
+                                   && SimRatio(response, simTemplate, simMode) >= simCutoff;
                         return reverKey ? !hit : hit;
                     }
 
             }
             return false;
 
+        }
+
+        /// <summary>相似度比对：响应页按检测期确定的模式投影后与基准算ratio</summary>
+        private static double SimRatio(HttpResponse response, string simTemplate, string simMode)
+        {
+            string projection = WebPageDiffAnalyzer.ProjectForMode(response.BodyTxt, simMode);
+            return PageLikeTool.CalculateSimilarity(simTemplate, projection);
+        }
+
+        /// <summary>
+        /// 相似度三段式判定（sqlmap comparison同款）：ratio≥0.98快判真、≤0.02快判假、
+        /// 与阈值距离&lt;灰区半宽（0.01）返回null=不可判定（取数链路据此重发而非硬猜）；
+        /// 基准缺失返回false（绝不误判真）。返回值不含取反，取反由调用方应用
+        /// </summary>
+        public static bool? JudgeSimilarity(HttpResponse response, string simTemplate, string simMode, double simCutoff)
+        {
+            if (string.IsNullOrEmpty(simTemplate))
+            {
+                return false;
+            }
+            double ratio = SimRatio(response, simTemplate, simMode);
+            if (ratio >= Inject.DetectTuning.UpperBound)
+            {
+                return true;
+            }
+            if (ratio <= Inject.DetectTuning.LowerBound)
+            {
+                return false;
+            }
+            if (Math.Abs(ratio - simCutoff) < Inject.DetectTuning.SimGrayZone)
+            {
+                return null;
+            }
+            return ratio >= simCutoff;
         }
 
         public static string FindKeyByStr(string? trueString, string? falseString, string? oldString)

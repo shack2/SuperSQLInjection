@@ -488,8 +488,7 @@ namespace SuperSQLInjectionV2.Models.Data
                 request.NullBodyHint = NullBodyCapable(config);
                 request.Payload = WrapSleepCondition(config, PayloadFactory.BPTool.CheckBoolData(payload, mid));
                 HttpResponse response = await SendBoolGuarded(config, request).ConfigureAwait(false);
-                bool exists = TruthOracle.IsTrue(response, config.DataConfig.CheckValue, config.DataConfig.Reverse, config.DataConfig.EffectiveBoolType,
-                    config.DataConfig.SimilarTemplate, config.DataConfig.SimilarMode, config.DataConfig.SimilarCutoff);
+                bool exists = await JudgeBoolAsync(config, request, response);
                 if (low == high)
                 {
                     if (exists)
@@ -515,6 +514,38 @@ namespace SuperSQLInjectionV2.Models.Data
 
         }
 
+        /// <summary>
+        /// 盲注取数统一真假判定入口：离散判定方式（关键字/状态码/长度/时间）直接判；
+        /// Similarity走sqlmap三段式——快判真/假立即返回，灰区（贴阈值&LT;0.01）不可判定时
+        /// 原请求重发（最多2次，sqlmap comparison返回None→queryPage重试同款语义），
+        /// 连发仍贴阈值才按阈值近侧硬判并留痕，避免模糊响应硬归类污染取数比特
+        /// </summary>
+        private static async Task<bool> JudgeBoolAsync(AppConfig config, HttpRequest request, HttpResponse response)
+        {
+            var dc = config.DataConfig;
+            if (dc.EffectiveBoolType != BoolInjectType.Similarity)
+            {
+                return TruthOracle.IsTrue(response, dc.CheckValue, dc.Reverse, dc.EffectiveBoolType);
+            }
+            for (int attempt = 0; ; attempt++)
+            {
+                bool? judged = TruthOracle.JudgeSimilarity(response, dc.SimilarTemplate, dc.SimilarMode, dc.SimilarCutoff);
+                if (judged.HasValue)
+                {
+                    return dc.Reverse ? !judged.Value : judged.Value;
+                }
+                if (attempt >= 2)
+                {
+                    Log.SysLog("相似度判定连续落入灰区（阈值" + dc.SimilarCutoff.ToString("F3") + "），按近侧硬判！目标页面动态性过强，取数结果可能不可靠");
+                    bool hard = TruthOracle.IsTrue(response, "", false, BoolInjectType.Similarity,
+                        dc.SimilarTemplate, dc.SimilarMode, dc.SimilarCutoff);
+                    return dc.Reverse ? !hard : hard;
+                }
+                //灰区重发：同一请求原样重发（脏数据防护由SendBoolGuarded兜底）
+                response = await SendBoolGuarded(config, request).ConfigureAwait(false);
+            }
+        }
+
         /// <summary>单次盲注oracle探测（X > mid 判定），与GetBoolValue内部发包/判定逻辑一致</summary>
         public static async Task<bool> ProbeBool(AppConfig config, string payload, int mid)
         {
@@ -523,8 +554,7 @@ namespace SuperSQLInjectionV2.Models.Data
             request.NullBodyHint = NullBodyCapable(config);
             request.Payload = WrapSleepCondition(config, PayloadFactory.BPTool.CheckBoolData(payload, mid));
             HttpResponse response = await SendBoolGuarded(config, request).ConfigureAwait(false);
-            return TruthOracle.IsTrue(response, config.DataConfig.CheckValue, config.DataConfig.Reverse, config.DataConfig.EffectiveBoolType,
-                    config.DataConfig.SimilarTemplate, config.DataConfig.SimilarMode, config.DataConfig.SimilarCutoff);
+            return await JudgeBoolAsync(config, request, response);
         }
 
         /// <summary>
@@ -840,8 +870,7 @@ namespace SuperSQLInjectionV2.Models.Data
                 request.NullBodyHint = NullBodyCapable(config);
                 request.Payload = WrapSleepCondition(config, payload.Replace("{len}", mid+"", StringComparison.Ordinal));
                 HttpResponse response = await SendBoolGuarded(config, request).ConfigureAwait(false);
-                bool exists = TruthOracle.IsTrue(response, config.DataConfig.CheckValue, config.DataConfig.Reverse, config.DataConfig.EffectiveBoolType,
-                    config.DataConfig.SimilarTemplate, config.DataConfig.SimilarMode, config.DataConfig.SimilarCutoff);
+                bool exists = await JudgeBoolAsync(config, request, response);
 
 
                 if (exists)
@@ -958,8 +987,7 @@ namespace SuperSQLInjectionV2.Models.Data
             request.NullBodyHint = NullBodyCapable(config);
             request.Payload = WrapSleepCondition(config, condition);
             HttpResponse response = await SendBoolGuarded(config, request).ConfigureAwait(false);
-            return TruthOracle.IsTrue(response, config.DataConfig.CheckValue, config.DataConfig.Reverse, config.DataConfig.EffectiveBoolType,
-                    config.DataConfig.SimilarTemplate, config.DataConfig.SimilarMode, config.DataConfig.SimilarCutoff);
+            return await JudgeBoolAsync(config, request, response);
         }
 
         /// <summary>
