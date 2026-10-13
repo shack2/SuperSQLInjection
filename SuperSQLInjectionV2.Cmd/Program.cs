@@ -162,6 +162,9 @@ public static class Program
                 BoolInjectType = h.BoolInjectType,
                 CheckValue = h.CheckValue ?? "",
                 Revers = h.Revers,
+                SimilarTemplate = h.SimilarTemplate ?? "",
+                SimilarMode = h.SimilarMode ?? "",
+                SimilarCutoff = h.SimilarCutoff,
                 SumColumnCount = h.SumColumnCount,
                 ShowColumnIndex = h.ShowColumnIndex,
                 RequestTxt = h.RequestTxt ?? ""
@@ -225,6 +228,9 @@ public static class Program
                     BoolInjectType = best.BoolInjectType,
                     CheckValue = best.CheckValue ?? "",
                     Revers = best.Revers,
+                    SimilarTemplate = best.SimilarTemplate ?? "",
+                    SimilarMode = best.SimilarMode ?? "",
+                    SimilarCutoff = best.SimilarCutoff,
                     SumColumnCount = best.SumColumnCount,
                     ShowColumnIndex = best.ShowColumnIndex,
                     RequestTxt = best.RequestTxt ?? ""
@@ -987,6 +993,10 @@ public static class Program
             }
             config.DataConfig.CheckValue = best.CheckValue;
             config.DataConfig.Reverse = best.Revers;
+            //相似度oracle基准（高动态三档兜底取数依赖）
+            config.DataConfig.SimilarTemplate = best.SimilarTemplate ?? "";
+            config.DataConfig.SimilarMode = best.SimilarMode ?? "";
+            config.DataConfig.SimilarCutoff = best.SimilarCutoff;
         }
         if (best.InjectType == InjectType.Union)
         {

@@ -21,8 +21,12 @@ namespace SuperSQLInjectionV2.Tools
         /// <param name="server">服务器响应对象ServerInfo</param>
         /// <param name="isUseCode">是否使用状态码判断</param>
         /// <param name="key">关键字</param>
+        /// <param name="simTemplate">相似度判定比对基准（仅BoolInjectType.Similarity用，检测期确定后随注入记录携带）</param>
+        /// <param name="simMode">相似度投影模式（""/skeleton/text）</param>
+        /// <param name="simCutoff">相似度判定阈值</param>
         /// <returns></returns>
-        public static bool IsTrue(HttpResponse response,string key,bool reverKey,BoolInjectType keyType)
+        public static bool IsTrue(HttpResponse response, string key, bool reverKey, BoolInjectType keyType,
+            string simTemplate = "", string simMode = "", double simCutoff = 0.95)
         {
             switch (keyType) {
 
@@ -161,6 +165,20 @@ namespace SuperSQLInjectionV2.Tools
                             return true;
                         }
                         return false;
+                    }
+
+                case BoolInjectType.Similarity:
+                    //页面相似度判断（sqlmap同款取数oracle）：高动态页面离散判断依据不可靠时的三档兜底。
+                    //响应页按检测期确定的模式投影后与比对基准算相似度，ratio≥阈值判真；基准缺失时判假（不误判真）
+                    {
+                        bool hit = false;
+                        if (!string.IsNullOrEmpty(simTemplate))
+                        {
+                            string projection = WebPageDiffAnalyzer.ProjectForMode(response.BodyTxt, simMode);
+                            double ratio = PageLikeTool.CalculateSimilarity(simTemplate, projection);
+                            hit = ratio >= simCutoff;
+                        }
+                        return reverKey ? !hit : hit;
                     }
 
             }

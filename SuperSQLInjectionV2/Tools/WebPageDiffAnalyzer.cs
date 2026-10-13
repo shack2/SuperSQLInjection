@@ -325,6 +325,23 @@ namespace SuperSQLInjectionV2.Tools
             text = MultiSpaceRegex().Replace(text, " ");
             return System.Net.WebUtility.HtmlDecode(text.Trim());
         }
+
+        /// <summary>
+        /// 按比对模式投影页面（取数相似度oracle用，与检测期模板构造同投影才可比）：
+        /// "skeleton"=结构骨架（无结构返回空串，比对结果趋0判假）；"text"=纯文本；其余=原文
+        /// </summary>
+        public static string ProjectForMode(string? page, string mode)
+        {
+            if ("skeleton".Equals(mode, StringComparison.Ordinal))
+            {
+                return ExtractStructuralTokens(page) ?? "";
+            }
+            if ("text".Equals(mode, StringComparison.Ordinal))
+            {
+                return GetFilteredPageContent(page);
+            }
+            return page ?? "";
+        }
     }
 
     /// <summary>

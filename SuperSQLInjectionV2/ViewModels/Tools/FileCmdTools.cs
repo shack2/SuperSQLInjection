@@ -61,6 +61,10 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             dc.SelectBoolInject = rec.BoolInjectType;
             dc.CheckValue = rec.CheckValue ?? "";
             dc.Reverse = rec.Revers;
+            //相似度oracle基准随记录带出（高动态三档兜底）
+            dc.SimilarTemplate = rec.SimilarTemplate ?? "";
+            dc.SimilarMode = rec.SimilarMode ?? "";
+            dc.SimilarCutoff = rec.SimilarCutoff;
             Log.Success(opDesc + "需要堆叠注入：注入记录中同参数存在堆叠通道，已自动切换注入类型（" + oldType + "→堆叠）！");
             return true;
         }

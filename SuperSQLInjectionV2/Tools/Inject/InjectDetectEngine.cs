@@ -250,8 +250,10 @@ namespace SuperSQLInjectionV2.Tools.Inject
                     }
                     else
                     {
-                        //降级档2（sqlmap --text-only同款）：剥标签比纯文本，纯文本稳定则按文本比对
-                        List<string> texts = pages.Select(p => WebPageDiffAnalyzer.GetFilteredPageContent(WebPageDiffAnalyzer.ClearDynamicText(ctx.Features, p))).ToList();
+                        //降级档2（sqlmap --text-only同款）：剥标签比纯文本，纯文本稳定则按文本比对。
+                        //注意：模板直接对原文投影、不做清动态——取数侧oracle只能拿到原始页面，
+                        //投影必须从原文可复现（骨架提取本就与动态特征无关，此处对齐同一约束）
+                        List<string> texts = pages.Select(p => WebPageDiffAnalyzer.GetFilteredPageContent(p)).ToList();
                         double minTextRatio = 1.0;
                         for (int i = 0; i < texts.Count; i++)
                         {
@@ -861,8 +863,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
             //判定条件回放：选出的判断方式必须在指定真/假响应上判定正确（真→true、假→false）
             bool JudgeOk(HttpResponse t, HttpResponse f)
             {
-                return TruthOracle.IsTrue(t, inp.CheckValue, inp.Revers, inp.BoolInjectType)
-                       && !TruthOracle.IsTrue(f, inp.CheckValue, inp.Revers, inp.BoolInjectType);
+                return JudgeByRecord(inp, t) && !JudgeByRecord(inp, f);
             }
 
             SelectJudge(trueResp, falseResp);
@@ -875,6 +876,14 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 if (JudgeOk(trueResp, falseResp))
                 {
                     Log.Success("回放降级后判断条件有效：" + inp.BoolInjectType + "=" + inp.CheckValue);
+                }
+                else if (TrySelectSimilarityJudge(ctx, inp, trueResp, falseResp, true2Resp, false2Resp))
+                {
+                    //三档兜底取数oracle（sqlmap同款：取数复用检测比对引擎）——离散判断依据
+                    //（关键字/状态码/长度）双向回放均失败=高动态页面无稳定离散特征，降级为页面相似度判定
+                    Log.Success("离散判断依据不可用，降级为页面相似度判定（模式=" +
+                        (inp.SimilarMode == "skeleton" ? "结构骨架" : inp.SimilarMode == "text" ? "纯文本" : "清动态模板") +
+                        "，阈值=" + inp.SimilarCutoff.ToString("F3") + "），取数按相似度oracle执行！");
                 }
                 else
                 {
@@ -987,11 +996,58 @@ namespace SuperSQLInjectionV2.Tools.Inject
             }
         }
 
+        /// <summary>按注入点记录判定响应真假（Similarity模式自动携带比对基准/投影模式/阈值）</summary>
+        private static bool JudgeByRecord(InjectPoint inp, HttpResponse resp)
+        {
+            return TruthOracle.IsTrue(resp, inp.CheckValue, inp.Revers, inp.BoolInjectType,
+                inp.SimilarTemplate, inp.SimilarMode, inp.SimilarCutoff);
+        }
+
+        /// <summary>
+        /// 相似度oracle选取（高动态页面三档兜底的取数侧闭环）：两组真/假响应在检测期比对基准上
+        /// 有稳定区分间隙（最小真ratio-最大假ratio≥0.02）时，将判断方式切换为Similarity，
+        /// 比对基准按检测期已确定的降级档位携带（skeleton/text/清动态模板），阈值取真假ratio中点
+        /// </summary>
+        private static bool TrySelectSimilarityJudge(Ctx ctx, InjectPoint inp,
+            HttpResponse t1, HttpResponse f1, HttpResponse t2, HttpResponse f2)
+        {
+            double minT = Math.Min(RatioVsTemplate(ctx, t1.BodyTxt ?? ""), RatioVsTemplate(ctx, t2.BodyTxt ?? ""));
+            double maxF = Math.Max(RatioVsTemplate(ctx, f1.BodyTxt ?? ""), RatioVsTemplate(ctx, f2.BodyTxt ?? ""));
+            if (minT - maxF < 0.02)
+            {
+                return false; //真假页在相似度维度也无区分间隙，相似度oracle同样不可用
+            }
+            if (ctx.TemplateSkeleton != null)
+            {
+                inp.SimilarMode = "skeleton";
+                inp.SimilarTemplate = ctx.TemplateSkeleton;
+            }
+            else if (ctx.TemplateTextOnly != null)
+            {
+                inp.SimilarMode = "text";
+                inp.SimilarTemplate = ctx.TemplateTextOnly;
+            }
+            else
+            {
+                inp.SimilarMode = "";
+                inp.SimilarTemplate = ctx.Template ?? "";
+            }
+            if (string.IsNullOrEmpty(inp.SimilarTemplate))
+            {
+                return false;
+            }
+            inp.BoolInjectType = BoolInjectType.Similarity;
+            inp.CheckValue = "";
+            inp.Revers = false;
+            inp.SimilarCutoff = Math.Round((minT + maxF) / 2, 4);
+            return true;
+        }
+
         /// <summary>经已建立的注入点发送条件并用oracle判定，比对期望值</summary>
         private static async Task<bool> JudgeCondition(Ctx ctx, InjectPoint inp, string condition, bool expectTrue)
         {
             HttpResponse resp = await Send(ctx, inp.RequestTxt, condition).ConfigureAwait(false);
-            bool judged = TruthOracle.IsTrue(resp, inp.CheckValue, inp.Revers, inp.BoolInjectType);
+            bool judged = JudgeByRecord(inp, resp);
             return judged == expectTrue;
         }
 
@@ -1095,7 +1151,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 int n = new Random().Next(1000, 8999);
                 string condTrue = "(" + (n + 1) + ">" + n + ")";
                 HttpResponse trueResp = await Send(ctx, inp.RequestTxt, condTrue).ConfigureAwait(false);
-                if (TruthOracle.IsTrue(trueResp, inp.CheckValue, inp.Revers, inp.BoolInjectType))
+                if (JudgeByRecord(inp, trueResp))
                 {
                     //'>'未被过滤，无需适配
                     return "";
@@ -1117,8 +1173,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 }
                 HttpResponse at = await Send(ctx, inp.RequestTxt, adaptedTrue).ConfigureAwait(false);
                 HttpResponse af = await Send(ctx, inp.RequestTxt, adaptedFalse).ConfigureAwait(false);
-                bool ok = TruthOracle.IsTrue(at, inp.CheckValue, inp.Revers, inp.BoolInjectType)
-                          && !TruthOracle.IsTrue(af, inp.CheckValue, inp.Revers, inp.BoolInjectType);
+                bool ok = JudgeByRecord(inp, at) && !JudgeByRecord(inp, af);
                 if (ok)
                 {
                     Log.Success("'>' 过滤自动适配成功：between（NOT BETWEEN重写）真/假双验证通过，已随注入记录保存，取数恢复记录时自动启用！");

@@ -2089,6 +2089,10 @@ public partial class MainViewViewModel : ViewModelBase
                 AppConfig.DataConfig.CheckValue = inp.CheckValue;
                 //反取标志联动（概览"反取"标记 + 盲注取数链路消费）
                 AppConfig.DataConfig.Reverse = inp.Revers;
+                //相似度oracle基准联动（高动态三档兜底命中时取数依赖）
+                AppConfig.DataConfig.SimilarTemplate = inp.SimilarTemplate ?? "";
+                AppConfig.DataConfig.SimilarMode = inp.SimilarMode ?? "";
+                AppConfig.DataConfig.SimilarCutoff = inp.SimilarCutoff;
                 //时间盲注延时秒数带出到通道配置时间盲注组
                 SyncTimeSleepFromCheckValue();
             }
@@ -2496,6 +2500,9 @@ public partial class MainViewViewModel : ViewModelBase
             BoolInjectType = inp.BoolInjectType,
             CheckValue = inp.CheckValue ?? "",
             Revers = inp.Revers,
+            SimilarTemplate = inp.SimilarTemplate ?? "",
+            SimilarMode = inp.SimilarMode ?? "",
+            SimilarCutoff = inp.SimilarCutoff,
             SumColumnCount = inp.SumColumnCount,
             ShowColumnIndex = inp.ShowColumnIndex,
             UnionStartPayLoad = inp.UnionStartPayLoad ?? "",
@@ -2693,6 +2700,10 @@ public partial class MainViewViewModel : ViewModelBase
             }
             AppConfig.DataConfig.CheckValue = record.CheckValue;
             AppConfig.DataConfig.Reverse = record.Revers;
+            //相似度oracle基准随记录恢复（高动态三档兜底取数依赖）
+            AppConfig.DataConfig.SimilarTemplate = record.SimilarTemplate ?? "";
+            AppConfig.DataConfig.SimilarMode = record.SimilarMode ?? "";
+            AppConfig.DataConfig.SimilarCutoff = record.SimilarCutoff;
             //时间盲注延时秒数随记录带出到通道配置时间盲注组
             SyncTimeSleepFromCheckValue();
         }
@@ -3154,8 +3165,10 @@ public partial class MainViewViewModel : ViewModelBase
             hr1.Payload = ConstData.FalsePayload;
             HttpResponse falseServer = await HTTPTool.SendRequestRetryAsync(hr1);
 
-            bool truep = TruthOracle.IsTrue(trueServer, AppConfig.DataConfig.CheckValue, AppConfig.DataConfig.Reverse, AppConfig.DataConfig.EffectiveBoolType);
-            bool falsep = TruthOracle.IsTrue(falseServer, AppConfig.DataConfig.CheckValue, AppConfig.DataConfig.Reverse, AppConfig.DataConfig.EffectiveBoolType);
+            bool truep = TruthOracle.IsTrue(trueServer, AppConfig.DataConfig.CheckValue, AppConfig.DataConfig.Reverse, AppConfig.DataConfig.EffectiveBoolType,
+                AppConfig.DataConfig.SimilarTemplate, AppConfig.DataConfig.SimilarMode, AppConfig.DataConfig.SimilarCutoff);
+            bool falsep = TruthOracle.IsTrue(falseServer, AppConfig.DataConfig.CheckValue, AppConfig.DataConfig.Reverse, AppConfig.DataConfig.EffectiveBoolType,
+                AppConfig.DataConfig.SimilarTemplate, AppConfig.DataConfig.SimilarMode, AppConfig.DataConfig.SimilarCutoff);
             isok = truep && !falsep;
         }
         catch (Exception ep)

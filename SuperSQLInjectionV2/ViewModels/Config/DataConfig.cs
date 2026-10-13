@@ -224,8 +224,16 @@ namespace SuperSQLInjectionV2.Models
             BoolInjectType.Code,
             BoolInjectType.BodyLength,
             BoolInjectType.MaxLength,
-            BoolInjectType.MinLength
+            BoolInjectType.MinLength,
+            BoolInjectType.Similarity
         ];
+
+        /// <summary>相似度判定比对基准（BoolInjectType=Similarity时有效）：检测期确定后随注入记录恢复；会话级，不持久化到全局配置</summary>
+        [JsonIgnore] public string SimilarTemplate { get; set; } = "";
+        /// <summary>相似度投影模式（""=清动态模板 / "skeleton"=结构骨架 / "text"=纯文本）</summary>
+        [JsonIgnore] public string SimilarMode { get; set; } = "";
+        /// <summary>相似度判定阈值：ratio≥该值判真</summary>
+        [JsonIgnore] public double SimilarCutoff { get; set; } = 0.95;
 
         /// <summary>取数实际判定方式：注入类型为时间盲注/堆叠时强制按响应耗时判定（堆叠取数回退时间通道，CheckValue=延时秒数），否则用所选Bool盲注判断方式</summary>
         [JsonIgnore]

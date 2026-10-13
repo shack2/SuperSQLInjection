@@ -151,7 +151,8 @@ namespace SuperSQLInjectionV2.Tools.Inject
             HttpRequest hr = new HttpRequest(config, hit.RequestTxt);
             hr.Payload = probe;
             HttpResponse resp = await HTTPTool.SendRequestRetryAsync(hr).ConfigureAwait(false);
-            return TruthOracle.IsTrue(resp, hit.CheckValue, hit.Revers, hit.BoolInjectType);
+            return TruthOracle.IsTrue(resp, hit.CheckValue, hit.Revers, hit.BoolInjectType,
+                hit.SimilarTemplate, hit.SimilarMode, hit.SimilarCutoff);
         }
 
         private static string TrimBanner(string? banner)

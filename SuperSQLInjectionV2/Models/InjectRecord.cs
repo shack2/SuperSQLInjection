@@ -47,6 +47,13 @@ namespace SuperSQLInjectionV2.Models
         /// </summary>
         public bool Revers { get; set; } = false;
 
+        /// <summary>相似度判定比对基准文本（BoolInjectType=Similarity时有效，高动态页面三档兜底取数oracle）</summary>
+        public string SimilarTemplate { get; set; } = "";
+        /// <summary>相似度判定投影模式（""=正常模板 / "skeleton"=结构骨架 / "text"=纯文本）</summary>
+        public string SimilarMode { get; set; } = "";
+        /// <summary>相似度判定阈值：ratio≥该值判真</summary>
+        public double SimilarCutoff { get; set; } = 0.95;
+
         /// <summary>Union总列数（仅Union注入有意义，其余类型记录中无意义）</summary>
         public int SumColumnCount { get; set; } = 1;
 

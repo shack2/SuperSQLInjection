@@ -488,7 +488,8 @@ namespace SuperSQLInjectionV2.Models.Data
                 request.NullBodyHint = NullBodyCapable(config);
                 request.Payload = WrapSleepCondition(config, PayloadFactory.BPTool.CheckBoolData(payload, mid));
                 HttpResponse response = await SendBoolGuarded(config, request).ConfigureAwait(false);
-                bool exists = TruthOracle.IsTrue(response, config.DataConfig.CheckValue, config.DataConfig.Reverse, config.DataConfig.EffectiveBoolType);
+                bool exists = TruthOracle.IsTrue(response, config.DataConfig.CheckValue, config.DataConfig.Reverse, config.DataConfig.EffectiveBoolType,
+                    config.DataConfig.SimilarTemplate, config.DataConfig.SimilarMode, config.DataConfig.SimilarCutoff);
                 if (low == high)
                 {
                     if (exists)
@@ -522,7 +523,8 @@ namespace SuperSQLInjectionV2.Models.Data
             request.NullBodyHint = NullBodyCapable(config);
             request.Payload = WrapSleepCondition(config, PayloadFactory.BPTool.CheckBoolData(payload, mid));
             HttpResponse response = await SendBoolGuarded(config, request).ConfigureAwait(false);
-            return TruthOracle.IsTrue(response, config.DataConfig.CheckValue, config.DataConfig.Reverse, config.DataConfig.EffectiveBoolType);
+            return TruthOracle.IsTrue(response, config.DataConfig.CheckValue, config.DataConfig.Reverse, config.DataConfig.EffectiveBoolType,
+                    config.DataConfig.SimilarTemplate, config.DataConfig.SimilarMode, config.DataConfig.SimilarCutoff);
         }
 
         /// <summary>
@@ -838,7 +840,8 @@ namespace SuperSQLInjectionV2.Models.Data
                 request.NullBodyHint = NullBodyCapable(config);
                 request.Payload = WrapSleepCondition(config, payload.Replace("{len}", mid+"", StringComparison.Ordinal));
                 HttpResponse response = await SendBoolGuarded(config, request).ConfigureAwait(false);
-                bool exists = TruthOracle.IsTrue(response, config.DataConfig.CheckValue, config.DataConfig.Reverse, config.DataConfig.EffectiveBoolType);
+                bool exists = TruthOracle.IsTrue(response, config.DataConfig.CheckValue, config.DataConfig.Reverse, config.DataConfig.EffectiveBoolType,
+                    config.DataConfig.SimilarTemplate, config.DataConfig.SimilarMode, config.DataConfig.SimilarCutoff);
 
 
                 if (exists)
@@ -955,7 +958,8 @@ namespace SuperSQLInjectionV2.Models.Data
             request.NullBodyHint = NullBodyCapable(config);
             request.Payload = WrapSleepCondition(config, condition);
             HttpResponse response = await SendBoolGuarded(config, request).ConfigureAwait(false);
-            return TruthOracle.IsTrue(response, config.DataConfig.CheckValue, config.DataConfig.Reverse, config.DataConfig.EffectiveBoolType);
+            return TruthOracle.IsTrue(response, config.DataConfig.CheckValue, config.DataConfig.Reverse, config.DataConfig.EffectiveBoolType,
+                    config.DataConfig.SimilarTemplate, config.DataConfig.SimilarMode, config.DataConfig.SimilarCutoff);
         }
 
         /// <summary>

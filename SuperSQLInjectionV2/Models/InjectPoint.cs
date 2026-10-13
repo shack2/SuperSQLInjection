@@ -43,6 +43,14 @@ namespace SuperSQLInjectionV2.Models
         public BoolInjectType BoolInjectType { get; set; }= BoolInjectType.KeyWord;
         public string CheckValue { get; set; } = "";
 
+        /// <summary>相似度判定比对基准文本（BoolInjectType=Similarity时有效）：
+        /// 按SimilarMode投影后的模板——""=清动态模板原文 / "skeleton"=结构骨架 / "text"=纯文本</summary>
+        public string SimilarTemplate { get; set; } = "";
+        /// <summary>相似度判定投影模式（""=正常模板 / "skeleton"=结构骨架 / "text"=纯文本，对应高动态三档兜底）</summary>
+        public string SimilarMode { get; set; } = "";
+        /// <summary>相似度判定阈值：ratio≥该值判真（取检测期真假页ratio中点钳制）</summary>
+        public double SimilarCutoff { get; set; } = 0.95;
+
         /// <summary>where语义：1=ORIGINAL原值后追加；2=NEGATIVE负值替换；3=REPLACE参数整体替换（取数按vector模板注入）</summary>
         public int Where { get; set; } = 1;
 
