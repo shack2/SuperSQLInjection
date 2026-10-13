@@ -644,9 +644,10 @@ namespace SuperSQLInjectionV2.Tools.Inject
         }
 
         /// <summary>
-        /// 注入点利用价值评分：Union取数最快，报错次之，布尔盲注逐位判断，时间盲注最慢
+        /// 注入点利用价值评分（全产品统一口径，GUI命中应用/CMD PickBest共用）：
+        /// Union(50)取数最快 &gt; 报错(40) &gt; 布尔盲注(30)逐位判断 &gt; DNS(25)外带依赖出网 &gt; 堆叠(20) &gt; 时间(10)最慢
         /// </summary>
-        private static int ExploitPriority(InjectPoint inp)
+        public static int ExploitPriority(InjectPoint inp)
         {
             if (inp.InjectType == InjectType.Union)
             {

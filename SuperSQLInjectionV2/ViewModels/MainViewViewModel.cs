@@ -1895,6 +1895,7 @@ public partial class MainViewViewModel : ViewModelBase
             bool wafChecked = false;
             _detectHitFound = false;
             _detectHitCount = 0;
+            _appliedHitPriority = -1;
             _lastHitRequestTxt = null;
             //检出即停标记：某参数命中后停止其余参数与扩展位置检测
             bool stopTesting = false;
@@ -2067,79 +2068,98 @@ public partial class MainViewViewModel : ViewModelBase
 
     private void UpdateData(InjectPoint inp)
     {
-        if (inp.IsInject) {
-            _detectHitFound = true;
-            _detectHitCount++;
-
-            //旧模型兼容：Bool盲注+时间判定 的命中升级为独立的时间盲注类型（判定经EffectiveBoolType强制走时间）
-            if (inp.InjectType == InjectType.Blind && inp.BoolInjectType == BoolInjectType.Time)
-            {
-                inp.InjectType = InjectType.Time;
-            }
-            AppConfig.DataConfig.SelectedInjectType = inp.InjectType;
-            //检测概览"注入参数"实时联动
-            AppConfig.DataConfig.InjectParamName = inp.PName ?? "";
-            if (inp.InjectType.Equals(InjectType.Blind) || inp.InjectType.Equals(InjectType.Stacked) || inp.InjectType.Equals(InjectType.Time)) {
-                //堆叠命中同样携带时间盲注oracle（BoolInjectType.Time + CheckValue=延时秒数），取数回退依赖
-                //时间盲注类型的判定由EffectiveBoolType强制为时间，SelectBoolInject不跟随（避免选中已下线的"时间"判断方式）
-                if (!inp.InjectType.Equals(InjectType.Time))
-                {
-                    AppConfig.DataConfig.SelectBoolInject = inp.BoolInjectType;
-                }
-                AppConfig.DataConfig.CheckValue = inp.CheckValue;
-                //反取标志联动（概览"反取"标记 + 盲注取数链路消费）
-                AppConfig.DataConfig.Reverse = inp.Revers;
-                //相似度oracle基准联动（高动态三档兜底命中时取数依赖）
-                AppConfig.DataConfig.SimilarTemplate = inp.SimilarTemplate ?? "";
-                AppConfig.DataConfig.SimilarMode = inp.SimilarMode ?? "";
-                AppConfig.DataConfig.SimilarCutoff = inp.SimilarCutoff;
-                AppConfig.DataConfig.SimilarFeatures = inp.DynamicFeatures;
-                //时间盲注延时秒数带出到通道配置时间盲注组
-                SyncTimeSleepFromCheckValue();
-            }
-            if (!inp.DBType.Equals(DBType.UnKnow)) {
-                //fork化归一：变体库（金仓/openGauss/达梦）归一到族宿主+Fork名，取数=族模板+fork overlay
-                var (fam, fork) = SuperSQLInjectionV2.Payload.DbProfile.ToFamilyFork(inp.DBType);
-                inp.DBType = fam;
-                if (!string.IsNullOrEmpty(fork))
-                {
-                    inp.ForkName = fork;
-                }
-                AppConfig.DataConfig.SelectedDBType = fam;
-                if (!string.IsNullOrEmpty(inp.ForkName))
-                {
-                    AppConfig.DataConfig.SelectedForkName = inp.ForkName;
-                }
-            }
-            if (inp.InjectType.Equals(InjectType.Union))
-            {
-                AppConfig.DataConfig.ShowColumnIndex = inp.ShowColumnIndex;
-                AppConfig.DataConfig.SumColumnCount = inp.SumColumnCount;
-            }
-            if (inp.InjectType.Equals(InjectType.Error))
-            {
-                //报错方式联动：从命中的报错payload反推对应变体（须在SelectedDBType之后，变体表已随库切换就绪；
-                //后台线程时Post派发，保证晚于OnSelectedDBTypeChanged里"复位为默认"的Post执行，不被覆盖）
-                string? method = InferErrorMethod(inp.TestPayload);
-                if (method != null)
-                {
-                    if (Avalonia.Application.Current == null || Dispatcher.UIThread.CheckAccess())
-                    {
-                        AppConfig.DataConfig.SelectedErrorMethod = method;
-                    }
-                    else
-                    {
-                        Dispatcher.UIThread.Post( ()=> AppConfig.DataConfig.SelectedErrorMethod = method);
-                    }
-                }
-            }
-            //标记报文不回写编辑器：检测页报文保持干净，利用标记只随注入点存入注入记录，
-            //取数时在注入记录中选择对应注入点（恢复记录）才加载带标记的报文
-            _lastHitRequestTxt = inp.RequestTxt;
-            _lastHitPoint = inp;
-            AddInjectRecord(inp);
+        if (!inp.IsInject) {
+            return;
         }
+        _detectHitFound = true;
+        _detectHitCount++;
+
+        //旧模型兼容：Bool盲注+时间判定 的命中升级为独立的时间盲注类型（判定经EffectiveBoolType强制走时间）
+        if (inp.InjectType == InjectType.Blind && inp.BoolInjectType == BoolInjectType.Time)
+        {
+            inp.InjectType = InjectType.Time;
+        }
+        //fork化归一：变体库（金仓/openGauss/达梦）归一到族宿主+Fork名，取数=族模板+fork overlay
+        //（记录落库与配置应用共用规范化结果，须先于AddInjectRecord执行）
+        if (!inp.DBType.Equals(DBType.UnKnow))
+        {
+            var (fam, fork) = SuperSQLInjectionV2.Payload.DbProfile.ToFamilyFork(inp.DBType);
+            inp.DBType = fam;
+            if (!string.IsNullOrEmpty(fork))
+            {
+                inp.ForkName = fork;
+            }
+        }
+        //命中记录始终落库（按发现顺序全量记录，与通道价值无关，可在注入记录中任意切换利用）
+        AddInjectRecord(inp);
+
+        //配置应用按利用价值收敛：onHit按检测顺序（技术遍历序：布尔→…→时间→内联）回调，
+        //后到命中可能是更慢通道——只应用不劣于当前已应用的命中，保证最优通道成为生效配置
+        int prio = SuperSQLInjectionV2.Tools.Inject.InjectDetectEngine.ExploitPriority(inp);
+        if (prio < _appliedHitPriority)
+        {
+            return;
+        }
+        _appliedHitPriority = prio;
+
+        AppConfig.DataConfig.SelectedInjectType = inp.InjectType;
+        //检测概览"注入参数"实时联动
+        AppConfig.DataConfig.InjectParamName = inp.PName ?? "";
+        if (inp.InjectType.Equals(InjectType.Blind) || inp.InjectType.Equals(InjectType.Stacked) || inp.InjectType.Equals(InjectType.Time)) {
+            //堆叠命中同样携带时间盲注oracle（BoolInjectType.Time + CheckValue=延时秒数），取数回退依赖
+            //时间盲注类型的判定由EffectiveBoolType强制为时间，SelectBoolInject不跟随（避免选中已下线的"时间"判断方式）
+            if (!inp.InjectType.Equals(InjectType.Time))
+            {
+                AppConfig.DataConfig.SelectBoolInject = inp.BoolInjectType;
+            }
+            AppConfig.DataConfig.CheckValue = inp.CheckValue;
+            //反取标志联动（概览"反取"标记 + 盲注取数链路消费）
+            AppConfig.DataConfig.Reverse = inp.Revers;
+            //相似度oracle基准联动（高动态三档兜底命中时取数依赖）
+            AppConfig.DataConfig.SimilarTemplate = inp.SimilarTemplate ?? "";
+            AppConfig.DataConfig.SimilarMode = inp.SimilarMode ?? "";
+            AppConfig.DataConfig.SimilarCutoff = inp.SimilarCutoff;
+            AppConfig.DataConfig.SimilarFeatures = inp.DynamicFeatures;
+            //时间盲注延时秒数带出到通道配置时间盲注组
+            SyncTimeSleepFromCheckValue();
+        }
+        if (!inp.DBType.Equals(DBType.UnKnow)) {
+            AppConfig.DataConfig.SelectedDBType = inp.DBType;
+            if (!string.IsNullOrEmpty(inp.ForkName))
+            {
+                AppConfig.DataConfig.SelectedForkName = inp.ForkName;
+            }
+        }
+        if (inp.InjectType.Equals(InjectType.Union))
+        {
+            AppConfig.DataConfig.ShowColumnIndex = inp.ShowColumnIndex;
+            AppConfig.DataConfig.SumColumnCount = inp.SumColumnCount;
+        }
+        if (inp.InjectType.Equals(InjectType.Error))
+        {
+            //报错方式联动：从命中的报错payload反推对应变体（须在SelectedDBType之后，变体表已随库切换就绪；
+            //后台线程时Post派发，保证晚于OnSelectedDBTypeChanged里"复位为默认"的Post执行，不被覆盖）
+            string? method = InferErrorMethod(inp.TestPayload);
+            if (method != null)
+            {
+                if (Avalonia.Application.Current == null || Dispatcher.UIThread.CheckAccess())
+                {
+                    AppConfig.DataConfig.SelectedErrorMethod = method;
+                }
+                else
+                {
+                    Dispatcher.UIThread.Post( ()=> AppConfig.DataConfig.SelectedErrorMethod = method);
+                }
+            }
+        }
+        //标记报文不回写编辑器：检测页报文保持干净，利用标记只随注入点存入注入记录，
+        //取数时在注入记录中选择对应注入点（恢复记录）才加载带标记的报文
+        _lastHitRequestTxt = inp.RequestTxt;
+        _lastHitPoint = inp;
     }
+
+    /// <summary>本轮检测已应用配置的命中点价值分（UpdateData按ExploitPriority收敛，慢通道命中不覆盖快通道配置）</summary>
+    private int _appliedHitPriority = -1;
 
     /// <summary>
     /// 命中即时落记录：检测引擎onHit回调来自工作线程（ConfigureAwait(false)），

@@ -950,11 +950,13 @@ public static class Program
                 if (h != null) return h;
             }
         }
-        //默认优先级：Union > Error > 时间盲注 > Bool盲注 > 堆叠 > DNS
+        //默认优先级与检测引擎ExploitPriority一致：Union > Error > Bool盲注 > DNS > 堆叠 > 时间盲注
+        //（布尔逐位二分远快于时间的延时逐位；堆叠慢但具备写操作/命令执行能力故保留靠后可选）
         return hits.FirstOrDefault(h => h.InjectType == InjectType.Union)
             ?? hits.FirstOrDefault(h => h.InjectType == InjectType.Error)
-            ?? hits.FirstOrDefault(h => h.InjectType == InjectType.Time)
             ?? hits.FirstOrDefault(h => h.InjectType == InjectType.Blind)
+            ?? hits.FirstOrDefault(h => h.InjectType == InjectType.Dns)
+            ?? hits.FirstOrDefault(h => h.InjectType == InjectType.Stacked)
             ?? hits[^1];
     }
 
