@@ -24,9 +24,10 @@ namespace SuperSQLInjectionV2.Tools
         /// <param name="simTemplate">相似度判定比对基准（仅BoolInjectType.Similarity用，检测期确定后随注入记录携带）</param>
         /// <param name="simMode">相似度投影模式（""/skeleton/text）</param>
         /// <param name="simCutoff">相似度判定阈值</param>
+        /// <param name="simFeatures">动态特征表（simMode=""时先清动态再比对，否则噪声压平ratio真假不可分）</param>
         /// <returns></returns>
         public static bool IsTrue(HttpResponse response, string key, bool reverKey, BoolInjectType keyType,
-            string simTemplate = "", string simMode = "", double simCutoff = 0.95)
+            string simTemplate = "", string simMode = "", double simCutoff = 0.95, List<ChangeFeature>? simFeatures = null)
         {
             switch (keyType) {
 
@@ -173,7 +174,7 @@ namespace SuperSQLInjectionV2.Tools
                     //取数链路应改用JudgeSimilarity（灰区返回null交由上层重发）。基准缺失时判假（不误判真）
                     {
                         bool hit = !string.IsNullOrEmpty(simTemplate)
-                                   && SimRatio(response, simTemplate, simMode) >= simCutoff;
+                                   && SimRatio(response, simTemplate, simMode, simFeatures) >= simCutoff;
                         return reverKey ? !hit : hit;
                     }
 
@@ -182,10 +183,15 @@ namespace SuperSQLInjectionV2.Tools
 
         }
 
-        /// <summary>相似度比对：响应页按检测期确定的模式投影后与基准算ratio</summary>
-        private static double SimRatio(HttpResponse response, string simTemplate, string simMode)
+        /// <summary>相似度比对：清动态模板模式（""）先用特征表清掉响应动态区（与模板同口径），再按模式投影算ratio</summary>
+        private static double SimRatio(HttpResponse response, string simTemplate, string simMode, List<ChangeFeature>? simFeatures)
         {
-            string projection = WebPageDiffAnalyzer.ProjectForMode(response.BodyTxt, simMode);
+            string? body = response.BodyTxt;
+            if (simMode == "" && simFeatures is { Count: > 0 })
+            {
+                body = WebPageDiffAnalyzer.ClearDynamicText(simFeatures, body ?? "");
+            }
+            string projection = WebPageDiffAnalyzer.ProjectForMode(body, simMode);
             return PageLikeTool.CalculateSimilarity(simTemplate, projection);
         }
 
@@ -194,13 +200,14 @@ namespace SuperSQLInjectionV2.Tools
         /// 与阈值距离&lt;灰区半宽（0.01）返回null=不可判定（取数链路据此重发而非硬猜）；
         /// 基准缺失返回false（绝不误判真）。返回值不含取反，取反由调用方应用
         /// </summary>
-        public static bool? JudgeSimilarity(HttpResponse response, string simTemplate, string simMode, double simCutoff)
+        public static bool? JudgeSimilarity(HttpResponse response, string simTemplate, string simMode, double simCutoff,
+            List<ChangeFeature>? simFeatures = null)
         {
             if (string.IsNullOrEmpty(simTemplate))
             {
                 return false;
             }
-            double ratio = SimRatio(response, simTemplate, simMode);
+            double ratio = SimRatio(response, simTemplate, simMode, simFeatures);
             if (ratio >= Inject.DetectTuning.UpperBound)
             {
                 return true;

@@ -996,11 +996,11 @@ namespace SuperSQLInjectionV2.Tools.Inject
             }
         }
 
-        /// <summary>按注入点记录判定响应真假（Similarity模式自动携带比对基准/投影模式/阈值）</summary>
+        /// <summary>按注入点记录判定响应真假（Similarity模式自动携带比对基准/投影模式/阈值/动态特征）</summary>
         private static bool JudgeByRecord(InjectPoint inp, HttpResponse resp)
         {
             return TruthOracle.IsTrue(resp, inp.CheckValue, inp.Revers, inp.BoolInjectType,
-                inp.SimilarTemplate, inp.SimilarMode, inp.SimilarCutoff);
+                inp.SimilarTemplate, inp.SimilarMode, inp.SimilarCutoff, inp.DynamicFeatures);
         }
 
         /// <summary>
@@ -1011,8 +1011,20 @@ namespace SuperSQLInjectionV2.Tools.Inject
         private static bool TrySelectSimilarityJudge(Ctx ctx, InjectPoint inp,
             HttpResponse t1, HttpResponse f1, HttpResponse t2, HttpResponse f2)
         {
-            double minT = Math.Min(RatioVsTemplate(ctx, t1.BodyTxt ?? ""), RatioVsTemplate(ctx, t2.BodyTxt ?? ""));
-            double maxF = Math.Max(RatioVsTemplate(ctx, f1.BodyTxt ?? ""), RatioVsTemplate(ctx, f2.BodyTxt ?? ""));
+            //正常模板模式（""）模板是清动态后的，比对前必须同口径清动态——
+            //否则噪声把真/假页ratio一并压低，区分间隙消失（误判降级不可用）
+            bool normalMode = ctx.TemplateSkeleton == null && ctx.TemplateTextOnly == null;
+            double R(HttpResponse r)
+            {
+                string body = r.BodyTxt ?? "";
+                if (normalMode)
+                {
+                    body = WebPageDiffAnalyzer.ClearDynamicText(ctx.Features, body);
+                }
+                return RatioVsTemplate(ctx, body);
+            }
+            double minT = Math.Min(R(t1), R(t2));
+            double maxF = Math.Max(R(f1), R(f2));
             if (minT - maxF < 0.02)
             {
                 return false; //真假页在相似度维度也无区分间隙，相似度oracle同样不可用
@@ -1031,6 +1043,8 @@ namespace SuperSQLInjectionV2.Tools.Inject
             {
                 inp.SimilarMode = "";
                 inp.SimilarTemplate = ctx.Template ?? "";
+                //取数侧清动态复用：特征表随记录携带（skeleton/text投影与动态特征无关，无需携带）
+                inp.DynamicFeatures = ctx.Features;
             }
             if (string.IsNullOrEmpty(inp.SimilarTemplate))
             {

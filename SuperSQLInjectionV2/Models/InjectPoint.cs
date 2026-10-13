@@ -51,6 +51,10 @@ namespace SuperSQLInjectionV2.Models
         /// <summary>相似度判定阈值：ratio≥该值判真（取检测期真假页ratio中点钳制）</summary>
         public double SimilarCutoff { get; set; } = 0.95;
 
+        /// <summary>动态特征表（SimilarMode=""清动态模板模式时随记录携带）：
+        /// 取数oracle先用特征清掉响应中的动态区再与模板比对，否则噪声把所有页面ratio压平、真假不可分</summary>
+        public List<Tools.ChangeFeature>? DynamicFeatures { get; set; } = null;
+
         /// <summary>where语义：1=ORIGINAL原值后追加；2=NEGATIVE负值替换；3=REPLACE参数整体替换（取数按vector模板注入）</summary>
         public int Where { get; set; } = 1;
 

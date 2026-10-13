@@ -54,6 +54,9 @@ namespace SuperSQLInjectionV2.Models
         /// <summary>相似度判定阈值：ratio≥该值判真</summary>
         public double SimilarCutoff { get; set; } = 0.95;
 
+        /// <summary>动态特征表（SimilarMode=""清动态模板模式时随记录携带）：取数oracle先清动态再比对</summary>
+        public List<Tools.ChangeFeature>? DynamicFeatures { get; set; } = null;
+
         /// <summary>Union总列数（仅Union注入有意义，其余类型记录中无意义）</summary>
         public int SumColumnCount { get; set; } = 1;
 

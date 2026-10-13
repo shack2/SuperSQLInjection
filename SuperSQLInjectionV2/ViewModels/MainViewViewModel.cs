@@ -2093,6 +2093,7 @@ public partial class MainViewViewModel : ViewModelBase
                 AppConfig.DataConfig.SimilarTemplate = inp.SimilarTemplate ?? "";
                 AppConfig.DataConfig.SimilarMode = inp.SimilarMode ?? "";
                 AppConfig.DataConfig.SimilarCutoff = inp.SimilarCutoff;
+                AppConfig.DataConfig.SimilarFeatures = inp.DynamicFeatures;
                 //时间盲注延时秒数带出到通道配置时间盲注组
                 SyncTimeSleepFromCheckValue();
             }
@@ -2503,6 +2504,7 @@ public partial class MainViewViewModel : ViewModelBase
             SimilarTemplate = inp.SimilarTemplate ?? "",
             SimilarMode = inp.SimilarMode ?? "",
             SimilarCutoff = inp.SimilarCutoff,
+            DynamicFeatures = inp.DynamicFeatures,
             SumColumnCount = inp.SumColumnCount,
             ShowColumnIndex = inp.ShowColumnIndex,
             UnionStartPayLoad = inp.UnionStartPayLoad ?? "",
@@ -2704,6 +2706,7 @@ public partial class MainViewViewModel : ViewModelBase
             AppConfig.DataConfig.SimilarTemplate = record.SimilarTemplate ?? "";
             AppConfig.DataConfig.SimilarMode = record.SimilarMode ?? "";
             AppConfig.DataConfig.SimilarCutoff = record.SimilarCutoff;
+            AppConfig.DataConfig.SimilarFeatures = record.DynamicFeatures;
             //时间盲注延时秒数随记录带出到通道配置时间盲注组
             SyncTimeSleepFromCheckValue();
         }

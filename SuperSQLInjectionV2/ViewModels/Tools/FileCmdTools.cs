@@ -65,6 +65,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             dc.SimilarTemplate = rec.SimilarTemplate ?? "";
             dc.SimilarMode = rec.SimilarMode ?? "";
             dc.SimilarCutoff = rec.SimilarCutoff;
+            dc.SimilarFeatures = rec.DynamicFeatures;
             Log.Success(opDesc + "需要堆叠注入：注入记录中同参数存在堆叠通道，已自动切换注入类型（" + oldType + "→堆叠）！");
             return true;
         }

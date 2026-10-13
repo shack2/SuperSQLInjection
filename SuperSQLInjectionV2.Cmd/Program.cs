@@ -165,6 +165,7 @@ public static class Program
                 SimilarTemplate = h.SimilarTemplate ?? "",
                 SimilarMode = h.SimilarMode ?? "",
                 SimilarCutoff = h.SimilarCutoff,
+                DynamicFeatures = h.DynamicFeatures,
                 SumColumnCount = h.SumColumnCount,
                 ShowColumnIndex = h.ShowColumnIndex,
                 RequestTxt = h.RequestTxt ?? ""
@@ -231,6 +232,7 @@ public static class Program
                     SimilarTemplate = best.SimilarTemplate ?? "",
                     SimilarMode = best.SimilarMode ?? "",
                     SimilarCutoff = best.SimilarCutoff,
+                    DynamicFeatures = best.DynamicFeatures,
                     SumColumnCount = best.SumColumnCount,
                     ShowColumnIndex = best.ShowColumnIndex,
                     RequestTxt = best.RequestTxt ?? ""
@@ -997,6 +999,7 @@ public static class Program
             config.DataConfig.SimilarTemplate = best.SimilarTemplate ?? "";
             config.DataConfig.SimilarMode = best.SimilarMode ?? "";
             config.DataConfig.SimilarCutoff = best.SimilarCutoff;
+            config.DataConfig.SimilarFeatures = best.DynamicFeatures;
         }
         if (best.InjectType == InjectType.Union)
         {

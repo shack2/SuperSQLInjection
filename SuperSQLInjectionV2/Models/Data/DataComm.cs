@@ -529,7 +529,7 @@ namespace SuperSQLInjectionV2.Models.Data
             }
             for (int attempt = 0; ; attempt++)
             {
-                bool? judged = TruthOracle.JudgeSimilarity(response, dc.SimilarTemplate, dc.SimilarMode, dc.SimilarCutoff);
+                bool? judged = TruthOracle.JudgeSimilarity(response, dc.SimilarTemplate, dc.SimilarMode, dc.SimilarCutoff, dc.SimilarFeatures);
                 if (judged.HasValue)
                 {
                     return dc.Reverse ? !judged.Value : judged.Value;
@@ -538,7 +538,7 @@ namespace SuperSQLInjectionV2.Models.Data
                 {
                     Log.SysLog("相似度判定连续落入灰区（阈值" + dc.SimilarCutoff.ToString("F3") + "），按近侧硬判！目标页面动态性过强，取数结果可能不可靠");
                     bool hard = TruthOracle.IsTrue(response, "", false, BoolInjectType.Similarity,
-                        dc.SimilarTemplate, dc.SimilarMode, dc.SimilarCutoff);
+                        dc.SimilarTemplate, dc.SimilarMode, dc.SimilarCutoff, dc.SimilarFeatures);
                     return dc.Reverse ? !hard : hard;
                 }
                 //灰区重发：同一请求原样重发（脏数据防护由SendBoolGuarded兜底）
