@@ -334,7 +334,6 @@
             <Style Selector="Border.subhead">
                 <Setter Property="Height" Value="34" />
                 <Setter Property="Padding" Value="10,0" />
-                <Setter Property="BorderThickness" Value="0,0,0,1" />
                 <Setter Property="BorderBrush" Value="{DynamicResource DsgBorder}" />
                 <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />
             </Style>

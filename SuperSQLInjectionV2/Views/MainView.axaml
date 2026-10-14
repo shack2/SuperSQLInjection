@@ -214,12 +214,12 @@
                             <!--  URL行（仅注入检测页）  -->
                             <Grid Grid.Row="1" IsVisible="{Binding NavPage0Visible}" Height="58" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
                                 <ComboBox Grid.Column="0" Width="86" Margin="0,0,8,0" VerticalAlignment="Center"
-                                          Classes="ClearButton"
+                                          Foreground="{DynamicResource DsgInk1}"
                                           ItemsSource="{Binding AppConfig.DetectMethods}"
                                           SelectedItem="{Binding AppConfig.DetectMethod}"
                                           ToolTip.Tip="请求方式：输入URL后按此方式自动生成请求报文；手工修改报文后自动回同步" />
                                 <Grid Grid.Column="1" Margin="0,0">
-                                    <TextBox HorizontalAlignment="Stretch" Classes="Bordered"
+                                    <TextBox HorizontalAlignment="Stretch" Foreground="{DynamicResource DsgInk1}"
                                              Text="{Binding AppConfig.DetectUrl}"
                                              VerticalAlignment="Center" Padding="32,0,0,0"
                                              FontFamily="{StaticResource CodeFontFamily}"
@@ -619,7 +619,7 @@
                         <Border Classes="pageflat" IsVisible="{Binding NavPage3Visible}">
                             <Grid RowDefinitions="Auto,*">
                                 <!--  工具栏：左侧操作按钮（带图标），右侧搜索/筛选  -->
-                                <Border Grid.Row="0" Padding="14,8" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DsgBorder}">
+                                <Border Grid.Row="0" Padding="14,8" BorderBrush="{DynamicResource DsgBorder}">
                                     <Grid ColumnDefinitions="Auto,*">
                                         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                                          
@@ -774,7 +774,7 @@
                                         <StackPanel Grid.Column="0" Spacing="8" VerticalAlignment="Center">
                                             <!--  第一行：注入记录选择 + 请求方式 + 目标URL + 端口/SSL  -->
                                             <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto">
-                                                <TextBlock Text="检测记录：" Classes="Normal" VerticalAlignment="Center"/>
+                                                <TextBlock Text="检测记录：" VerticalAlignment="Center"/>
                                                 <ComboBox Grid.Column="1" Width="300" Height="28" Margin="8,0,0,0" VerticalAlignment="Center"
                                                           ItemsSource="{Binding InjectRecords}"
                                                           SelectedItem="{Binding QuickSelectRecord}"
@@ -785,22 +785,22 @@
                                                         </DataTemplate>
                                                     </ComboBox.ItemTemplate>
                                                 </ComboBox>
-                                                <TextBlock Grid.Column="2" Text="目标URL：" Classes="Normal" Margin="14,0,0,0" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Text="目标URL：" Margin="14,0,0,0" VerticalAlignment="Center"/>
                                                 <ComboBox Grid.Column="3" Width="76" Height="28" Margin="8,0,0,0" VerticalAlignment="Center"
-                                                          Classes="ClearButton"
+                                                          Foreground="{DynamicResource DsgInk1}"
                                                           ItemsSource="{Binding AppConfig.DetectMethods}"
                                                           SelectedItem="{Binding AppConfig.DataMethod}"
                                                           ToolTip.Tip="请求方式：输入URL后按此方式自动生成请求报文；手工修改报文后自动回同步" />
-                                                <TextBox Grid.Column="4" Classes="Bordered" Height="28" Margin="8,0,0,0"
+                                                <TextBox Grid.Column="4" Foreground="{DynamicResource DsgInk1}" Height="28" Margin="8,0,0,0"
                                                          Text="{Binding AppConfig.Url}"
                                                          VerticalAlignment="Center" VerticalContentAlignment="Center"
                                                          FontFamily="{StaticResource CodeFontFamily}"
                                                          PlaceholderText="http://target/page?id=1" />
-                                                <TextBlock Grid.Column="5" VerticalAlignment="Center" Text="端 口：" Classes="Normal"  Margin="10,0,0,0" />
-                                                <TextBox Grid.Column="6" Width="62" Height="28" Classes="Bordered" VerticalAlignment="Center" Text="{Binding AppConfig.Port}" />
-                                                <CheckBox Grid.Column="7" Content="SSL" Margin="10,0,0,0" IsChecked="{Binding AppConfig.IsSSL}" VerticalAlignment="Center" />
-                                                <TextBlock Grid.Column="8" Text="线程：" Classes="Normal" Margin="10,0,0,0" VerticalAlignment="Center" />
-                                                <ComboBox Grid.Column="9" Width="70" Height="28" Margin="6,0,0,0" ItemsSource="{Binding AppConfig.ThreadSizeItems}"
+                                                <TextBlock Grid.Column="5" VerticalAlignment="Center" Text="端 口："  Margin="10,0,0,0" />
+                                                <TextBox Grid.Column="6" Width="62" Height="28" Foreground="{DynamicResource DsgInk1}" VerticalAlignment="Center" Text="{Binding AppConfig.Port}" />
+                                                <CheckBox Grid.Column="7" Content="SSL" Margin="10,0,0,0" IsChecked="{Binding AppConfig.IsSSL}" Foreground="{DynamicResource DsgInk1}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="8" Text="线程：" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                <ComboBox Grid.Column="9" Width="70" Height="28" Margin="6,0,0,0" Foreground="{DynamicResource DsgInk1}" ItemsSource="{Binding AppConfig.ThreadSizeItems}"
                                                           SelectedValue="{Binding AppConfig.ThreadSize}" VerticalAlignment="Center" />
                                             </Grid>
                                         <!--  第二行：取数增效开关（盲注链路）+ 字符集/读取方式  -->
@@ -999,7 +999,7 @@
                                                 <!--  请求报文区（左侧，与注入检测页共享同一报文文档，标记/发送功能一致；只有一个子页，去掉选项卡条）  -->
                                                 <Border Grid.Column="0">
                                                     <DockPanel>
-                                                        <Border DockPanel.Dock="Bottom" Height="44" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DsgBorder}">
+                                                        <Border DockPanel.Dock="Bottom" Height="44" BorderBrush="{DynamicResource DsgBorder}">
                                                             <Grid Margin="10,0" ColumnDefinitions="Auto,*,Auto">
                                                                 <StackPanel Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
                                                                     <Button Classes="minibtn" Height="28" Click="SetEncodingPointC">
@@ -1128,7 +1128,7 @@
                                                 <!--  环境变量区  -->
                                                 <Border Grid.Row="0">
                                                     <Grid RowDefinitions="Auto,*">
-                                                        <Border Grid.Row="0" Padding="10,6" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DsgBorder}">
+                                                        <Border Grid.Row="0" Padding="10,6" BorderBrush="{DynamicResource DsgBorder}">
                                                             <Grid ColumnDefinitions="Auto,*">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                                                                     <PathIcon Data="{StaticResource IconVerInfo}" Width="14" Height="14" Foreground="{DynamicResource DsgPrimary}" />
@@ -1213,7 +1213,7 @@
                                                 <!--  Hash读取区（取数模板中Hash/DBA/sysadmin类条目自动分流到此）  -->
                                                 <Border Grid.Row="0">
                                                     <Grid RowDefinitions="Auto,*">
-                                                        <Border Grid.Row="0" Padding="10,6" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DsgBorder}">
+                                                        <Border Grid.Row="0" Padding="10,6" BorderBrush="{DynamicResource DsgBorder}">
                                                             <Grid ColumnDefinitions="Auto,*">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                                                                     <PathIcon Data="{StaticResource IconBypassSafe}" Width="14" Height="14" Foreground="{DynamicResource DsgPrimary}" />
@@ -1299,7 +1299,7 @@
                                                 <!--  权限角色区（权限/角色查询：取数模板中权限/角色类条目自动分流到此）  -->
                                                 <Border Grid.Row="0">
                                                     <Grid RowDefinitions="Auto,*">
-                                                        <Border Grid.Row="0" Padding="10,6" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DsgBorder}">
+                                                        <Border Grid.Row="0" Padding="10,6" BorderBrush="{DynamicResource DsgBorder}">
                                                             <Grid ColumnDefinitions="Auto,*">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                                                                     <PathIcon Data="{StaticResource IconBypassSafe}" Width="14" Height="14" Foreground="{DynamicResource DsgPrimary}" />
@@ -1385,7 +1385,7 @@
                                                 <!--  文件操作区  -->
                                                 <Border Grid.Row="0">
                                                     <Grid RowDefinitions="Auto,*">
-                                                        <Border Grid.Row="0" Padding="10,6" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DsgBorder}">
+                                                        <Border Grid.Row="0" Padding="10,6" BorderBrush="{DynamicResource DsgBorder}">
                                                             <WrapPanel ItemSpacing="10" VerticalAlignment="Center">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="0,0,6,0">
                                                                     <PathIcon Data="{StaticResource IconReadFile}" Width="14" Height="14" Foreground="{DynamicResource DsgPrimary}" />
@@ -1456,7 +1456,7 @@
                                                 <!--  命令执行区  -->
                                                 <Border Grid.Row="0">
                                                     <Grid RowDefinitions="Auto,*">
-                                                        <Border Grid.Row="0" Padding="10,6" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DsgBorder}">
+                                                        <Border Grid.Row="0" Padding="10,6" BorderBrush="{DynamicResource DsgBorder}">
                                                             <WrapPanel ItemSpacing="10" VerticalAlignment="Center">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="0,0,6,0">
                                                                     <PathIcon Data="{StaticResource IconCommand}" Width="14" Height="14" Foreground="{DynamicResource DsgPrimary}" />
@@ -1530,7 +1530,7 @@
                                                 <!--  自定义SQL执行区（任意SQL语句注入执行）  -->
                                                 <Border Grid.Row="0">
                                                     <Grid RowDefinitions="Auto,*">
-                                                        <Border Grid.Row="0" Padding="10,6" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource DsgBorder}">
+                                                        <Border Grid.Row="0" Padding="10,6"  BorderBrush="{DynamicResource DsgBorder}">
                                                             <WrapPanel ItemSpacing="10" VerticalAlignment="Center">
                                                                 <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="0,0,6,0">
                                                                     <Path Classes="luc" Data="{StaticResource LgDatabaseZap}" Width="14" Height="14" Stroke="{DynamicResource DsgPrimary}" />
@@ -1576,7 +1576,7 @@
                                 <Grid ColumnDefinitions="300, Auto, *" Grid.Row="0">
                                     <Border Grid.Column="0" Padding="0" BorderThickness="0,0,1,0" BorderBrush="{DynamicResource DsgBorder}">
                                         <Grid RowDefinitions="Auto,Auto,*">
-                                            <Border Classes="subhead" Grid.Row="0" Height="44">
+                                            <Border Classes="subhead" Grid.Row="0" Height="45">
                                                 <Grid ColumnDefinitions="Auto,*">
                                                     <TextBlock Classes="toolshead" Text="库结构" VerticalAlignment="Center" />
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -1705,7 +1705,7 @@
                                     <GridSplitter Grid.Column="1" Width="5" Background="Transparent" HorizontalAlignment="Stretch" />
                                     <Border Grid.Column="2" Padding="0">
                                         <Grid RowDefinitions="Auto,*">
-                                            <Border Classes="subhead" Grid.Row="0" Height="44">
+                                            <Border Classes="subhead" Grid.Row="0" Height="45">
                                                 <Grid ColumnDefinitions="Auto,*">
                                                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                                                         <TextBlock Classes="toolshead" Text="表数据" VerticalAlignment="Center" />
@@ -1728,10 +1728,10 @@
                                                 </Grid>
                                             </Border>
                                     <TableView Grid.Row="1" Name="DynamicDataGrid"
+                                                BorderThickness="0"
                                                           ItemsSource="{Binding AppConfig.DataDump.Rows}"
                                                           helper:DataGridColumnBuilder.Columns="{Binding AppConfig.DataDump.Columns}"
                                                           CanUserResizeColumns="True"
-                                                          BorderThickness="1"
                                                           ScrollViewer.AllowAutoHide="True">
                                         <TableView.ContextFlyout>
                                             <MenuFlyout>
@@ -2547,37 +2547,37 @@
                                 <Grid Margin="25,15,25,0" ColumnDefinitions="*,Auto">
                                     <WrapPanel ItemSpacing="14" LineSpacing="6">
                                         <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <TextBlock Text="关键字：" Classes="Secondary" VerticalAlignment="Center" />
+                                            <TextBlock Text="关键字：" Classes="Primary" VerticalAlignment="Center" />
                                             <TextBox Width="170" Height="30" VerticalAlignment="Center"
                                                      Text="{Binding PayloadSearchKeyword}"
                                                      PlaceholderText="标题/payload模糊搜索" />
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <TextBlock Text="技术类型：" Classes="Secondary" VerticalAlignment="Center" />
+                                            <TextBlock Text="技术类型：" Classes="Primary" VerticalAlignment="Center" />
                                             <ComboBox Width="110" Height="30" VerticalAlignment="Center"
                                                       ItemsSource="{Binding PayloadSTypeFilters}"
                                                       SelectedItem="{Binding PayloadFilterSType}" />
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <TextBlock Text="级别：" Classes="Secondary" VerticalAlignment="Center" />
+                                            <TextBlock Text="级别：" Classes="Primary" VerticalAlignment="Center" />
                                             <ComboBox Width="110" Height="30" VerticalAlignment="Center"
                                                       ItemsSource="{Binding PayloadLevelFilters}"
                                                       SelectedItem="{Binding PayloadFilterLevel}" />
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <TextBlock Text="风险：" Classes="Secondary" VerticalAlignment="Center" />
+                                            <TextBlock Text="风险：" Classes="Primary" VerticalAlignment="Center" />
                                             <ComboBox Width="110" Height="30" VerticalAlignment="Center"
                                                       ItemsSource="{Binding PayloadRiskFilters}"
                                                       SelectedItem="{Binding PayloadFilterRisk}" />
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <TextBlock Text="DBMS：" Classes="Secondary" VerticalAlignment="Center" />
+                                            <TextBlock Text="DBMS：" Classes="Primary" VerticalAlignment="Center" />
                                             <ComboBox Width="110" Height="30" VerticalAlignment="Center"
                                                       ItemsSource="{Binding PayloadDbmsFilters}"
                                                       SelectedItem="{Binding PayloadFilterDbms}" />
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <TextBlock Text="文件：" Classes="Secondary" VerticalAlignment="Center" />
+                                            <TextBlock Text="文件：" Classes="Primary" VerticalAlignment="Center" />
                                             <ComboBox Width="110" Height="30" VerticalAlignment="Center"
                                                       ItemsSource="{Binding PayloadFileFilters}"
                                                       SelectedItem="{Binding SelectedPayloadFileFilter}" />
@@ -2663,13 +2663,13 @@
                                         <Grid Margin="25,10,25,0" ColumnDefinitions="*,Auto">
                                             <WrapPanel ItemSpacing="14" LineSpacing="6">
                                                 <StackPanel Orientation="Horizontal" Spacing="4">
-                                                    <TextBlock Text="关键字：" Classes="Secondary" VerticalAlignment="Center" />
+                                                    <TextBlock Text="关键字：" Classes="Primary" VerticalAlignment="Center" />
                                                     <TextBox Width="220" Height="30" VerticalAlignment="Center"
                                                              Text="{Binding FingerprintSearchKeyword}"
                                                              PlaceholderText="DBMS/fork/正则模糊搜索" />
                                                 </StackPanel>
                                                 <StackPanel Orientation="Horizontal" Spacing="4">
-                                                    <TextBlock Text="DBMS：" Classes="Secondary" VerticalAlignment="Center" />
+                                                    <TextBlock Text="DBMS：" Classes="Primary" VerticalAlignment="Center" />
                                                     <ComboBox Width="150" Height="30" VerticalAlignment="Center"
                                                               ItemsSource="{Binding FingerprintDbmsFilters}"
                                                               SelectedItem="{Binding FingerprintFilterDbms}" />
