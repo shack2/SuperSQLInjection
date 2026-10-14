@@ -17,8 +17,13 @@
             <PathIcon Data="{StaticResource IconGitHub}" Width="17" Height="17"
                       Foreground="{DynamicResource DsgInk2}" />
         </Button>
-        <u:ThemeToggleButton
-            IsThreeState="True"
-            Mode="Controller" />
+        <!--  两态切换：浅色/深色一击即换（三态含"跟随系统"中间态，浅色系統下首击无视觉变化，体验像要点两下）  -->
+        <!--  主题切换：浅色/深色单击直接互换（Ursa ThemeToggleButton 三态含"跟随系统"中间态会表现为点两下才切换，且两态模式控件自身抛 Invalid state）  -->
+        <Button Classes="repo" Width="32" Height="32" Padding="0"
+                ToolTip.Tip="切换浅色/深色主题"
+                Click="ToggleTheme_Click" VerticalAlignment="Center">
+            <Path Name="ThemeIconPath" Width="15" Height="15" Stretch="Uniform"
+                  Stroke="{DynamicResource DsgInk2}" StrokeThickness="1.5" />
+        </Button>
     </StackPanel>
 </UserControl>

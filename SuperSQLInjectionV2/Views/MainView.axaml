@@ -53,8 +53,8 @@
                                 <TextBlock Text="折叠/展开导航" />
                             </ToolTip.Tip>
                             <Panel>
-                                <Path Classes="luc" Data="{StaticResource LgChevronsLeft}" IsVisible="{Binding !IsNavCollapsed}" />
-                                <Path Classes="luc" Data="{StaticResource LgChevronsRight}" IsVisible="{Binding IsNavCollapsed}" />
+                                <Path Stroke="#F26161" Classes="luc" Data="{StaticResource LgChevronsLeft}" IsVisible="{Binding !IsNavCollapsed}" />
+                                <Path Stroke="#19ABCE" Classes="luc" Data="{StaticResource LgChevronsRight}" IsVisible="{Binding IsNavCollapsed}" />
                             </Panel>
                         </Button>
                         <!--  导航列表  -->
@@ -86,14 +86,14 @@
                                 <Button Classes="navitem" Classes.active="{Binding NavPage0Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="0">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgScanLine}" />
+                                        <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgScanLine}" />
                                         <TextBlock Text="注入检测" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage10Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="10">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgListChecks}"/>
+                                        <Path Stroke="#33B578" Classes="luc" Data="{StaticResource LgListChecks}"/>
                                         <TextBlock Text="检测用例" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
@@ -101,7 +101,7 @@
                                         Command="{Binding SelectNavCommand}" CommandParameter="3">
                                     <Grid ColumnDefinitions="Auto,*,Auto">
                                         <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <Path Classes="luc" Data="{StaticResource LgHistory}" />
+                                            <Path Stroke="#7C6FF0" Classes="luc" Data="{StaticResource LgHistory}" />
                                             <TextBlock Text="注入记录" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                         </StackPanel>
                                         <Border Grid.Column="2"
@@ -125,14 +125,14 @@
                                 <Button Classes="navitem" Classes.active="{Binding NavPage4Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="4">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgDatabase}" />
+                                        <Path Stroke="#1FB8A6" Classes="luc" Data="{StaticResource LgDatabase}" />
                                         <TextBlock Text="数据管理" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage9Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="9">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgFileSpreadsheet}" />
+                                        <Path Stroke="#19ABCE" Classes="luc" Data="{StaticResource LgFileSpreadsheet}" />
                                         <TextBlock Text="取数模版" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
@@ -141,28 +141,28 @@
                                 <Button Classes="navitem" Classes.active="{Binding NavPage5Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="5">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgNetwork}" />
+                                        <Path Stroke="#5E6CE7" Classes="luc" Data="{StaticResource LgNetwork}" />
                                         <TextBlock Text="网络设置" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage6Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="6">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgShieldOff}" />
+                                        <Path Stroke="#F58A3C" Classes="luc" Data="{StaticResource LgShieldOff}" />
                                         <TextBlock Text="防护绕过" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage7Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="7">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgCode2}" />
+                                        <Path Stroke="#E85D9E" Classes="luc" Data="{StaticResource LgCode2}"/>
                                         <TextBlock Text="编码工具" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage8Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="8">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgScrollText}" />
+                                        <Path Stroke="#E5A33C" Classes="luc" Data="{StaticResource LgScrollText}"/>
                                         <TextBlock Text="请求日志" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
@@ -171,7 +171,7 @@
                                 <Button Classes="navitem" Classes.active="{Binding NavPage11Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="11">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Classes="luc" Data="{StaticResource LgInfo}" />
+                                        <Path Stroke="#8A94A6" Classes="luc" Data="{StaticResource LgInfo}" />
                                         <TextBlock Text="关于" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
@@ -192,13 +192,13 @@
                                       Stretch="Uniform" VerticalAlignment="Center"
                                       Stroke="{DynamicResource DsgInk1}" StrokeThickness="1.5"
                                       StrokeLineCap="Round" Fill="Transparent" />
-                                <TextBlock Text="首页" Margin="0,0,5,0" Foreground="{DynamicResource DsgInk1}" VerticalAlignment="Center" />
+                                <TextBlock Text="首页" FontSize="14" Margin="0,0,5,0" Foreground="{DynamicResource DsgInk1}" VerticalAlignment="Center" />
                                 <Path Data="M9 5l6 6-6 6" Width="12" Height="12"
                                       Stretch="Uniform" VerticalAlignment="Center"
                                       Stroke="{DynamicResource DsgInk1}" StrokeThickness="1.5"
                                       StrokeLineCap="Round" Fill="Transparent" />
                                 <Border  VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding NavCurrentPageName}" Foreground="{DynamicResource DsgInk1}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding NavCurrentPageName}" FontSize="14" Foreground="{DynamicResource DsgInk1}" VerticalAlignment="Center" />
                                 </Border>
                             </StackPanel>
                         </Border>
@@ -320,17 +320,17 @@
                                                     <ContextMenu Opened="RequestMenuOpenedC">
                                                         <MenuItem Header="根据URL生成请求包" Click="BuildRequestFromUrlC">
                                                             <MenuItem.Icon>
-                                                                <Path Classes="lucm" Data="{StaticResource LgLink}" />
+                                                                <Path Stroke="#7C6FF0" Classes="lucm" Data="{StaticResource LgLink}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="从文件导入报文" Click="ImportRequestFromFileC">
                                                             <MenuItem.Icon>
-                                                                <Path Classes="lucm" Data="{StaticResource LgUpload}" />
+                                                                <Path Stroke="#5E6CE7" Classes="lucm" Data="{StaticResource LgUpload}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="转换数据报文">
                                                             <MenuItem.Icon>
-                                                                <Path Classes="lucm" Data="{StaticResource LgArrowLeftRight}" />
+                                                                <Path Stroke="#F26161" Classes="lucm" Data="{StaticResource LgArrowLeftRight}" />
                                                             </MenuItem.Icon>
                                                             <MenuItem Header="转为 GET（参数移到URL）" Click="ChangeRequestFormatC" Tag="GET" />
                                                             <MenuItem Header="转为 POST（表单urlencoded）" Click="ChangeRequestFormatC" Tag="POST_FORM" />
@@ -339,33 +339,33 @@
                                                         </MenuItem>
                                                         <MenuItem Header="插入动态值">
                                                             <MenuItem.Icon>
-                                                                <Path Classes="lucm" Data="{StaticResource LgSparkles}" />
+                                                                <Path Stroke="#7C6FF0" Classes="lucm" Data="{StaticResource LgSparkles}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="二次注入（单选）">
                                                             <MenuItem.Icon>
-                                                                <Path Classes="lucm" Data="{StaticResource LgLayers}" />
+                                                                <Path Stroke="#F58A3C" Classes="lucm" Data="{StaticResource LgLayers}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="发送请求" Command="{Binding SendRequestCommand}" CommandParameter="detect">
                                                             <MenuItem.Icon>
-                                                                <Path Classes="lucm" Data="{StaticResource LgSend}" />
+                                                                <Path Stroke="#19ABCE" Classes="lucm" Data="{StaticResource LgSend}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <Separator />
                                                         <MenuItem Header="复制报文" Click="CopyRequestC">
                                                             <MenuItem.Icon>
-                                                                <Path Classes="lucm" Data="{StaticResource LgCopy}" />
+                                                                <Path Stroke="#E85D9E" Classes="lucm" Data="{StaticResource LgCopy}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="自动换行" Click="ToggleWrapC">
                                                             <MenuItem.Icon>
-                                                                <Path Classes="lucm" Data="{StaticResource LgWrapText}" />
+                                                                <Path Stroke="#F58A3C" Classes="lucm" Data="{StaticResource LgWrapText}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="清空报文" Click="ClearRequestC">
                                                             <MenuItem.Icon>
-                                                                <Path Classes="lucm" Data="{StaticResource LgTrash2}" />
+                                                                <Path Stroke="#E5A33C" Classes="lucm" Data="{StaticResource LgTrash2}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                     </ContextMenu>
@@ -396,7 +396,7 @@
                                                         <MenuFlyout>
                                                             <MenuItem Header="删 除" Click="RemoveJumpkeySelect">
                                                                 <MenuItem.Icon>
-                                                                    <Path Classes="lucm" Data="{StaticResource LgTrash2}" />
+                                                                    <Path Stroke="#E5A33C" Classes="lucm" Data="{StaticResource LgTrash2}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                         </MenuFlyout>
@@ -427,7 +427,7 @@
                                         <Border>
                                             <StackPanel>
                                                 <Grid Margin="10,5,0,4" ColumnDefinitions="*,Auto">
-                                                    <TextBlock Classes="toolshead" Text="检测概览" VerticalAlignment="Center" />
+                                                    <TextBlock Text="检测概览" FontSize="14" Foreground="{DynamicResource DsgInk1}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                                     <Button Classes="minibtn" Grid.Column="1" HorizontalAlignment="Right" Height="20" Padding="6,0" VerticalAlignment="Center"
                                                             Command="{Binding ToggleOverviewCommand}" ToolTip.Tip="收起检测概览（报文区加宽）">
                                                         <TextBlock Text="›" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
@@ -741,17 +741,17 @@
                                                         <Button Classes="opico view"
                                                                 Tag="{Binding}" Click="ViewInjectRecordRow"
                                                                 ToolTip.Tip="查看该注入记录详情">
-                                                            <Path Classes="luc" Data="{StaticResource LgEye}" />
+                                                            <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgEye}" />
                                                         </Button>
                                                         <Button Classes="opico view"
                                                                 Tag="{Binding}" Click="EnterDataOpRow"
                                                                 ToolTip.Tip="恢复该记录并跳转到数据操作页取数">
-                                                            <Path Classes="luc" Data="{StaticResource LgLogIn}" />
+                                                            <Path Stroke="#7C6FF0" Classes="luc" Data="{StaticResource LgLogIn}" />
                                                         </Button>
                                                         <Button Classes="opico del"
                                                                 Tag="{Binding}" Click="DeleteInjectRecordRow"
                                                                 ToolTip.Tip="删除该注入记录（需确认）">
-                                                            <Path Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                            <Path Stroke="#E5A33C" Classes="luc" Data="{StaticResource LgTrash2}" />
                                                         </Button>
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -874,7 +874,7 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgGlobe}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgGlobe}" Width="14" Height="14" VerticalAlignment="Center" />
                                                 <TextBlock Margin="6,0,0,0" Text="请求配置" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
@@ -976,13 +976,13 @@
                                                                     <Border Width="1" Height="16" VerticalAlignment="Center" Background="{DynamicResource DsgBorder}" />
                                                                     <Button Classes="minibtn" Height="28" Command="{Binding AutoFindKeyCommand}">
                                                                         <StackPanel Orientation="Horizontal" Spacing="5">
-                                                                            <Path Classes="luc" Data="{StaticResource LgSearch}" />
+                                                                            <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgSearch}" />
                                                                             <TextBlock Text="查找判断值" VerticalAlignment="Center" />
                                                                         </StackPanel>
                                                                     </Button>
                                                                     <Button Classes="minibtn" Height="28" Command="{Binding CheckKeyCommand}">
                                                                         <StackPanel Orientation="Horizontal" Spacing="5">
-                                                                            <Path Classes="luc" Data="{StaticResource LgCircleCheck}" />
+                                                                            <Path Stroke="#19ABCE" Classes="luc" Data="{StaticResource LgCircleCheck}" />
                                                                             <TextBlock Text="验证值" VerticalAlignment="Center" />
                                                                         </StackPanel>
                                                                     </Button>
@@ -1004,13 +1004,13 @@
                                                                 <StackPanel Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
                                                                     <Button Classes="minibtn" Height="28" Click="SetEncodingPointC">
                                                                         <StackPanel Orientation="Horizontal" Spacing="5">
-                                                                            <Path Classes="luc" Data="{StaticResource LgCode}" />
+                                                                            <Path Stroke="#E5A33C" Classes="luc" Data="{StaticResource LgCode}" />
                                                                             <TextBlock Text="编码标记" VerticalAlignment="Center" />
                                                                         </StackPanel>
                                                                     </Button>
                                                                     <Button Classes="minibtn" Height="28" Click="SetInjectPointC">
                                                                         <StackPanel Orientation="Horizontal" Spacing="5">
-                                                                            <Path Classes="luc" Data="{StaticResource LgCrosshair}" />
+                                                                            <Path Stroke="#33B578" Classes="luc" Data="{StaticResource LgCrosshair}" />
                                                                             <TextBlock Text="注入标记" VerticalAlignment="Center" />
                                                                         </StackPanel>
                                                                     </Button>
@@ -1019,7 +1019,7 @@
                                                                             <MenuFlyout Opening="DynFlyoutOpeningC" />
                                                                         </Button.Flyout>
                                                                         <StackPanel Orientation="Horizontal" Spacing="5">
-                                                                            <Path Classes="luc" Data="{StaticResource LgSparkles}" />
+                                                                            <Path Stroke="#7C6FF0" Classes="luc" Data="{StaticResource LgSparkles}" />
                                                                             <TextBlock Text="动态值" VerticalAlignment="Center" ToolTip.Tip="插入动态值标记：点击规则启用它并把&lt;DRule&gt;标记插入报文光标处（有选区为&lt;DRule&gt;标记名:选区数据&lt;DRule&gt;，无选区为&lt;DRule&gt;标记名&lt;DRule&gt;），完整管理在 防护绕过-动态规则 页" />
                                                                         </StackPanel>
                                                                     </Button>
@@ -1049,17 +1049,17 @@
                                                                     <ContextMenu Opened="RequestMenuOpenedC">
                                                                         <MenuItem Header="根据URL生成请求包" Click="BuildRequestFromUrlC">
                                                                             <MenuItem.Icon>
-                                                                                <Path Classes="lucm" Data="{StaticResource LgLink}" />
+                                                                                <Path Stroke="#7C6FF0" Classes="lucm" Data="{StaticResource LgLink}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="从文件导入报文" Click="ImportRequestFromFileC">
                                                                             <MenuItem.Icon>
-                                                                                <Path Classes="lucm" Data="{StaticResource LgUpload}" />
+                                                                                <Path Stroke="#5E6CE7" Classes="lucm" Data="{StaticResource LgUpload}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="转换数据报文">
                                                                             <MenuItem.Icon>
-                                                                                <Path Classes="lucm" Data="{StaticResource LgArrowLeftRight}" />
+                                                                                <Path Stroke="#F26161" Classes="lucm" Data="{StaticResource LgArrowLeftRight}" />
                                                                             </MenuItem.Icon>
                                                                             <MenuItem Header="转为 GET（参数移到URL）" Click="ChangeRequestFormatC" Tag="GET" />
                                                                             <MenuItem Header="转为 POST（表单urlencoded）" Click="ChangeRequestFormatC" Tag="POST_FORM" />
@@ -1068,43 +1068,43 @@
                                                                         </MenuItem>
                                                                         <MenuItem Header="编码标记" Click="SetEncodingPointC">
                                                                             <MenuItem.Icon>
-                                                                                <Path Classes="lucm" Data="{StaticResource LgCode}" />
+                                                                                <Path Stroke="#E5A33C" Classes="lucm" Data="{StaticResource LgCode}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="注入标记" Click="SetInjectPointC">
                                                                             <MenuItem.Icon>
-                                                                                <Path Classes="lucm" Data="{StaticResource LgCrosshair}" />
+                                                                                <Path Stroke="#33B578" Classes="lucm" Data="{StaticResource LgCrosshair}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="插入动态值">
                                                                             <MenuItem.Icon>
-                                                                                <Path Classes="lucm" Data="{StaticResource LgSparkles}" />
+                                                                                <Path Stroke="#7C6FF0" Classes="lucm" Data="{StaticResource LgSparkles}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="二次注入（单选）">
                                                                             <MenuItem.Icon>
-                                                                                <Path Classes="lucm" Data="{StaticResource LgLayers}" />
+                                                                                <Path Stroke="#F58A3C" Classes="lucm" Data="{StaticResource LgLayers}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="发送请求" Command="{Binding SendRequestCommand}" CommandParameter="exploit">
                                                                             <MenuItem.Icon>
-                                                                                <Path Classes="lucm" Data="{StaticResource LgSend}" />
+                                                                                <Path Stroke="#19ABCE" Classes="lucm" Data="{StaticResource LgSend}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <Separator />
                                                                         <MenuItem Header="复制报文" Click="CopyRequestC">
                                                                             <MenuItem.Icon>
-                                                                                <Path Classes="lucm" Data="{StaticResource LgCopy}" />
+                                                                                <Path Stroke="#E85D9E" Classes="lucm" Data="{StaticResource LgCopy}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="自动换行" Click="ToggleWrapC">
                                                                             <MenuItem.Icon>
-                                                                                <Path Classes="lucm" Data="{StaticResource LgWrapText}" />
+                                                                                <Path Stroke="#F58A3C" Classes="lucm" Data="{StaticResource LgWrapText}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                         <MenuItem Header="清空报文" Click="ClearRequestC">
                                                                             <MenuItem.Icon>
-                                                                                <Path Classes="lucm" Data="{StaticResource LgTrash2}" />
+                                                                                <Path Stroke="#E5A33C" Classes="lucm" Data="{StaticResource LgTrash2}" />
                                                                             </MenuItem.Icon>
                                                                         </MenuItem>
                                                                     </ContextMenu>
@@ -1119,7 +1119,7 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgScrollText}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <Path Stroke="#E5A33C" Classes="luc" Data="{StaticResource LgScrollText}" Width="14" Height="14" VerticalAlignment="Center" />
                                                 <TextBlock Margin="6,0,0,0" Text="环境变量" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
@@ -1204,8 +1204,8 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgShieldAlert}" Width="14" Height="14" VerticalAlignment="Center" />
-                                                <TextBlock Margin="6,0,0,0" Text="Hash读取" Classes="Normal" VerticalAlignment="Center" />
+                                                <Path Stroke="#19ABCE" Classes="luc" Data="{StaticResource LgShieldAlert}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <TextBlock Margin="6,0,0,0" Text="Hash读取" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
                                         <TabItem.Content>
@@ -1290,8 +1290,8 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgShieldAlert}" Width="14" Height="14" VerticalAlignment="Center" />
-                                                <TextBlock Margin="6,0,0,0" Text="权限角色" Classes="Normal" VerticalAlignment="Center" />
+                                                <Path Stroke="#19ABCE" Classes="luc" Data="{StaticResource LgShieldAlert}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <TextBlock Margin="6,0,0,0" Text="权限角色" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
                                         <TabItem.Content>
@@ -1376,8 +1376,8 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgBinary}" Width="14" Height="14" VerticalAlignment="Center" />
-                                                <TextBlock Margin="6,0,0,0" Text="文件操作" Classes="Normal" VerticalAlignment="Center" />
+                                                <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgBinary}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <TextBlock Margin="6,0,0,0" Text="文件操作" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
                                         <TabItem.Content>
@@ -1447,7 +1447,7 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgTerminal}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <Path Stroke="#F58A3C" Classes="luc" Data="{StaticResource LgTerminal}" Width="14" Height="14" VerticalAlignment="Center" />
                                                 <TextBlock Margin="6,0,0,0" Text="命令执行" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
@@ -1521,7 +1521,7 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgDatabaseZap}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <Path Stroke="#33B578" Classes="luc" Data="{StaticResource LgDatabaseZap}" Width="14" Height="14" VerticalAlignment="Center" />
                                                 <TextBlock Margin="6,0,0,0" Text="自定义SQL" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
@@ -1566,8 +1566,8 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgTable2}" Width="14" Height="14" VerticalAlignment="Center" />
-                                                <TextBlock Margin="6,0,0,0" Text="数据操作" Classes="Normal" VerticalAlignment="Center" />
+                                                <Path Stroke="#5E6CE7" Classes="luc" Data="{StaticResource LgTable2}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <TextBlock Margin="6,0,0,0" Text="数据操作" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
                                         <TabItem.Content>
@@ -1810,7 +1810,7 @@
                                 <TabItem>
                                     <TabItem.Header>
                                         <WrapPanel>
-                                            <Path Classes="luc" Data="{StaticResource LgGlobe}" Width="14" Height="14" VerticalAlignment="Center" />
+                                            <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgGlobe}" Width="14" Height="14" VerticalAlignment="Center" />
                                             <TextBlock Margin="6,0,0,0" Text="基础配置" VerticalAlignment="Center" />
                                         </WrapPanel>
                                     </TabItem.Header>
@@ -1863,7 +1863,7 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgLock}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <Path Stroke="#1FB8A6" Classes="luc" Data="{StaticResource LgLock}" Width="14" Height="14" VerticalAlignment="Center" />
                                                 <TextBlock Margin="6,0,0,0" Text="HTTP认证" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
@@ -1896,7 +1896,7 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgServer}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <Path Stroke="#F58A3C" Classes="luc" Data="{StaticResource LgServer}" Width="14" Height="14" VerticalAlignment="Center" />
                                                 <TextBlock Margin="6,0,0,0" Text="代理设置" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
@@ -1956,12 +1956,12 @@
                                                         </MenuItem>
                                                         <MenuItem Header="编辑选中代理" Click="EditProxySelect">
                                                             <MenuItem.Icon>
-                                                                <Path Classes="lucm" Data="{StaticResource LgPencil}" />
+                                                                <Path Stroke="#4C8DFF" Classes="lucm" Data="{StaticResource LgPencil}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="设为固定代理" Click="SetFixedProxySelect">
                                                             <MenuItem.Icon>
-                                                                <Path Classes="lucm" Data="{StaticResource LgSquareCheckBig}" />
+                                                                <Path Stroke="#1FB8A6" Classes="lucm" Data="{StaticResource LgSquareCheckBig}" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="验证所有代理" Command="{Binding CheckAllProxyCommand}">
@@ -2012,7 +2012,7 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgSignal}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <Path Stroke="#1FB8A6" Classes="luc" Data="{StaticResource LgSignal}" Width="14" Height="14" VerticalAlignment="Center" />
                                                 <TextBlock Margin="6,0,0,0" Text="DNSLog" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
@@ -2061,7 +2061,7 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgUser}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <Path Stroke="#E85D9E" Classes="luc" Data="{StaticResource LgUser}" Width="14" Height="14" VerticalAlignment="Center" />
                                                 <TextBlock Margin="6,0,0,0" Text="UA池" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
@@ -2126,7 +2126,7 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgBookOpen}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgBookOpen}" Width="14" Height="14" VerticalAlignment="Center" />
                                                 <TextBlock Margin="6,0,0,0" Text="字典管理" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
@@ -2198,7 +2198,7 @@
                                     <TabItem>
                                         <TabItem.Header>
                                             <WrapPanel>
-                                                <Path Classes="luc" Data="{StaticResource LgRepeat}" Width="14" Height="14" VerticalAlignment="Center" />
+                                                <Path Stroke="#19ABCE" Classes="luc" Data="{StaticResource LgRepeat}" Width="14" Height="14" VerticalAlignment="Center" />
                                                 <TextBlock Margin="6,0,0,0" Text="重发设置" VerticalAlignment="Center" />
                                             </WrapPanel>
                                         </TabItem.Header>
@@ -2248,7 +2248,7 @@
                                 <TabItem>
                                     <TabItem.Header>
                                         <WrapPanel>
-                                            <Path Classes="luc" Data="{StaticResource LgArrowLeftRight}" Width="14" Height="14" VerticalAlignment="Center" />
+                                            <Path Stroke="#F26161" Classes="luc" Data="{StaticResource LgArrowLeftRight}" Width="14" Height="14" VerticalAlignment="Center" />
                                             <TextBlock Margin="6,0,0,0" Text="字符替换" VerticalAlignment="Center" />
                                         </WrapPanel>
                                     </TabItem.Header>
@@ -2409,12 +2409,12 @@
                                                                     <Button Classes="opico view"
                                                                             ToolTip.Tip="编辑该脚本（保存到磁盘脚本文件即时生效）"
                                                                             Command="{Binding $parent[TableView].DataContext.EditTokenScriptCommand}" CommandParameter="{Binding}">
-                                                                        <Path Classes="luc" Data="{StaticResource LgPencil}" />
+                                                                        <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgPencil}" />
                                                                     </Button>
                                                                     <Button Classes="opico del"
                                                                             ToolTip.Tip="删除该脚本"
                                                                             Command="{Binding $parent[TableView].DataContext.RemoveTokenScriptCommand}" CommandParameter="{Binding}">
-                                                                        <Path Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                                        <Path Stroke="#E5A33C" Classes="luc" Data="{StaticResource LgTrash2}" />
                                                                     </Button>
                                                                 </StackPanel>
                                                             </DataTemplate>
@@ -2437,7 +2437,7 @@
                                 <TabItem>
                                     <TabItem.Header>
                                         <WrapPanel>
-                                            <Path Classes="luc" Data="{StaticResource LgSparkles}" Width="14" Height="14" VerticalAlignment="Center" />
+                                            <Path Stroke="#7C6FF0" Classes="luc" Data="{StaticResource LgSparkles}" Width="14" Height="14" VerticalAlignment="Center" />
                                             <TextBlock Margin="6,0,0,0" Text="动态规则" VerticalAlignment="Center" ToolTip.Tip="动态值与二次注入规则统一管理" />
                                         </WrapPanel>
                                     </TabItem.Header>
@@ -2512,12 +2512,12 @@
                                                                     <Button Classes="opico view"
                                                                             ToolTip.Tip="编辑该规则"
                                                                             Command="{Binding $parent[TableView].DataContext.EditCompanionRuleCommand}" CommandParameter="{Binding}">
-                                                                        <Path Classes="luc" Data="{StaticResource LgPencil}" />
+                                                                        <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgPencil}" />
                                                                     </Button>
                                                                     <Button Classes="opico del"
                                                                             ToolTip.Tip="删除该规则"
                                                                             Command="{Binding $parent[TableView].DataContext.RemoveCompanionRuleCommand}" CommandParameter="{Binding}">
-                                                                        <Path Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                                        <Path Stroke="#E5A33C" Classes="luc" Data="{StaticResource LgTrash2}" />
                                                                     </Button>
                                                                 </StackPanel>
                                                             </DataTemplate>
@@ -2538,7 +2538,7 @@
                                 <TabItem>
                                     <TabItem.Header>
                                         <WrapPanel>
-                                            <Path Classes="luc" Data="{StaticResource LgFileCode}" Width="14" Height="14" VerticalAlignment="Center" />
+                                            <Path Stroke="#F26161" Classes="luc" Data="{StaticResource LgFileCode}" Width="14" Height="14" VerticalAlignment="Center" />
                                             <TextBlock Margin="6,0,0,0" Text="检测用例" VerticalAlignment="Center" />
                                         </WrapPanel>
                                     </TabItem.Header>
@@ -2616,12 +2616,12 @@
                                                         <Button Classes="opico view"
                                                                 Tag="{Binding}" Click="ViewPayloadRow"
                                                                 ToolTip.Tip="弹窗查看/编辑该用例">
-                                                            <Path Classes="luc" Data="{StaticResource LgEye}" />
+                                                            <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgEye}" />
                                                         </Button>
                                                         <Button Classes="opico del"
                                                                 Tag="{Binding}" Click="DeletePayloadRow"
                                                                 ToolTip.Tip="删除该用例（需确认）">
-                                                            <Path Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                            <Path Stroke="#E5A33C" Classes="luc" Data="{StaticResource LgTrash2}" />
                                                         </Button>
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -2654,7 +2654,7 @@
                                 <TabItem>
                                     <TabItem.Header>
                                         <WrapPanel>
-                                            <Path Classes="luc" Data="{StaticResource LgRadar}" Width="14" Height="14" VerticalAlignment="Center" />
+                                            <Path Stroke="#F58A3C" Classes="luc" Data="{StaticResource LgRadar}" Width="14" Height="14" VerticalAlignment="Center" />
                                             <TextBlock Margin="6,0,0,0" Text="报错指纹" VerticalAlignment="Center" />
                                         </WrapPanel>
                                     </TabItem.Header>
@@ -2713,12 +2713,12 @@
                                                                 <Button Classes="opico view"
                                                                         Tag="{Binding}" Click="EditFingerprintRow"
                                                                         ToolTip.Tip="弹窗查看/编辑该指纹">
-                                                                    <Path Classes="luc" Data="{StaticResource LgEye}" />
+                                                                    <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgEye}" />
                                                                 </Button>
                                                                 <Button Classes="opico del"
                                                                         Tag="{Binding}" Click="DeleteFingerprintRow"
                                                                         ToolTip.Tip="删除该指纹（需确认）">
-                                                                    <Path Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                                    <Path Stroke="#E5A33C" Classes="luc" Data="{StaticResource LgTrash2}" />
                                                                 </Button>
                                                             </StackPanel>
                                                         </DataTemplate>
@@ -2817,7 +2817,7 @@
                                                             Command="{Binding $parent[TableView].DataContext.EditTemplateItemCommand}"
                                                             CommandParameter="{Binding}"
                                                             ToolTip.Tip="弹窗编辑该模板项的Key/Value">
-                                                        <Path Classes="luc" Data="{StaticResource LgPencil}" />
+                                                        <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgPencil}" />
                                                     </Button>
                                                 </DataTemplate>
                                             </TableViewColumn.CellTemplate>
@@ -2983,23 +2983,23 @@
                                                         <MenuFlyout>
                                                             <MenuItem Header="剪切" Click="RequestLogCutC">
                                                                 <MenuItem.Icon>
-                                                                    <Path Classes="lucm" Data="{StaticResource LgScissors}" />
+                                                                    <Path Stroke="#7C6FF0" Classes="lucm" Data="{StaticResource LgScissors}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                             <MenuItem Header="Copy" InputGesture="ctrl+C" Command="{Binding CopyMouseCommand}" CommandParameter="{Binding #RequestLogBox.TextArea}" >
                                                                 <MenuItem.Icon>
-                                                                    <Path Classes="lucm" Data="{StaticResource LgCopy}" />
+                                                                    <Path Stroke="#E85D9E" Classes="lucm" Data="{StaticResource LgCopy}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                             <MenuItem Header="粘贴" Click="RequestLogPasteC">
                                                                 <MenuItem.Icon>
-                                                                    <Path Classes="lucm" Data="{StaticResource LgClipboard}" />
+                                                                    <Path Stroke="#4C8DFF" Classes="lucm" Data="{StaticResource LgClipboard}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                             <Separator />
                                                             <MenuItem Header="解码" Name="DecodeRequestSubMenu">
                                                                 <MenuItem.Icon>
-                                                                    <Path Classes="lucm" Data="{StaticResource LgBinary}" />
+                                                                    <Path Stroke="#4C8DFF" Classes="lucm" Data="{StaticResource LgBinary}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                         </MenuFlyout>
@@ -3027,13 +3027,13 @@
                                                         <MenuFlyout>
                                                             <MenuItem Header="复制" Click="ResponseLogCopyC">
                                                                 <MenuItem.Icon>
-                                                                    <Path Classes="lucm" Data="{StaticResource LgCopy}" />
+                                                                    <Path Stroke="#E85D9E" Classes="lucm" Data="{StaticResource LgCopy}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                             <Separator />
                                                             <MenuItem Header="解码" Name="DecodeResponseSubMenu">
                                                                 <MenuItem.Icon>
-                                                                    <Path Classes="lucm" Data="{StaticResource LgBinary}" />
+                                                                    <Path Stroke="#4C8DFF" Classes="lucm" Data="{StaticResource LgBinary}" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                         </MenuFlyout>
@@ -3193,22 +3193,22 @@
                                     <ContextMenu>
                                         <MenuItem Header="复制" Click="LogCopyC">
                                             <MenuItem.Icon>
-                                                <Path Classes="lucm" Data="{StaticResource LgCopy}" />
+                                                <Path Stroke="#E85D9E" Classes="lucm" Data="{StaticResource LgCopy}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <MenuItem Header="全选" Click="LogSelectAllC" >
                                             <MenuItem.Icon>
-                                                <Path Classes="lucm" Data="{StaticResource LgSquareCheckBig}" />
+                                                <Path Stroke="#1FB8A6" Classes="lucm" Data="{StaticResource LgSquareCheckBig}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <MenuItem Header="导出日志" Click="LogExportC">
                                             <MenuItem.Icon>
-                                                <Path Classes="lucm" Data="{StaticResource LgDownload}" />
+                                                <Path Stroke="#F26161" Classes="lucm" Data="{StaticResource LgDownload}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <MenuItem Header="清空日志" Click="LogClearC">
                                             <MenuItem.Icon>
-                                                <Path Classes="lucm" Data="{StaticResource LgTrash2}" />
+                                                <Path Stroke="#E5A33C" Classes="lucm" Data="{StaticResource LgTrash2}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                     </ContextMenu>
