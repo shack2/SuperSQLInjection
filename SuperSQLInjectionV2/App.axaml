@@ -44,8 +44,8 @@
 
         <!--  ======== 右键菜单 Lucide 线性图标（全局样式：ContextMenu/Flyout渲染在Popup层，Panel级样式无法触达；描边1.5与导航图标一致） ========  -->
         <Style Selector="Path.lucm">
-            <Setter Property="Width" Value="13" />
-            <Setter Property="Height" Value="13" />
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
             <Setter Property="Stretch" Value="Uniform" />
             <Setter Property="Stroke" Value="{DynamicResource DsgInk2}" />
             <Setter Property="StrokeThickness" Value="1.5" />
@@ -59,6 +59,7 @@
         <Style Selector="TabItem">
             <Setter Property="Height" Value="35" />
             <Setter Property="MinHeight" Value="0" />
+             <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>

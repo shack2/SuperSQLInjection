@@ -74,7 +74,7 @@
                                     </Border>
                                     <StackPanel VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <TextBlock Text="超级SQL注入工具V2" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
+                                            <TextBlock Text="超级SQL注入工具V2" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
                                            
                                         </StackPanel>
                                         <TextBlock Text="{Binding AppVersionText}" FontSize="12"
@@ -86,14 +86,14 @@
                                 <Button Classes="navitem" Classes.active="{Binding NavPage0Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="0">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Stroke="#4C8DFF" Classes="luc" Data="{StaticResource LgScanLine}" />
+                                        <Path Stroke="#4C8DFF" Classes="luc" Margin="0,1,0,-1" Data="{StaticResource LgScanLine}" />
                                         <TextBlock Text="注入检测" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage10Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="10">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Stroke="#33B578" Classes="luc" Data="{StaticResource LgListChecks}"/>
+                                        <Path Stroke="#33B578" Classes="luc" Margin="0,1.5,0,-1.5" Data="{StaticResource LgListChecks}"/>
                                         <TextBlock Text="检测用例" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
@@ -101,7 +101,7 @@
                                         Command="{Binding SelectNavCommand}" CommandParameter="3">
                                     <Grid ColumnDefinitions="Auto,*,Auto">
                                         <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <Path Stroke="#7C6FF0" Classes="luc" Data="{StaticResource LgHistory}" />
+                                            <Path Stroke="#7C6FF0" Classes="luc" Margin="0,1.5,0,-1.5" Data="{StaticResource LgHistory}" />
                                             <TextBlock Text="注入记录" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                         </StackPanel>
                                         <Border Grid.Column="2"
@@ -125,14 +125,14 @@
                                 <Button Classes="navitem" Classes.active="{Binding NavPage4Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="4">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Stroke="#1FB8A6" Classes="luc" Data="{StaticResource LgDatabase}" />
+                                        <Path Stroke="#1FB8A6" Classes="luc" Margin="0,1,0,-1" Data="{StaticResource LgDatabase}" />
                                         <TextBlock Text="数据管理" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage9Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="9">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Stroke="#19ABCE" Classes="luc" Data="{StaticResource LgFileSpreadsheet}" />
+                                        <Path Stroke="#19ABCE" Classes="luc" Margin="0,0.5,0,-0.5" Data="{StaticResource LgFileSpreadsheet}" />
                                         <TextBlock Text="取数模版" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
@@ -141,28 +141,28 @@
                                 <Button Classes="navitem" Classes.active="{Binding NavPage5Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="5">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Stroke="#5E6CE7" Classes="luc" Data="{StaticResource LgNetwork}" />
+                                        <Path Stroke="#5E6CE7" Classes="luc" Margin="0,-0.5,0,0.5" Data="{StaticResource LgNetwork}" />
                                         <TextBlock Text="网络设置" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage6Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="6">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Stroke="#F58A3C" Classes="luc" Data="{StaticResource LgShieldOff}" />
+                                        <Path Stroke="#F58A3C" Classes="luc" Margin="0,1,0,-1" Data="{StaticResource LgShieldOff}" />
                                         <TextBlock Text="防护绕过" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage7Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="7">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Stroke="#E85D9E" Classes="luc" Data="{StaticResource LgCode2}"/>
+                                        <Path Stroke="#E85D9E" Classes="luc" Margin="0,2,0,-2" Data="{StaticResource LgCode2}"/>
                                         <TextBlock Text="编码工具" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Classes="navitem" Classes.active="{Binding NavPage8Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="8">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Stroke="#E5A33C" Classes="luc" Data="{StaticResource LgScrollText}"/>
+                                        <Path Stroke="#E5A33C" Classes="luc" Margin="0,1,0,-1" Data="{StaticResource LgScrollText}"/>
                                         <TextBlock Text="请求日志" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
@@ -171,7 +171,7 @@
                                 <Button Classes="navitem" Classes.active="{Binding NavPage11Visible}"
                                         Command="{Binding SelectNavCommand}" CommandParameter="11">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Path Stroke="#8A94A6" Classes="luc" Data="{StaticResource LgInfo}" />
+                                        <Path Stroke="#8A94A6" Classes="luc" Margin="0,1,0,-1" Data="{StaticResource LgInfo}" />
                                         <TextBlock Text="关于" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>

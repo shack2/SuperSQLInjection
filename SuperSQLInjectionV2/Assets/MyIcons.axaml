@@ -169,7 +169,7 @@ M320.64 128h384v64h-384zM256 640h512v64H256zM256 768h512v64H256zM214.4 493.44V30
         <StreamGeometry x:Key="LgGlobe">M2,12 A10,10 0 1 0 22,12 A10,10 0 1 0 2,12 Z M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20 M2 12h20</StreamGeometry>
         <StreamGeometry x:Key="LgShieldAlert">M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z M12 8v4 M12 16h.01</StreamGeometry>
         <StreamGeometry x:Key="LgBinary">M16,14 A2,2 0 0 1 18,16 V18 A2,2 0 0 1 16,20 A2,2 0 0 1 14,18 V16 A2,2 0 0 1 16,14 Z M8,4 A2,2 0 0 1 10,6 V8 A2,2 0 0 1 8,10 A2,2 0 0 1 6,8 V6 A2,2 0 0 1 8,4 Z M6 20h4 M14 10h4 M6 14h2v6 M14 4h2v6</StreamGeometry>
-        <StreamGeometry x:Key="LgScrollText">M15 14h-5 M15 10h-5 M19 19V7a2 2 0 0 0-2-2H4 M8 23h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V7a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3</StreamGeometry>
+        <StreamGeometry x:Key="LgScrollText">M15 12h-5 M15 8h-5 M19 17V5a2 2 0 0 0-2-2H4 M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3</StreamGeometry>
         <StreamGeometry x:Key="LgLock">M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M7 11V7a5 5 0 0 1 10 0v4</StreamGeometry>
         <StreamGeometry x:Key="LgServer">M4 2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M4 14h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2z M6 6h.01 M6 18h.01</StreamGeometry>
         <StreamGeometry x:Key="LgSignal">M2 20h.01 M7 20v-4 M12 20v-8 M17 20V8 M22 4v16</StreamGeometry>
@@ -198,7 +198,7 @@ M320.64 128h384v64h-384zM256 640h512v64H256zM256 768h512v64H256zM214.4 493.44V30
         <!--  lucide: scan-line（注入检测）  -->
         <StreamGeometry x:Key="LgScanLine">M3 7V5a2 2 0 0 1 2-2h2 M17 3h2a2 2 0 0 1 2 2v2 M21 17v2a2 2 0 0 1-2 2h-2 M7 21H5a2 2 0 0 1-2-2v-2 M7 12h10</StreamGeometry>
         <!--  lucide: list-checks（检测用例）  -->
-        <StreamGeometry x:Key="LgListChecks">M3 19l2 2 4-4 M3 9l2 2 4-4 M13 8h8 M13 14h8 M13 20h8</StreamGeometry>
+        <StreamGeometry x:Key="LgListChecks">M3 17l2 2 4-4 M3 7l2 2 4-4 M13 6h8 M13 12h8 M13 18h8</StreamGeometry>
         <!--  lucide: history（注入记录）  -->
         <StreamGeometry x:Key="LgHistory">M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5 M12 7v5l4 2</StreamGeometry>
         <!--  lucide: file-spreadsheet（取数模版）  -->
@@ -208,7 +208,7 @@ M320.64 128h384v64h-384zM256 640h512v64H256zM256 768h512v64H256zM214.4 493.44V30
         <!--  lucide: shield-off（防护绕过）  -->
         <StreamGeometry x:Key="LgShieldOff">M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z M2 2l20 20</StreamGeometry>
         <!--  lucide: code-2（编码工具）  -->
-        <StreamGeometry x:Key="LgCode2">M18 18l4-4-4-4 M6 10l-4 4 4 4 M14.5 6l-5 16</StreamGeometry>
+        <StreamGeometry x:Key="LgCode2">M18 16l4-4-4-4 M6 8l-4 4 4 4 M14.5 4l-5 16</StreamGeometry>
         <!--  lucide: trash-2（操作列删除按钮，线性风格与菜单图标统一）  -->
         <StreamGeometry x:Key="LgTrash2">M3 6h18 M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6 M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2 M10 11v6 M14 11v6</StreamGeometry>
         <!--  lucide: eye（操作列查看按钮）  -->

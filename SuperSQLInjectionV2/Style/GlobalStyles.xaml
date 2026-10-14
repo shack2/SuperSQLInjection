@@ -42,6 +42,8 @@
          <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
         <Setter Property="FontSize" Value="13" />
     </Style>
-     
-
+       <Style Selector="MenuItem">
+        <Setter Property="Height" Value="35" />
+    </Style>
+    
 </Styles>
