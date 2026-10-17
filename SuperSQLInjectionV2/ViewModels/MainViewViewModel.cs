@@ -2058,7 +2058,7 @@ public partial class MainViewViewModel : ViewModelBase
     {
         if (AppConfig.DataConfig.IsTimeChannel || AppConfig.DataConfig.SelectedInjectType == InjectType.Stacked)
         {
-            int sec = MyTools.ConvertToInt(AppConfig.DataConfig.CheckValue);
+            double sec = double.TryParse(AppConfig.DataConfig.CheckValue, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double d) ? d : 0;
             if (sec > 0 && sec <= 60 && AppConfig.SleepInjectMaxTime != sec)
             {
                 AppConfig.SleepInjectMaxTime = sec;

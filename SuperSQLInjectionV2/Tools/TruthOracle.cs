@@ -94,8 +94,11 @@ namespace SuperSQLInjectionV2.Tools
 
                 case BoolInjectType.Time:
                     //由于计数器有误差（可能客户端计数小于服务端，如果页面正常响应时间非常快，可能导致返回时间可能提前，所以考虑设置一个误差值）
-                    int time = MyTools.ConvertToInt(key);
-                    if (response.RunTime > (time*1000-(time*MyTools.deviation)))
+                    //支持小数秒（0.5等，检测均值标定/自适应下调产生）：不变文化解析，阈值=秒×(1000-deviation)毫秒
+                    double timeSec = double.TryParse(key, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double ts)
+                        ? ts
+                        : MyTools.ConvertToInt(key);
+                    if (response.RunTime > timeSec * (1000 - MyTools.deviation))
                     {
                         if (reverKey)
                         {

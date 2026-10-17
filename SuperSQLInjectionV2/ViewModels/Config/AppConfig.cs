@@ -85,6 +85,7 @@ namespace SuperSQLInjectionV2.Models
 
         //时间盲注延时秒数（SleepInjectMaxTime）是时间通道延时的单一数据源：发包sleep/判定阈值/自适应加时
         //均直接读写它，不再回写CheckValue（CheckValue是bool盲注的页面特征判断值，两者语义不混用）
+        //支持0.5等小数值：检测按基线均值分档标定（<200ms→0.5s），取数自适应下调亦可产生非整数秒
 
 
         [ObservableProperty]
@@ -99,7 +100,7 @@ namespace SuperSQLInjectionV2.Models
         public partial bool RedirectDoGet { get; set; } = true;
 
         [ObservableProperty]
-        public partial int SleepInjectMaxTime { get; set; } = 5;
+        public partial double SleepInjectMaxTime { get; set; } = 5;
 
         public string TestPayload { get; set; } = "";
 
@@ -386,7 +387,7 @@ namespace SuperSQLInjectionV2.Models
                 //判断值反向同步：时间通道的判断值即延时秒数，人工改判断值时同步到通道配置时间盲注组
                 //（正向同步由OnSleepInjectMaxTimeChanged完成；两侧赋值相等时setter不再触发，无回环）
                 if (e.PropertyName == nameof(DataConfig.CheckValue) && DataConfig.IsTimeChannel
-                    && int.TryParse(DataConfig.CheckValue, out int cv) && cv > 0 && cv <= 60 && SleepInjectMaxTime != cv)
+                    && double.TryParse(DataConfig.CheckValue, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double cv) && cv > 0 && cv <= 60 && SleepInjectMaxTime != cv)
                 {
                     SleepInjectMaxTime = cv;
                 }

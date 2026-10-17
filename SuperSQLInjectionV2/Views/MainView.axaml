@@ -967,7 +967,7 @@
                                                                     <StackPanel Spacing="6">
                                                                         <Grid ColumnDefinitions="64,*">
                                                                             <TextBlock Classes="kvkey" Text="延时秒数：" VerticalAlignment="Center" />
-                                                                            <NumericUpDown Grid.Column="1" Minimum="1" Maximum="30" Increment="1"
+                                                                            <NumericUpDown Grid.Column="1" Minimum="0.5" Maximum="30" Increment="0.5"
                                                                                            Value="{Binding AppConfig.SleepInjectMaxTime}" VerticalAlignment="Center" />
                                                                         </Grid>
                                                                         <TextBlock Classes="Secondary hint" TextWrapping="Wrap"

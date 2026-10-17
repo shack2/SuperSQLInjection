@@ -37,9 +37,18 @@ namespace SuperSQLInjectionV2.Tools.Inject
         /// 通用SQL注释（-- 加随机串）
         /// </summary>
         public string GenericSqlComment { get; }
-        public int SleepTime { get; set; }
+        /// <summary>延时秒数（支持0.5等小数值，检测均值标定/取数自适应下调可能产生非整数秒）</summary>
+        public double SleepTime { get; set; }
 
-        public PayloadPlaceholder(int sleepTime = 1)
+        /// <summary>延时秒数SQL文本：整数输出无小数点（SLEEP(2)），小数走不变文化（SLEEP(0.5)，防区域文化逗号分隔符破坏SQL语法）</summary>
+        public static string FormatSeconds(double t)
+        {
+            return t == Math.Floor(t)
+                ? ((long)t).ToString()
+                : t.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        public PayloadPlaceholder(double sleepTime = 1)
         {
             RandNum = NextNum();
             RandNum1 = NextNumExcept(RandNum);
@@ -117,8 +126,8 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 .Replace("[DELIMITER_START]", RawDelimiterStart, StringComparison.Ordinal)
                 .Replace("[DELIMITER_STOP]", RawDelimiterStop, StringComparison.Ordinal)
                 .Replace("[GENERIC_SQL_COMMENT]", GenericSqlComment, StringComparison.Ordinal)
-                .Replace("[SLEEPTIME]", SleepTime.ToString(), StringComparison.Ordinal)
-                .Replace("[DELAYED]", SleepTime.ToString(), StringComparison.Ordinal)
+                .Replace("[SLEEPTIME]", FormatSeconds(SleepTime), StringComparison.Ordinal)
+                .Replace("[DELAYED]", FormatSeconds(SleepTime), StringComparison.Ordinal)
                 .Replace("[SPACE_REPLACE]", " ", StringComparison.Ordinal)
                 .Replace("[HASH_REPLACE]", "#", StringComparison.Ordinal)
                 .Replace("[DOLLAR_REPLACE]", "$", StringComparison.Ordinal)

@@ -58,6 +58,8 @@ namespace SuperSQLInjectionV2.Tools.Inject
             public int BaseSec = -1;
             //基线响应抖动（max-min，毫秒）：抖动大时时间类检测增加一轮确认
             public int BaseJitterMs = 0;
+            //时间类检测延时秒数（EnsureBaseSec按基线均值分档标定：<200ms→0.5s，200~500ms→1s，≥500ms→ceil(均值秒+1)；支持0.5小数值）
+            public double TimeDelaySec = -1;
             //重查询payload单位延时校准缓存（key=重查询函数标记，value=每[SLEEPTIME]单位实际耗时毫秒，-1=校准失败）
             public Dictionary<string, double> HeavyUnitMs = new Dictionary<string, double>();
             //页面模板自身稳定性：3次原始请求两两ratio均>=0.98视为稳定
@@ -1702,10 +1704,11 @@ namespace SuperSQLInjectionV2.Tools.Inject
         private static async Task<InjectPoint?> TryTime(Ctx ctx, PayloadTest test, PayloadBoundary boundary, int where, bool stacked)
         {
             int baseSec = await EnsureBaseSec(ctx).ConfigureAwait(false);
-            int time = Math.Max(1, baseSec + 1);
+            //延时取EnsureBaseSec按基线均值分档标定值（0.5/1/ceil(均值秒+1)）；异常回退旧规则max(1,基线秒+1)
+            double time = ctx.TimeDelaySec > 0 ? ctx.TimeDelaySec : Math.Max(1, baseSec + 1);
             if (ctx.Config.TimeOut < time + 3)
             {
-                ctx.Config.TimeOut = time + 5;
+                ctx.Config.TimeOut = (int)Math.Ceiling(time) + 5;
             }
             bool canSetTime = (test.RequestPayload ?? "").Contains("[SLEEPTIME]", StringComparison.Ordinal);
             //重查询类payload（RANDOMBLOB/BENCHMARK/GENERATE_SERIES等CPU消耗型）：[SLEEPTIME]是放大倍数而非真实秒数，
@@ -1719,7 +1722,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
             }
             //缩放条件仅设下限（>50ms才值得缩放）：单位耗时>=950ms时不缩放会导致t个单位实际延时<t秒（如0.93s/单位×2秒=1.86s不达标漏报），
             //等比放大ceil(t*1000/unitMs)在任何单位耗时下都能保证实际延时>=t秒；零延时对照t=0时ceil(0)=0天然不受影响。
-            int ScaleSleep(int t) => heavyUnitMs > 50 ? Math.Min(100, (int)Math.Ceiling(t * 1000.0 / heavyUnitMs)) : t;
+            double ScaleSleep(double t) => heavyUnitMs > 50 ? Math.Min(100, (int)Math.Ceiling(t * 1000.0 / heavyUnitMs)) : t;
             PayloadPlaceholder ph = new PayloadPlaceholder(ScaleSleep(time));
             string prefix = Rep(ctx, ph, boundary.Prefix);
             string suffix = Rep(ctx, ph, boundary.Suffix);
@@ -1742,7 +1745,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 {
                     return null;
                 }
-                int sentUnits = ScaleSleep(time);
+                int sentUnits = (int)Math.Ceiling(ScaleSleep(time));
                 double measured = resp.RunTime / (double)Math.Max(1, sentUnits);
                 if (measured <= 50 || Math.Abs(measured - heavyUnitMs) < 50)
                 {
@@ -1766,7 +1769,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
             bool confirm2;
             if (canSetTime)
             {
-                int time2 = time + 2;
+                double time2 = time + 2;
                 PayloadPlaceholder ph2 = new PayloadPlaceholder(ScaleSleep(time2));
                 string prefix2 = Rep(ctx, ph2, boundary.Prefix);
                 string suffix2 = Rep(ctx, ph2, boundary.Suffix);
@@ -1812,7 +1815,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
             }
 
             string techName = stacked ? "堆叠查询" : "时间盲注";
-            Log.Warning("发现" + techName + "注入！用例：" + test.Title + "，延时=" + time + "秒");
+            Log.Warning("发现" + techName + "注入！用例：" + test.Title + "，延时=" + PayloadPlaceholder.FormatSeconds(time) + "秒");
             InjectPayloadManager.RecordHit(test);
             InjectPoint inp = new InjectPoint();
             inp.IsInject = true;
@@ -1820,7 +1823,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
             //纯时间盲注命中标记独立的InjectType.Time（BoolInjectType.Time保留作oracle信息，判定经EffectiveBoolType强制走时间）
             inp.InjectType = stacked ? InjectType.Stacked : InjectType.Time;
             inp.BoolInjectType = BoolInjectType.Time;
-            inp.CheckValue = time.ToString();
+            inp.CheckValue = PayloadPlaceholder.FormatSeconds(time);
             inp.DBType = ResolveDb(test, ctx);
             inp.TestPayload = payload;
             inp.Where = where;
@@ -1999,8 +2002,11 @@ namespace SuperSQLInjectionV2.Tools.Inject
             int min = (int)samples.Where(s => s > 0).DefaultIfEmpty(max).Min();
             ctx.BaseJitterMs = max - min;
             ctx.BaseSec = (int)Math.Ceiling(max / 1000.0);
+            //按均值分档标定延时：均值<200ms→0.5秒；200~500ms→1秒；≥500ms→ceil(均值秒+1)取较大正整数
+            double mean = samples.Average();
+            ctx.TimeDelaySec = mean < 200 ? 0.5 : mean < 500 ? 1 : Math.Ceiling(mean / 1000.0 + 1);
             string src = ctx.SerialTimeSamples.Count >= 3 ? "前奏串行样本" : "前奏样本+补测";
-            Log.Show("基线响应时间约" + max + "毫秒（抖动" + ctx.BaseJitterMs + "毫秒，样本" + samples.Count + "个取自" + src + "），时间类检测延时设置为" + Math.Max(1, ctx.BaseSec + 1) + "秒！");
+            Log.Show("基线响应时间均值约" + (int)mean + "毫秒（峰值" + max + "毫秒，抖动" + ctx.BaseJitterMs + "毫秒，样本" + samples.Count + "个取自" + src + "），时间类检测延时设置为" + PayloadPlaceholder.FormatSeconds(ctx.TimeDelaySec) + "秒！");
             if (ctx.BaseSec >= 2)
             {
                 Log.Warning("目标基线响应较慢（>" + ctx.BaseSec + "秒），时间盲注判定误差增大，建议调大超时或使用布尔/Union通道！");
@@ -2291,7 +2297,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
         /// 分隔符本身就是提取标记，取数塞裸表达式、解析走EchoMarkers正则，不叠ConcatData第二层标记
         /// （报错回显容量仅~31字符，双重标记会吃光容量）。模板无取数槽位时原样返回payload。
         /// </summary>
-        public static string RenderVectorForSend(string? vectorTemplate, string payload, string? origValue, DBType db, int sleepTime = 1)
+        public static string RenderVectorForSend(string? vectorTemplate, string payload, string? origValue, DBType db, double sleepTime = 1)
         {
             string v = vectorTemplate ?? "";
             if (!HasVectorSlot(v))

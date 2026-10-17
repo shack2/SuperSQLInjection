@@ -459,7 +459,7 @@ namespace SuperSQLInjectionV2.Models.Data
             {
                 //时间通道复核失败多为延时边界抖动：通道配置延时秒数自动+1后由调用方重读（时间盲注自适应加时，
                 //延时单一数据源=SleepInjectMaxTime，不触碰bool判断值CheckValue）
-                int t = config.SleepInjectMaxTime;
+                double t = config.SleepInjectMaxTime;
                 if (t > 0 && t < 30)
                 {
                     config.SleepInjectMaxTime = t + 1;
@@ -549,7 +549,7 @@ namespace SuperSQLInjectionV2.Models.Data
                 //时间通道判定阈值取通道配置延时秒数（SleepInjectMaxTime单一数据源，与sleep发包同值），
                 //bool通道取判断值CheckValue（关键字/状态码/长度等特征）
                 string judgeVal = dc.EffectiveBoolType == BoolInjectType.Time
-                    ? config.SleepInjectMaxTime.ToString()
+                    ? config.SleepInjectMaxTime.ToString(System.Globalization.CultureInfo.InvariantCulture)
                     : dc.CheckValue;
                 bool truth = TruthOracle.IsTrue(response, judgeVal, dc.Reverse, dc.EffectiveBoolType);
                 if (dc.EffectiveBoolType == BoolInjectType.Time)
@@ -584,7 +584,7 @@ namespace SuperSQLInjectionV2.Models.Data
         private static readonly object _timeStatLock = new();
         private static readonly List<(long rtt, bool delayed)> _timeWindow = new();
         private static AppConfig? _timeWindowCfg;
-        private static int _timeSleepFloor = 1;
+        private static double _timeSleepFloor = 0.5;
 
         /// <summary>
         /// 记录时间通道探测RTT并按窗口评估延时下调。统计口径=物理延时（响应是否超过判定阈值），
@@ -596,8 +596,8 @@ namespace SuperSQLInjectionV2.Models.Data
             {
                 return;
             }
-            int cur = config.SleepInjectMaxTime;
-            if (cur <= _timeSleepFloor || cur <= 1)
+            double cur = config.SleepInjectMaxTime;
+            if (cur <= _timeSleepFloor || cur <= 0.5)
             {
                 return;
             }
@@ -608,14 +608,14 @@ namespace SuperSQLInjectionV2.Models.Data
                     //换目标/换配置：清空窗口与floor重新评估
                     _timeWindowCfg = config;
                     _timeWindow.Clear();
-                    _timeSleepFloor = 1;
+                    _timeSleepFloor = 0.5;
                 }
                 cur = config.SleepInjectMaxTime;
-                if (cur <= _timeSleepFloor || cur <= 1)
+                if (cur <= _timeSleepFloor || cur <= 0.5)
                 {
                     return;
                 }
-                long threshold = cur * 1000L - cur * MyTools.deviation; //与TruthOracle时间判定同公式
+                double threshold = cur * (1000 - MyTools.deviation); //与TruthOracle时间判定同公式
                 _timeWindow.Add((response.RunTime, response.RunTime > threshold));
                 if (_timeWindow.Count < 10)
                 {
@@ -631,18 +631,19 @@ namespace SuperSQLInjectionV2.Models.Data
                 }
                 long fMax = falses.Max();
                 long tMin = trues.Min();
-                int next = cur - 1;
-                long thresholdNext = next * 1000L - next * MyTools.deviation;
+                double next = Math.Max(0.5, cur - 1);
+                double thresholdNext = next * (1000 - MyTools.deviation);
+                double shrinkMs = (cur - next) * 1000; //缩减秒数对应真侧RTT同步回落量
                 //假侧防误真：假RTT须低于新阈值一半（新阈值本身已含2%容差，余量充足）；
-                //真侧防误假：缩减1s后真RTT同步回落约1s，回落后仍须高于新阈值（余量≥20ms且≥假侧RTT，
+                //真侧防误假：真RTT回落后仍须高于新阈值（余量≥20ms且≥假侧RTT，
                 //与现行2%容差设计同比例安全；边界误判由逐字符复核/MD5校验兜底并自动+1s回升）
                 bool falseOk = fMax <= thresholdNext / 2;
-                bool trueOk = tMin - 1000L >= thresholdNext + Math.Max(20, fMax);
+                bool trueOk = tMin - shrinkMs >= thresholdNext + Math.Max(20, fMax);
                 if (falseOk && trueOk)
                 {
                     config.SleepInjectMaxTime = next;
                     _timeWindow.Clear();
-                    Log.SysLog("时间盲注响应分离余量充足（非延时≤" + fMax + "ms，延时≥" + tMin + "ms），延时自适应下调 " + cur + "s → " + next + "s（复核失败会自动回升）");
+                    Log.SysLog("时间盲注响应分离余量充足（非延时≤" + fMax + "ms，延时≥" + tMin + "ms），延时自适应下调 " + Tools.Inject.PayloadPlaceholder.FormatSeconds(cur) + "s → " + Tools.Inject.PayloadPlaceholder.FormatSeconds(next) + "s（复核失败会自动回升）");
                 }
                 else
                 {
@@ -652,7 +653,7 @@ namespace SuperSQLInjectionV2.Models.Data
         }
 
         /// <summary>时间通道复核失败抬升延时下限（ValidateCharByBool +1s 时调用），防自适应下调震荡</summary>
-        private static void RaiseTimeSleepFloor(int sec)
+        private static void RaiseTimeSleepFloor(double sec)
         {
             lock (_timeStatLock)
             {
@@ -1084,18 +1085,18 @@ namespace SuperSQLInjectionV2.Models.Data
                 MarkSleepUnsupported(config.DataConfig.SelectedDBType);
                 return condition;
             }
-            //延时秒数单一数据源=通道配置SleepInjectMaxTime（检测测出延时标准后自动绑定，人工可修订），
+            //延时秒数单一数据源=通道配置SleepInjectMaxTime（检测测出延时标准后自动绑定，人工可修订，支持0.5小数值），
             //不与bool判断值CheckValue混用；SleepInjectMaxTime异常时回退CheckValue兼容旧链路
-            int maxTime = config.SleepInjectMaxTime;
+            double maxTime = config.SleepInjectMaxTime;
             if (maxTime <= 0)
             {
-                maxTime = MyTools.ConvertToInt(config.DataConfig.CheckValue);
+                maxTime = double.TryParse(config.DataConfig.CheckValue, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double cv) ? cv : 0;
             }
             if (maxTime <= 0)
             {
                 maxTime = 2;
             }
-            return TemplateRenderer.Render(sleepTemplate, ("cond", condition), ("sleep", maxTime), ("alias", MyTools.RandStr(6)));
+            return TemplateRenderer.Render(sleepTemplate, ("cond", condition), ("sleep", Tools.Inject.PayloadPlaceholder.FormatSeconds(maxTime)), ("alias", MyTools.RandStr(6)));
         }
 
         /// <summary>本次运行已提示过"不支持时间盲注"的库（避免每请求刷日志）</summary>
