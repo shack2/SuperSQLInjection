@@ -249,7 +249,7 @@ namespace SuperSQLInjectionV2.Tools
                                 return trueString;
                             }
                             string tempKey = trueString.Substring(i, length);
-                            if (!falseString.Contains(tempKey, StringComparison.Ordinal) && oldString.Contains(key, StringComparison.Ordinal))
+                            if (!falseString.Contains(tempKey, StringComparison.Ordinal) && oldString.Contains(tempKey, StringComparison.Ordinal))
                             {
                                 key = tempKey;
                                 //非制表符，返回结果，否则继续查看是否还有其他关键词

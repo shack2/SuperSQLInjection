@@ -306,63 +306,129 @@ namespace SuperSQLInjectionV2.Tools
             return result2.Equals(requestTxt, StringComparison.Ordinal) ? requestTxt : result2;
         }
 
-        public static InjectPoint CheckTheKey(AppConfig AppConfig, HttpResponse trueServer, HttpResponse falseServer, HttpResponse oldServer)
+        /// <summary>
+        /// 自动查找布尔盲注判断值：三级兜底（关键字正/反向→状态码→响应长度），
+        /// 每级均做交叉回放验证（第二组真/假响应上必须 真→true、假→false 才采纳，不稳自动降级）。
+        /// oldServer语义=第二次真/假条件响应（稳定特征判定，防随机令牌/动态计数误选）
+        /// </summary>
+        public static InjectPoint CheckBoolKey(HttpResponse t1, HttpResponse f1, HttpResponse t2, HttpResponse f2)
         {
-            //判断关键字,body中的词
-            //记录trueServer状态码，后面判断，降低误报
             InjectPoint point = new InjectPoint();
-            string key = TruthOracle.FindKeyByStr(trueServer.BodyClearText, falseServer.BodyClearText, oldServer.BodyTxt);
-            point.Revers = false;
-            //如果为空反过来查找
-            if (string.IsNullOrEmpty(key))
+            //交叉回放：判断方式必须在两组真/假响应上都判定正确
+            bool JudgeOk(BoolInjectType type, string key, bool revers)
             {
-                Log.Show("Body响应内容中正向查找未发现盲注判断值！");
-                point.Revers = true;
-                key = TruthOracle.FindKeyByStr(falseServer.BodyClearText, trueServer.BodyClearText, oldServer.BodyTxt);
-                if (string.IsNullOrEmpty(key))
-                {
-                    Log.Show("Body响应内容中反向查找未发现盲注判断值！");
-                    point.Revers = false;
-                }
+                return TruthOracle.IsTrue(t1, key, revers, type) && !TruthOracle.IsTrue(f1, key, revers, type)
+                    && TruthOracle.IsTrue(t2, key, revers, type) && !TruthOracle.IsTrue(f2, key, revers, type);
             }
-            if (!string.IsNullOrEmpty(key))
+            //1.关键字正向：真页有、假页无、第二次真页中稳定出现
+            //（用BodyTxt原文——BodyClearText为V1遗留字段无任何赋值点，恒为空，旧CheckTheKey因此永远找不到关键字）
+            string t1Body = t1.BodyTxt ?? "", f1Body = f1.BodyTxt ?? "", t2Body = t2.BodyTxt ?? "", f2Body = f2.BodyTxt ?? "";
+            string key = TruthOracle.FindKeyByStr(t1Body, f1Body, t2Body);
+            if (!string.IsNullOrEmpty(key) && JudgeOk(BoolInjectType.KeyWord, key, false))
             {
                 point.IsInject = true;
                 point.BoolInjectType = BoolInjectType.KeyWord;
                 point.CheckValue = key;
-                Log.Show("发现盲注判断值！" + key);
+                Log.Success("发现盲注判断值！" + key);
                 return point;
             }
-            //状态码判断
-            int code = TruthOracle.FindKeyByCode(trueServer.StatusCode, falseServer.StatusCode);
-            if (code == 0)
+            //1b.关键字反向：假页有、真页无、第二次假页中稳定出现
+            string rkey = TruthOracle.FindKeyByStr(f1Body, t1Body, f2Body);
+            if (!string.IsNullOrEmpty(rkey) && JudgeOk(BoolInjectType.KeyWord, rkey, true))
             {
-                Log.Show("响应状态码不能作为盲注判断条件！");
+                point.IsInject = true;
+                point.BoolInjectType = BoolInjectType.KeyWord;
+                point.CheckValue = rkey;
+                point.Revers = true;
+                Log.Success("发现盲注判断值（反向）！" + rkey);
+                return point;
             }
-            else
+            Log.Show("Body响应内容中未发现稳定的盲注判断关键字！");
+            //2.状态码
+            if (t1.StatusCode != f1.StatusCode && JudgeOk(BoolInjectType.Code, t1.StatusCode.ToString(), false))
             {
                 point.IsInject = true;
                 point.BoolInjectType = BoolInjectType.Code;
-                point.CheckValue = code.ToString();
-                Log.Show("响应状态码可以作为盲注判断条件！");
+                point.CheckValue = t1.StatusCode.ToString();
+                Log.Success("响应状态码" + point.CheckValue + "可以作为盲注判断条件！");
                 return point;
             }
-            //时间判断
-            if (trueServer.RunTime < AppConfig.SleepInjectMaxTime && falseServer.RunTime < AppConfig.SleepInjectMaxTime)
+            Log.Show("响应状态码不能作为盲注判断条件！");
+            //3.响应长度（大于/小于假页长度）
+            if (t1.JudgeLength != f1.JudgeLength)
             {
-                point.IsInject = true;
-                point.BoolInjectType = BoolInjectType.Time;
-                point.CheckValue = AppConfig.SleepInjectMaxTime.ToString();
-                Log.Show("逻辑为真的响应时间可以作为盲注判断条件！");
+                BoolInjectType lenType = t1.JudgeLength > f1.JudgeLength ? BoolInjectType.MaxLength : BoolInjectType.MinLength;
+                string lenKey = f1.JudgeLength.ToString();
+                if (JudgeOk(lenType, lenKey, false))
+                {
+                    point.IsInject = true;
+                    point.BoolInjectType = lenType;
+                    point.CheckValue = lenKey;
+                    Log.Success("响应长度" + (lenType == BoolInjectType.MaxLength ? ">" : "<") + lenKey + "可以作为盲注判断条件！");
+                    return point;
+                }
+            }
+            Log.Show("响应长度也不能作为盲注判断条件！");
+            return point;
+        }
+
+        /// <summary>
+        /// 自动探测时间盲注oracle：按延时阶梯（当前配置值→1/2/3/5秒，不超过超时-1秒）逐档实发sleep真假条件，
+        /// 真条件确实延时且假条件不延时才采纳；采纳时SleepInjectMaxTime停留在通过档位，CheckValue=延时秒数（不变文化）。
+        /// 非时间通道调用时临时把Bool判断方式切到Time以便sleep包装与耗时判定生效，全失败则还原现场
+        /// </summary>
+        public static async Task<InjectPoint> CheckTimeOracleAsync(AppConfig config)
+        {
+            InjectPoint point = new InjectPoint();
+            if (string.IsNullOrEmpty(PayloadFactory.BasePayload.SleepBoolData))
+            {
+                Log.Warning("数据库 " + config.DataConfig.SelectedDBType + " 无延时函数模板（SleepBoolData），不支持时间盲注判定！");
                 return point;
             }
-            if (falseServer.RunTime < AppConfig.SleepInjectMaxTime && trueServer.RunTime < AppConfig.SleepInjectMaxTime)
+            double oldSleep = config.SleepInjectMaxTime;
+            var oldBoolType = config.DataConfig.SelectBoolInject;
+            config.DataConfig.SelectBoolInject = BoolInjectType.Time;
+            //延时阶梯：当前配置值优先（检测已标定时直接复用），其后1/2/3/5秒；去重且不触碰超时边界
+            var ladder = new List<double>();
+            if (oldSleep >= 0.5 && oldSleep <= config.TimeOut - 1)
             {
-                point.IsInject = true;
-                point.BoolInjectType = BoolInjectType.Time;
-                point.CheckValue = AppConfig.SleepInjectMaxTime.ToString();
-                point.Revers = true;
-                Log.Show("逻辑为假的响应时间可以作为盲注判断条件！");
+                ladder.Add(oldSleep);
+            }
+            foreach (double s in new[] { 1.0, 2.0, 3.0, 5.0 })
+            {
+                if (s <= config.TimeOut - 1 && !ladder.Contains(s))
+                {
+                    ladder.Add(s);
+                }
+            }
+            try
+            {
+                foreach (double sec in ladder)
+                {
+                    config.CheckStop();
+                    config.SleepInjectMaxTime = sec;
+                    bool t = await DataComm.CheckCondition(config, "1=1").ConfigureAwait(false);
+                    bool f = await DataComm.CheckCondition(config, "1=2").ConfigureAwait(false);
+                    if (t && !f)
+                    {
+                        point.IsInject = true;
+                        point.BoolInjectType = BoolInjectType.Time;
+                        point.CheckValue = sec.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        point.Revers = false;
+                        Log.Success("发现时间盲注判断条件！延时=" + point.CheckValue + "秒（真条件延时、假条件不延时）");
+                        return point;
+                    }
+                    Log.Show("延时" + sec + "秒验证未通过（真条件" + (t ? "延时" : "未延时") + "、假条件" + (f ? "延时" : "未延时") + "），尝试下一档……");
+                }
+            }
+            finally
+            {
+                if (!point.IsInject)
+                {
+                    //全失败还原现场
+                    config.SleepInjectMaxTime = oldSleep;
+                    config.DataConfig.SelectBoolInject = oldBoolType;
+                }
             }
             return point;
         }

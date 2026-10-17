@@ -3160,32 +3160,60 @@ public partial class MainViewViewModel : ViewModelBase
                 return;
             }
 
-            HttpRequest hr = new HttpRequest(AppConfig);
-            hr.Payload=ConstData.TruePayload;
-            HttpResponse trueServer = await HTTPTool.SendRequestRetryAsync(hr);
-            HttpRequest hr1 = new HttpRequest(AppConfig);
-            hr1.Payload = ConstData.FalsePayload;
-            HttpResponse falseServer = await HTTPTool.SendRequestRetryAsync(hr1);
-
-            InjectPoint inp= InjectTools.CheckTheKey(AppConfig,trueServer, falseServer, trueServer);
-            if (inp.IsInject && inp.BoolInjectType == BoolInjectType.Time)
+            //按注入类型分流：Union/报错无需判断值；时间/堆叠直接探测延时oracle；
+            //布尔/DNS/未指定先查页面特征（关键字→状态码→长度），找不到再尝试延时判定
+            InjectType curType = AppConfig.DataConfig.SelectedInjectType;
+            if (curType is InjectType.Union or InjectType.Error)
             {
-                //时间判断实锤确认：发一个sleep真条件（延时=通道配置SleepInjectMaxTime），响应确实延时才采纳，
-                //避免真假都快时把时间oracle误判可用（CheckTheKey时间分支只看响应快于阈值）
-                if (!await DataComm.CheckCondition(AppConfig, "1=1"))
+                Log.Show("Union/报错注入取数无需盲注判断值（走列数/显示列/报错方式配置），无需查找！");
+                return;
+            }
+
+            InjectPoint inp;
+            if (curType is InjectType.Time or InjectType.Stacked)
+            {
+                inp = await InjectTools.CheckTimeOracleAsync(AppConfig);
+            }
+            else
+            {
+                //真假条件各发两组：第二组用于稳定性交叉验证（防随机令牌/动态计数误选为关键字）
+                HttpRequest ht1 = new HttpRequest(AppConfig);
+                ht1.Payload = ConstData.TruePayload;
+                HttpResponse t1 = await HTTPTool.SendRequestRetryAsync(ht1);
+                HttpRequest hf1 = new HttpRequest(AppConfig);
+                hf1.Payload = ConstData.FalsePayload;
+                HttpResponse f1 = await HTTPTool.SendRequestRetryAsync(hf1);
+                HttpRequest ht2 = new HttpRequest(AppConfig);
+                ht2.Payload = ConstData.TruePayload;
+                HttpResponse t2 = await HTTPTool.SendRequestRetryAsync(ht2);
+                HttpRequest hf2 = new HttpRequest(AppConfig);
+                hf2.Payload = ConstData.FalsePayload;
+                HttpResponse f2 = await HTTPTool.SendRequestRetryAsync(hf2);
+
+                inp = InjectTools.CheckBoolKey(t1, f1, t2, f2);
+                if (!inp.IsInject)
                 {
-                    inp.IsInject = false;
-                    Log.Show("时间判断值复核未通过（sleep真条件未触发延时），未采纳时间oracle！");
+                    Log.Show("页面特征均无法区分真假页面，尝试时间延时判定……");
+                    inp = await InjectTools.CheckTimeOracleAsync(AppConfig);
                 }
             }
-            if (inp.IsInject) {
+
+            if (inp.IsInject)
+            {
                 AppConfig.DataConfig.SelectBoolInject = inp.BoolInjectType;
                 AppConfig.DataConfig.Reverse = inp.Revers;
                 AppConfig.DataConfig.CheckValue = inp.CheckValue;
                 //查找到时间判断时同步延时秒数到通道配置时间盲注组
-                SyncTimeSleepFromCheckValue();
+                if (inp.BoolInjectType == BoolInjectType.Time)
+                {
+                    SyncTimeSleepFromCheckValue();
+                }
+                Log.Show("自动查找判断值完成！判断方式=" + inp.BoolInjectType + "，判断值=" + inp.CheckValue + (inp.Revers ? "（取反）" : ""));
             }
-            Log.Show("自动查找判断值完成！");
+            else
+            {
+                Log.Warning("未找到可用的判断值！目标页面对真假条件响应无稳定差异且无延时特征，请检查注入标记或手工配置判断值。");
+            }
 
         }
         catch (Exception ep)
