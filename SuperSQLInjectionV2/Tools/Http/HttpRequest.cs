@@ -14,6 +14,10 @@ namespace SuperSQLInjectionV2.Tools.Http
         public string? SencondTag { get; set; }
         /// <summary>NullBody提示（单请求级，对标业界同类工具 --null-connection）：长度类/状态码/时间盲注取数置true，发送时只读响应头比对，不读body</summary>
         public bool NullBodyHint { get; set; } = false;
+        /// <summary>跳过vector发送期装配（检测期探针置true）：检测探针payload是完整用例（自带boundary前后缀），
+        /// 若被命中联动的VectorTemplate二次包装会拼成无效SQL（EXTRACTVALUE套UNION/SLEEP），导致后续Union/时间等技术漏检；
+        /// 仅利用（取数）阶段的发送才需要RenderVectorForSend装配</summary>
+        public bool SkipVectorRender { get; set; } = false;
         public string Query { get; set; } = "";
         public string Path { get; set; } = "";
         public string Host { get; set; } = "";

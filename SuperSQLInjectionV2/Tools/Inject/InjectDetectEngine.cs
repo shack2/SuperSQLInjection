@@ -2359,6 +2359,9 @@ namespace SuperSQLInjectionV2.Tools.Inject
         {
             HttpRequest hr = new HttpRequest(ctx.Config, requestTxt);
             hr.Payload = payload;
+            //检测探针跳过vector发送期装配：命中联动（UpdateData）会把命中点VectorTemplate写进通道配置，
+            //不跳过则后续技术的探针被旧vector二次包装成无效SQL，Union/时间等技术漏检
+            hr.SkipVectorRender = true;
             HttpResponse resp = await HTTPTool.SendRequestRetryAsync(hr).ConfigureAwait(false);
             CountPhase(ctx);
             //WAF拦截统计：401未授权/403禁止/406不接受/429限流/501不支持 均视为疑似拦截（并发波下Interlocked计数）

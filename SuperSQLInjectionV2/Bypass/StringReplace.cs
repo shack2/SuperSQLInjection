@@ -62,7 +62,8 @@ namespace SuperSQLInjectionV2.Bypass
             //替换request（vector原文复用模式：发送期把payload装进检出vector的[INFERENCE]/[QUERY]槽位再替换标记——
             //标记报文保持简单胶水可读，vector模板随注入记录持久化，分隔符按当前回显标记渲染永不失配）
             string injectPayload = request.Payload ?? "";
-            if (config.DataConfig.IsVectorMode
+            if (!request.SkipVectorRender
+                && config.DataConfig.IsVectorMode
                 && request.HeaderAndBody.Contains(ConstData.InjectStr, StringComparison.Ordinal))
             {
                 //时间通道[SLEEPTIME]取通道配置延时秒数SleepInjectMaxTime（与sleep发包/oracle阈值同源）；
