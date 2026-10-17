@@ -55,7 +55,9 @@ namespace SuperSQLInjectionV2.Models
         /// <summary>自动反推写入标记（检测命中/恢复记录/切库复位的程序性赋值不视为人手工覆盖）</summary>
         private bool _errorMethodAuto = false;
 
-        /// <summary>检测命中或恢复注入记录时自动反推报错方式（程序性赋值，不触发人工覆盖标记）</summary>
+        /// <summary>检测命中或恢复注入记录时自动反推报错方式（程序性赋值，不触发人工覆盖标记）；
+        /// 同时清除人工覆盖标记——切库/切fork的程序性复位亦走本方法，若保留旧的覆盖标记，
+        /// 下拉已复位「默认」但vector原文复用仍被停用（IsVectorMode恒假），取数偏离检出payload</summary>
         public void AutoSelectErrorMethod(string method)
         {
             _errorMethodAuto = true;
@@ -67,6 +69,7 @@ namespace SuperSQLInjectionV2.Models
             {
                 _errorMethodAuto = false;
             }
+            ErrorMethodManualOverride = false;
         }
 
         partial void OnSelectedErrorMethodChanged(string value)
