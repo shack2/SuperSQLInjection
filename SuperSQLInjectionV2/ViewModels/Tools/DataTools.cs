@@ -184,16 +184,15 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             Log.Success($"MIN值链取数完成：{rowCount} 行（distinct 语义，重复值已折叠）");
         }
 
-        /// <summary>中文识别（--hex）开启时，取数列逐字段 HEX(CAST) 包装（回显纯ASCII，客户端按DbEncoding逐字段解码还原）</summary>
+        /// <summary>中文识别（--hex）开启时，取数列逐字段 HEX(CAST) 包装（回显纯ASCII，客户端按DbEncoding逐字段解码还原；NoCast时跳过内层cast）</summary>
         private static List<string> HexWrapColumns(AppConfig config, List<string> cols)
         {
             if (!DataComm.HexActive(config))
             {
                 return cols;
             }
-            string cast = PayloadFactory.BasePayload.Cast;
             return cols.Select(c => TemplateRenderer.Render(PayloadFactory.BasePayload.Hex,
-                ("expr", string.IsNullOrEmpty(cast) ? c : TemplateRenderer.Render(cast, ("expr", c))))).ToList();
+                ("expr", DataComm.CastWrapIfNeeded(config, c)))).ToList();
         }
 
         public async Task GetDataUnion(AppConfig config)

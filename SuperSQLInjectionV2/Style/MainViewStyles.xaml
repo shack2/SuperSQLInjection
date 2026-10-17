@@ -54,28 +54,23 @@
                 <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
             <!--  Lucide 线性导航图标：描边渲染，随导航状态变色  -->
-            <Style Selector="Path.luc">
+            <Style Selector="PathIcon.luc">
                 <Setter Property="Width" Value="14" />
                 <Setter Property="Height" Value="14" />
-                <Setter Property="Stretch" Value="Uniform" />
-                <Setter Property="Stroke" Value="{DynamicResource DsgInk2}" />
-                <Setter Property="StrokeThickness" Value="1.5" />
-                <Setter Property="StrokeLineCap" Value="Round" />
-                <Setter Property="StrokeJoin" Value="Round" />
+                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
             <!--  导航项内图标：16px（设计稿 h-4/w-4，与14px文字形成层级）、比全局luc更浅一档、描边更细；  -->
-            <Style Selector="Button.navitem Path.luc">
+            <Style Selector="Button.navitem PathIcon.luc">
                 <Setter Property="Width" Value="16" />
                 <Setter Property="Height" Value="16" />
-                <Setter Property="Stroke" Value="{DynamicResource DsgNavIcon}" />
-                <Setter Property="StrokeThickness" Value="1.3" />
+                <Setter Property="Foreground" Value="{DynamicResource DsgNavIcon}" />
             </Style>
-            <Style Selector="Button.navitem:pointerover Path.luc">
-                <Setter Property="Stroke" Value="{DynamicResource DsgInk2}" />
+            <Style Selector="Button.navitem:pointerover PathIcon.luc">
+                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
             </Style>
-            <Style Selector="Button.navitem.active Path.luc">
-                <Setter Property="Stroke" Value="{DynamicResource DsgPrimary}" />
+            <Style Selector="Button.navitem.active PathIcon.luc">
+                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
             </Style>
             <!--  导航分组标题  -->
             <Style Selector="TextBlock.navcaption">
@@ -98,22 +93,22 @@
                 <Setter Property="VerticalContentAlignment" Value="Center" />
             </Style>
             <!--  默认：弱化的三级灰色图标（muted-foreground）  -->
-            <Style Selector="Button.opico Path.luc">
-                <Setter Property="Stroke" Value="{DynamicResource DsgInk3}" />
+            <Style Selector="Button.opico PathIcon.luc">
+                <Setter Property="Foreground" Value="{DynamicResource DsgInk3}" />
             </Style>
             <!--  查看/编辑变体：悬停主色淡底+主色图标  -->
             <Style Selector="Button.opico.view:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                 <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
             </Style>
-            <Style Selector="Button.opico.view:pointerover Path.luc">
-                <Setter Property="Stroke" Value="{DynamicResource DsgPrimary}" />
+            <Style Selector="Button.opico.view:pointerover PathIcon.luc">
+                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
             </Style>
             <!--  删除变体：悬停红色淡底+红色图标  -->
             <Style Selector="Button.opico.del:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                 <Setter Property="Background" Value="{DynamicResource DsgErrorTint}" />
             </Style>
-            <Style Selector="Button.opico.del:pointerover Path.luc">
-                <Setter Property="Stroke" Value="{DynamicResource DsgError}" />
+            <Style Selector="Button.opico.del:pointerover PathIcon.luc">
+                <Setter Property="Foreground" Value="{DynamicResource DsgError}" />
             </Style>
             <!--  配置条  -->
             <Style Selector="Border.cfgstrip">
@@ -212,23 +207,50 @@
                 <Setter Property="Foreground" Value="White" />
                 <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
+
+     <!--  迷你按钮（复制/换行/清空/导出等）  -->
+            <Style Selector="Button.miniaddbtn">
+                <Setter Property="Height" Value="26" />
+                <Setter Property="Padding" Value="9,0" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                 <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimaryTint2}" />
+                <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
+                <Setter Property="Foreground" Value="{DynamicResource DsgPrimaryHover}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Cursor" Value="Hand" />
+            </Style>
+           
+            <Style Selector="Button.miniaddbtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource DsgPrimaryHover}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimaryHover}" />
+                 <Setter Property="Foreground" Value="{DynamicResource DsgOnPrimary}" />
+            </Style>
+
+            <Style Selector="Button.miniaddbtn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryPointerover}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimaryPointerover}" />
+                <Setter Property="Foreground" Value="{DynamicResource DsgOnPrimary}" />
+            </Style>
+          
+
             <!--  迷你按钮（复制/换行/清空/导出等）  -->
             <Style Selector="Button.minibtn">
                 <Setter Property="Height" Value="26" />
                 <Setter Property="Padding" Value="9,0" />
                 <Setter Property="CornerRadius" Value="4" />
                 <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
                 <Setter Property="BorderBrush" Value="{DynamicResource DsgBorder}" />
                 <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
+                <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="Cursor" Value="Hand" />
             </Style>
-            <Style Selector="Button.minibtn:pointerover">
-                <!--  用DsgPrimary而非SemiColorPrimary：浅色两者同为#2563EB，深色下DsgPrimary是亮青#22D3EE（SemiColorPrimary深青#0891B2做文字太闷）  -->
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
 
-            </Style>
             <!--  Semi主题的Button悬停/按下背景写在模板ContentPresenter上（模板触发器盖过Button.Background的TemplateBinding），
                   悬停/按下背景必须定位到模板内部的PART_ContentPresenter才生效  -->
             <Style Selector="Button.minibtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -239,15 +261,7 @@
                 <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint2}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimaryPointerover}" />
             </Style>
-            <!--  minibtn内细线图标：比全局luc更小更细，悬浮随文字加深  -->
-            <Style Selector="Button.minibtn Path.luc">
-                <Setter Property="Width" Value="13" />
-                <Setter Property="Height" Value="13" />
-                <Setter Property="StrokeThickness" Value="1.5" />
-            </Style>
-            <Style Selector="Button.minibtn:pointerover Path.luc">
-                <Setter Property="Stroke" Value="{DynamicResource DsgPrimary}" />
-            </Style>
+       
             <!--  日志过滤 chips  -->
             <Style Selector="Button.chip">
                 <Setter Property="Height" Value="22" />
@@ -334,7 +348,7 @@
             </Style>
             <!--  数据读取页：子面板头  -->
             <Style Selector="Border.subhead">
-                <Setter Property="Height" Value="34" />
+                <Setter Property="Height" Value="35" />
                 <Setter Property="Padding" Value="10,0" />
                 <Setter Property="BorderBrush" Value="{DynamicResource DsgBorder}" />
                 <Setter Property="Background" Value="{DynamicResource DsgSurface2}" />

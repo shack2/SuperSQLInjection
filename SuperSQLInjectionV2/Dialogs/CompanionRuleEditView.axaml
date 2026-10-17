@@ -98,10 +98,14 @@
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
-                <u:IconButton Theme="{DynamicResource SolidIconButton}" Classes="opadd tbtn"
-                              Icon="{StaticResource SemiIconPlusStroked}" Content="添加脚本" VerticalAlignment="Center"
-                              Command="{Binding AddScriptCommand}"
-                              ToolTip.Tip="弹窗新增动态值脚本（按当前来源预设类型），保存后自动选中" />
+                <Button Classes="minibtn" Height="28" Padding="14,0" VerticalAlignment="Center"
+                        Command="{Binding AddScriptCommand}"
+                        ToolTip.Tip="弹窗新增动态值脚本（按当前来源预设类型），保存后自动选中">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <PathIcon Data="{StaticResource MdPlus}" Width="13" Height="13" />
+                        <TextBlock Text="添加脚本" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </WrapPanel>
         </StackPanel>
 

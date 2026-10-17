@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using System.Collections.ObjectModel;
 
@@ -84,7 +85,9 @@ namespace SuperSQLInjectionV2.Models.Data
             {
                 Header = colInfo.Header,
                 Binding = new Binding($"[{colInfo.PropertyName}]"),
-                Width = GridLength.Auto
+                Width = GridLength.Auto,
+                //列头与单元格内容统一居中（表数据为短值场景，居中更易扫读）
+                HorizontalContentAlignment = HorizontalAlignment.Center
             };
 
             return column;

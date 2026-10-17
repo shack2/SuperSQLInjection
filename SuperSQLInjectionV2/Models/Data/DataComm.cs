@@ -1198,6 +1198,9 @@ namespace SuperSQLInjectionV2.Models.Data
             = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
         private static bool _valueCacheLoaded = false;
         private static readonly object _valueCacheLock = new object();
+        /// <summary>脏计数批量落盘：每攒够 ValueCacheSaveEvery 条新值才全量写盘一次（读一张50列的表从50次IO降到约3次）</summary>
+        private static int _valueCacheDirty = 0;
+        private const int ValueCacheSaveEvery = 20;
         private static string ValueCachePath => "config/sessions/value_cache.json";
 
         private static void ValueCacheEnsureLoaded()
@@ -1230,6 +1233,8 @@ namespace SuperSQLInjectionV2.Models.Data
                 }
                 catch (Exception ex) { Log.SysLog("跨会话值缓存已加载异常：" + ex.Message); }
                 _valueCacheLoaded = true;
+                //进程退出兜底落盘（批量写盘未攒够阈值时不丢尾部数据）
+                AppDomain.CurrentDomain.ProcessExit += (_, _) => ValueCacheSave();
             }
         }
 
@@ -1259,16 +1264,17 @@ namespace SuperSQLInjectionV2.Models.Data
             }
             ValueCacheEnsureLoaded();
             _valueCache[ValueCacheKey(config, dataPayload)] = value;
-            ValueCacheSave();
+            //批量落盘：攒够阈值才写盘（剔除操作 ValueCacheRemove 保持即时落盘，属低频）
+            if (System.Threading.Interlocked.Increment(ref _valueCacheDirty) >= ValueCacheSaveEvery)
+            {
+                ValueCacheSave();
+            }
         }
 
-        /// <summary>缓存命中校验：按当前库Cast模板包装后做整值等值探测（盲注/Union/Error三通道共用）</summary>
+        /// <summary>缓存命中校验：按当前库Cast模板包装后做整值等值探测（盲注/Union/Error三通道共用；NoCast开启时不包装）</summary>
         private static async Task<bool> ValueCacheVerifyHit(AppConfig config, string dataPayload, string cached)
         {
-            string casted = string.IsNullOrEmpty(PayloadFactory.BasePayload.Cast)
-                ? dataPayload
-                : TemplateRenderer.Render(PayloadFactory.BasePayload.Cast, ("expr", dataPayload));
-            return await PredictEqualCheck(config, casted, cached).ConfigureAwait(false);
+            return await PredictEqualCheck(config, CastWrapIfNeeded(config, dataPayload), cached).ConfigureAwait(false);
         }
 
         /// <summary>移除缓存条目（校验发现目标值已变化时剔除陈旧值），并持久化</summary>
@@ -1277,12 +1283,18 @@ namespace SuperSQLInjectionV2.Models.Data
             ValueCacheEnsureLoaded();
             if (_valueCache.TryRemove(ValueCacheKey(config, dataPayload), out _))
             {
+                //剔除属低频但需即时生效：置脏确保ValueCacheSave不被“无脏跳过”拦截
+                System.Threading.Interlocked.CompareExchange(ref _valueCacheDirty, 1, 0);
                 ValueCacheSave();
             }
         }
 
         private static void ValueCacheSave()
         {
+            if (System.Threading.Interlocked.Exchange(ref _valueCacheDirty, 0) == 0 && _valueCacheLoaded)
+            {
+                return;   //无脏数据不写盘（ProcessExit兜底调用时常见）
+            }
             try
             {
                 lock (_valueCacheLock)
@@ -1513,10 +1525,8 @@ namespace SuperSQLInjectionV2.Models.Data
             {
                 return null;
             }
-            //cast成字符再做等值比较（数值列/表达式统一字符语义，与hex路径同规）
-            string casted = string.IsNullOrEmpty(PayloadFactory.BasePayload.Cast)
-                ? dataPayload
-                : TemplateRenderer.Render(PayloadFactory.BasePayload.Cast, ("expr", dataPayload));
+            //cast成字符再做等值比较（数值列/表达式统一字符语义，与hex路径同规；NoCast开启时跳过，特殊环境防cast失败）
+            string casted = CastWrapIfNeeded(config, dataPayload);
             //先读字符长度（结果入_lenCache，后续逐字符路径复用），按同长过滤候选
             string lenPayload = PayloadFactory.BPTool.DataLen(casted);
             int len = await GetLengthAdaptive(config, lenPayload, maxLen).ConfigureAwait(false);
@@ -2250,17 +2260,24 @@ namespace SuperSQLInjectionV2.Models.Data
 
         //---------------- 中文识别（hex 能力）：Union/报错通道取值表达式HEX包装，客户端解码 ----------------
 
-        /// <summary>中文识别开启且当前库有hex函数时，取值表达式统一 HEX(CAST(x)) 包装（回显纯ASCII，多字节数据不乱码）</summary>
+        /// <summary>cast包装（NoCast开启或模板无cast时原样返回）：整值等值探测/hex包装内层共用，避免特殊环境类型转换失败</summary>
+        public static string CastWrapIfNeeded(AppConfig config, string payload)
+        {
+            if (config.DataDump.DumpNoCast || string.IsNullOrEmpty(PayloadFactory.BasePayload.Cast))
+            {
+                return payload;
+            }
+            return TemplateRenderer.Render(PayloadFactory.BasePayload.Cast, ("expr", payload));
+        }
+
+        /// <summary>中文识别开启且当前库有hex函数时，取值表达式统一 HEX(CAST(x)) 包装（回显纯ASCII，多字节数据不乱码；NoCast时跳过内层cast）</summary>
         public static string HexWrapIfNeeded(AppConfig config, string payload)
         {
             if (!config.DataConfig.HexDecode || string.IsNullOrEmpty(PayloadFactory.BasePayload.Hex))
             {
                 return payload;
             }
-            string casted = string.IsNullOrEmpty(PayloadFactory.BasePayload.Cast)
-                ? payload
-                : TemplateRenderer.Render(PayloadFactory.BasePayload.Cast, ("expr", payload));
-            return TemplateRenderer.Render(PayloadFactory.BasePayload.Hex, ("expr", casted));
+            return TemplateRenderer.Render(PayloadFactory.BasePayload.Hex, ("expr", CastWrapIfNeeded(config, payload)));
         }
 
         /// <summary>中文识别开启时，把取回的hex串按DbEncoding解码还原（截断/误判导致解码失败时降级返回原文并告警）</summary>

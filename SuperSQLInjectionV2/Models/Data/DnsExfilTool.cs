@@ -95,7 +95,7 @@ namespace SuperSQLInjectionV2.Models.Data
         /// <summary>
         /// DNS外带结果自动回收：触发后按 ceye 格式API轮询DNS解析记录，按 i1/i2/... 序号拼回hex并解码。
         /// 需配置 DataConfig.DnsLogApiToken（与DnsLogApiUrl模板）；轮询最长 maxWaitSec 秒，凑满 expectChunks 段提前返回。
-        /// 解码编码：SQLServer为UTF-16LE（fn_varbintohexstr编码行为），其他库用当前设置的页面编码（默认UTF-8）。
+        /// 解码编码：SQLServer为UTF-16LE（fn_varbintohexstr编码行为），其他库用取数编码DbEncoding（与中文识别hex解码一致，多字节安全）。
         /// </summary>
         public static async Task<string> CollectFromDnsLog(AppConfig config, int expectChunks, int maxWaitSec = 30)
         {

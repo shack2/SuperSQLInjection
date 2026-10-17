@@ -43,14 +43,10 @@
         </Style>
 
         <!--  ======== 右键菜单 Lucide 线性图标（全局样式：ContextMenu/Flyout渲染在Popup层，Panel级样式无法触达；描边1.5与导航图标一致） ========  -->
-        <Style Selector="Path.lucm">
+        <Style Selector="PathIcon.lucm">
             <Setter Property="Width" Value="14" />
             <Setter Property="Height" Value="14" />
-            <Setter Property="Stretch" Value="Uniform" />
-            <Setter Property="Stroke" Value="{DynamicResource DsgInk2}" />
-            <Setter Property="StrokeThickness" Value="1.5" />
-            <Setter Property="StrokeLineCap" Value="Round" />
-            <Setter Property="StrokeJoin" Value="Round" />
+            <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -102,6 +98,11 @@
         <Style Selector="TableViewCell TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
             <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <!--  表数据动态列（DynamicDataGrid）：单元格文字居中（列头由列的HorizontalContentAlignment居中）  -->
+        <Style Selector="TableView#DynamicDataGrid TableViewCell TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center" />
         </Style>
 
          <Style Selector="TableViewCell ToolTip TextBlock">
@@ -268,6 +269,7 @@
                 <Color x:Key="DsgPrimaryColor">#2563EB</Color>
                 <Color x:Key="DsgPrimaryHoverColor">#3B82F6</Color>
                 <SolidColorBrush x:Key="DsgPrimaryHover" Color="#1D4ED8" />
+                <SolidColorBrush x:Key="DsgOnPrimary" Color="#FFFFFF" />
                 <SolidColorBrush x:Key="DsgPrimaryTint" Color="#EAF1FE" />
                 <SolidColorBrush x:Key="DsgPrimaryTint2" Color="#DBE8FE" />
                 <SolidColorBrush x:Key="DsgSuccess" Color="#15A34A" />
@@ -331,7 +333,9 @@
                 <SolidColorBrush x:Key="DsgPrimary" Color="#22D3EE" />
                 <Color x:Key="DsgPrimaryColor">#22D3EE</Color>
                 <Color x:Key="DsgPrimaryHoverColor">#06B6D4</Color>
-                <SolidColorBrush x:Key="DsgPrimaryHover" Color="#67E8F9" />
+                <SolidColorBrush x:Key="DsgPrimaryHover" Color="#0891B2" />
+                <!--  深色下主色实心/悬停底为浅青#67E8F9，其上文字须用深色墨蓝保证对比度  -->
+                <SolidColorBrush x:Key="DsgOnPrimary" Color="#FFFFFF" />
 
                  <!--  CheckBox semi主题重写  -->
                 <SolidColorBrush x:Key="CheckBoxCheckedDefaultBackground" Color="#0891B2" />

@@ -22,8 +22,8 @@
         <Button Classes="repo" Width="32" Height="32" Padding="0"
                 ToolTip.Tip="切换浅色/深色主题"
                 Click="ToggleTheme_Click" VerticalAlignment="Center">
-            <Path Name="ThemeIconPath" Width="15" Height="15" Stretch="Uniform"
-                  Stroke="{DynamicResource DsgInk2}" StrokeThickness="1.5" />
+            <PathIcon Name="ThemeIconPath" Width="15" Height="15"
+                  Foreground="{DynamicResource DsgInk2}" />
         </Button>
     </StackPanel>
 </UserControl>

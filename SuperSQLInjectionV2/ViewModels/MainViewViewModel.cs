@@ -3318,7 +3318,7 @@ public partial class MainViewViewModel : ViewModelBase
     [ObservableProperty] private bool _isNavCollapsed;
 
     /// <summary>侧边栏宽度：展开240 / 折叠58</summary>
-    public double NavSidebarWidth => IsNavCollapsed ? 58 : 240;
+    public double NavSidebarWidth => IsNavCollapsed ? 70 : 240;
 
     partial void OnIsNavCollapsedChanged(bool value)
     {
@@ -3402,8 +3402,7 @@ public partial class MainViewViewModel : ViewModelBase
             }
             else if (page == 4)
             {
-                //数据管理页默认选中“请求配置”选项卡；带子索引（如4.7）时直达对应选项卡
-                DataOpTabIndex = 0;
+                //不带子索引时保留上次选中的选项卡；带子索引（如4.7）时直达对应选项卡
                 if (parts.Length > 1 && int.TryParse(parts[1], out int tab) && tab >= 0 && tab <= 7)
                 {
                     DataOpTabIndex = tab;
