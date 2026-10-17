@@ -47,14 +47,16 @@ namespace SuperSQLInjectionV2.Models
         [ObservableProperty] private string _dbForkName = "";
 
         /// <summary>
-        /// 数据库族（族宿主库）：DbType为forkMode变体库时归一到族宿主；设置后清空Fork选择
+        /// 数据库族（族宿主库）：DbType为forkMode变体库时归一到族宿主；设置后清空Fork选择。
+        /// 注意UnKnow不归一：DbProfile.Get(UnKnow)历史回落MySQL档案，直接CompatOf会让下拉误显示MySQL，
+        /// 且setter早退导致用户选MySQL永远写不进DbType（取数检查仍报未识别数据库类型）
         /// </summary>
         public DBType DbFamily
         {
-            get => DbProfile.CompatOf(DbType);
+            get => DbType == DBType.UnKnow ? DBType.UnKnow : DbProfile.CompatOf(DbType);
             set
             {
-                if (DbFamily == value)
+                if (DbType == value || (DbType != DBType.UnKnow && DbFamily == value))
                 {
                     return;
                 }
