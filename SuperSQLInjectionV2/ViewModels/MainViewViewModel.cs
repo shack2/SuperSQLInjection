@@ -4357,10 +4357,20 @@ public partial class MainViewViewModel : ViewModelBase
         AppConfig.DataConfig.SelectedDBType = DBType.UnKnow;
         //数据操作页的"数据库"下拉绑定在CurrentContext上，切换时同步过滤注入类型选项（隐藏无报错通道库的"报错注入"）
         //并联动刷新文件操作/命令执行方式列表（无需先点"应用"）
+        //选择即生效写穿：注入类型/数据库/Fork下拉变更直写共享取数配置DataConfig（免点"应用"，与Union列数等直绑项一致），
+        //否则EnsureDataOpReady读到的仍是UnKnow，取数提示"未识别数据库类型"。
+        //检出/恢复暂存流程先写Source（AutoDetect/InjectRecord）再写属性，userDriven=false不触发vector复位
+        //（那些流程自行有序写回DataConfig，写穿为同值no-op）；用户手工改下拉（Source=None/Manual）则复位vector防残留模板污染
         CurrentContext.PropertyChanged += (_, e) =>
         {
+            bool userDriven = CurrentContext.Source is InjectContextSource.None or InjectContextSource.Manual;
             if (e.PropertyName == nameof(InjectionContext.DbType))
             {
+                AppConfig.DataConfig.SelectedDBType = CurrentContext.DbType;
+                if (userDriven)
+                {
+                    AppConfig.DataConfig.ResetVectorMode();
+                }
                 AppConfig.DataConfig.RefreshInjectTypes(CurrentContext.DbType);
                 if (LogTools.Headless || Avalonia.Application.Current == null || Dispatcher.UIThread.CheckAccess())
                 {
@@ -4369,6 +4379,27 @@ public partial class MainViewViewModel : ViewModelBase
                 else
                 {
                     Dispatcher.UIThread.Post( ()=> AppConfig.FileCmd?.RefreshFileMethods(CurrentContext.DbType));
+                }
+            }
+            else if (e.PropertyName == nameof(InjectionContext.InjectType))
+            {
+                AppConfig.DataConfig.SelectedInjectType = CurrentContext.InjectType;
+                if (userDriven)
+                {
+                    AppConfig.DataConfig.ResetVectorMode();
+                }
+                if (CurrentContext.Source == InjectContextSource.None)
+                {
+                    CurrentContext.Source = InjectContextSource.Manual;
+                    CurrentContext.SourceDetail = "手工调整";
+                }
+            }
+            else if (e.PropertyName == nameof(InjectionContext.DbForkName))
+            {
+                AppConfig.DataConfig.SelectedForkName = CurrentContext.DbForkName ?? "";
+                if (userDriven)
+                {
+                    AppConfig.DataConfig.ResetVectorMode();
                 }
             }
         };
