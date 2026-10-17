@@ -71,6 +71,8 @@ public sealed class CliOptions
     public string? OsShell;                // 占位：--os-shell 交互（v1 不支持）
     public bool NoCast;                    // --no-cast
     public bool HexDecode;                 // --hex 中文识别
+    public bool FreshQueries;              // --fresh-queries 忽略跨会话值缓存（对标sqlmap同名参数）
+    public bool NoPredict;                 // --no-predict 关闭值预测（字典预测+n-gram加权；对标sqlmap --predict-output反向开关）
 
     // ---- 输出/其他 ----
     public string? OutputDir;              // --output-dir
@@ -163,6 +165,8 @@ public sealed class CliOptions
                     case "--os-shell": o.OsShell = ""; break;
                     case "--no-cast": o.NoCast = true; break;
                     case "--hex": o.HexDecode = true; break;
+                    case "--fresh-queries": o.FreshQueries = true; break;
+                    case "--no-predict": o.NoPredict = true; break;
                     case "--output-dir": o.OutputDir = Val(); break;
                     case "--batch": o.Batch = true; break;
                     case "--help": o.ShowHelp = true; break;
@@ -258,6 +262,8 @@ public sealed class CliOptions
           --os-cmd=CMD            执行系统命令（UDF/xp_cmdshell 等；--cmd-method=名 指定方式，如"sp_OACreate"）
           --no-cast               取数不使用 CAST 转换
           --hex                   中文识别（HEX 包装防乱码）
+          --fresh-queries         忽略跨会话值缓存，全部重新读取
+          --no-predict            关闭值预测（常见值字典+n-gram字符预测）
 
         输出:
           --output-dir=DIR        结果保存目录（默认 output/<host>_<port>/）

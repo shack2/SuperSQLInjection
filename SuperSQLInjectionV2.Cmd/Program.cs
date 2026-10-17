@@ -453,6 +453,8 @@ public static class Program
         //检出即停默认开：--keep-testing 关闭（完整画像场景）
         config.DataConfig.DetectStopOnHit = !opt.KeepTesting;
         config.DataConfig.HexDecode = opt.HexDecode;
+        config.DataConfig.ValueCache = !opt.FreshQueries;   //--fresh-queries 忽略值缓存
+        config.DataConfig.PredictOutput = !opt.NoPredict;   //--no-predict 关闭值预测
         config.DataDump.DumpNoCast = opt.NoCast;
         if (!string.IsNullOrWhiteSpace(opt.Where)) config.DataDump.DumpWhere = opt.Where!;
         if (!string.IsNullOrWhiteSpace(opt.DnsDomain))
