@@ -86,7 +86,9 @@ namespace SuperSQLInjectionV2.Models
         /// <summary>时间盲注延时秒数调整后，若当前注入点CheckValue为数字（时间通道），同步刷新使取数立即生效</summary>
         partial void OnSleepInjectMaxTimeChanged(int value)
         {
-            if (DataConfig != null && DataConfig.IsTimeChannel && Tools.MyTools.ConvertToInt(DataConfig.CheckValue) > 0)
+            //TryParse静默处理：布尔关键字通道的CheckValue是页面特征词（非数字），不刷告警日志
+            if (DataConfig != null && DataConfig.IsTimeChannel
+                && int.TryParse(DataConfig.CheckValue, out int cv) && cv > 0)
             {
                 DataConfig.CheckValue = value.ToString();
             }
@@ -389,6 +391,13 @@ namespace SuperSQLInjectionV2.Models
             //数据库类型变化时，刷新文件操作方式列表
             DataConfig.PropertyChanged += (s, e) =>
             {
+                //判断值反向同步：时间通道的判断值即延时秒数，人工改判断值时同步到通道配置时间盲注组
+                //（正向同步由OnSleepInjectMaxTimeChanged完成；两侧赋值相等时setter不再触发，无回环）
+                if (e.PropertyName == nameof(DataConfig.CheckValue) && DataConfig.IsTimeChannel
+                    && int.TryParse(DataConfig.CheckValue, out int cv) && cv > 0 && cv <= 60 && SleepInjectMaxTime != cv)
+                {
+                    SleepInjectMaxTime = cv;
+                }
                 if (e.PropertyName == nameof(DataConfig.SelectedDBType))
                 {
                     try
