@@ -35,6 +35,5 @@
     <PackageReference Include="Irihi.Ursa.Themes.Semi" />
     <PackageReference Include="Semi.Avalonia" />
     <PackageReference Include="Semi.Avalonia.AvaloniaEdit" />
-    <PackageReference Include="VYaml" />
   </ItemGroup>
 </Project>

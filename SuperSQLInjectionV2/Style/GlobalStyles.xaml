@@ -12,7 +12,6 @@
     <semi:SemiPopupAnimations />
     <!--  AvaloniaEdit 的 Semi 主题（SearchPanel/TextArea/补全列表等按 Semi 令牌配色，浅深色自适应）；
          缺它时 Ctrl+F 搜索面板回落 -->
-    <semiae:AvaloniaEditSemiTheme />
 
     <!--  全局图标尺寸统一  -->
     <Style Selector="PathIcon">
