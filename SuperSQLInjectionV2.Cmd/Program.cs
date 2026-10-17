@@ -997,6 +997,13 @@ public static class Program
             }
             config.DataConfig.CheckValue = best.CheckValue;
             config.DataConfig.Reverse = best.Revers;
+            //时间/堆叠命中：检测测出的延时标准绑定通道配置延时秒数SleepInjectMaxTime
+            //（时间通道发包sleep/判定阈值/自适应加时的单一数据源；时间类型亦经CheckValue反向同步覆盖，此处双保险）
+            if (best.InjectType is InjectType.Time or InjectType.Stacked
+                && int.TryParse(best.CheckValue, out int sleepSec) && sleepSec > 0 && sleepSec <= 60)
+            {
+                config.SleepInjectMaxTime = sleepSec;
+            }
             //相似度oracle基准（高动态三档兜底取数依赖）
             config.DataConfig.SimilarTemplate = best.SimilarTemplate ?? "";
             config.DataConfig.SimilarMode = best.SimilarMode ?? "";

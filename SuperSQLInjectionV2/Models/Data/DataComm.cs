@@ -440,12 +440,13 @@ namespace SuperSQLInjectionV2.Models.Data
             }
             if (isTime)
             {
-                //时间通道复核失败多为延时边界抖动：自动延时+1秒后由调用方重读（时间盲注自适应加时）
-                int t = MyTools.ConvertToInt(config.DataConfig.CheckValue);
+                //时间通道复核失败多为延时边界抖动：通道配置延时秒数自动+1后由调用方重读（时间盲注自适应加时，
+                //延时单一数据源=SleepInjectMaxTime，不触碰bool判断值CheckValue）
+                int t = config.SleepInjectMaxTime;
                 if (t > 0 && t < 30)
                 {
-                    config.DataConfig.CheckValue = (t + 1).ToString();
-                    Log.Warning("时间盲注字符复核未通过（读到值与库中不符），延时自动+1秒（当前" + config.DataConfig.CheckValue + "s）重读该字符……");
+                    config.SleepInjectMaxTime = t + 1;
+                    Log.Warning("时间盲注字符复核未通过（读到值与库中不符），延时自动+1秒（当前" + config.SleepInjectMaxTime + "s）重读该字符……");
                 }
             }
             else
@@ -527,7 +528,12 @@ namespace SuperSQLInjectionV2.Models.Data
             var dc = config.DataConfig;
             if (dc.EffectiveBoolType != BoolInjectType.Similarity)
             {
-                return TruthOracle.IsTrue(response, dc.CheckValue, dc.Reverse, dc.EffectiveBoolType);
+                //时间通道判定阈值取通道配置延时秒数（SleepInjectMaxTime单一数据源，与sleep发包同值），
+                //bool通道取判断值CheckValue（关键字/状态码/长度等特征）
+                string judgeVal = dc.EffectiveBoolType == BoolInjectType.Time
+                    ? config.SleepInjectMaxTime.ToString()
+                    : dc.CheckValue;
+                return TruthOracle.IsTrue(response, judgeVal, dc.Reverse, dc.EffectiveBoolType);
             }
             for (int attempt = 0; ; attempt++)
             {
@@ -968,10 +974,16 @@ namespace SuperSQLInjectionV2.Models.Data
                 MarkSleepUnsupported(config.DataConfig.SelectedDBType);
                 return condition;
             }
-            int maxTime = MyTools.ConvertToInt(config.DataConfig.CheckValue);
+            //延时秒数单一数据源=通道配置SleepInjectMaxTime（检测测出延时标准后自动绑定，人工可修订），
+            //不与bool判断值CheckValue混用；SleepInjectMaxTime异常时回退CheckValue兼容旧链路
+            int maxTime = config.SleepInjectMaxTime;
             if (maxTime <= 0)
             {
-                maxTime = config.SleepInjectMaxTime;
+                maxTime = MyTools.ConvertToInt(config.DataConfig.CheckValue);
+            }
+            if (maxTime <= 0)
+            {
+                maxTime = 2;
             }
             return TemplateRenderer.Render(sleepTemplate, ("cond", condition), ("sleep", maxTime), ("alias", MyTools.RandStr(6)));
         }

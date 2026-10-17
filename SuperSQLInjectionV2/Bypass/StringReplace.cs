@@ -65,9 +65,9 @@ namespace SuperSQLInjectionV2.Bypass
             if (config.DataConfig.IsVectorMode
                 && request.HeaderAndBody.Contains(ConstData.InjectStr, StringComparison.Ordinal))
             {
-                //仅时间通道把判断值当延时秒数渲染[SLEEPTIME]（布尔关键字通道的判断值是页面特征词，非数字）；
-                //非时间通道/非数值回退占位符默认1秒
-                int sleep = config.DataConfig.IsTimeChannel && int.TryParse(config.DataConfig.CheckValue, out int sv) && sv > 0 ? sv : 1;
+                //时间通道[SLEEPTIME]取通道配置延时秒数SleepInjectMaxTime（与sleep发包/oracle阈值同源）；
+                //非时间通道（bool判断值是页面特征词，非数字）回退占位符默认1秒
+                int sleep = config.DataConfig.IsTimeChannel ? Math.Max(1, config.SleepInjectMaxTime) : 1;
                 injectPayload = Tools.Inject.InjectDetectEngine.RenderVectorForSend(
                     config.DataConfig.VectorTemplate, injectPayload, config.DataConfig.OrigValue, config.DataConfig.SelectedDBType,
                     sleep > 0 ? sleep : 1);

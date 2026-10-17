@@ -3168,6 +3168,16 @@ public partial class MainViewViewModel : ViewModelBase
             HttpResponse falseServer = await HTTPTool.SendRequestRetryAsync(hr1);
 
             InjectPoint inp= InjectTools.CheckTheKey(AppConfig,trueServer, falseServer, trueServer);
+            if (inp.IsInject && inp.BoolInjectType == BoolInjectType.Time)
+            {
+                //时间判断实锤确认：发一个sleep真条件（延时=通道配置SleepInjectMaxTime），响应确实延时才采纳，
+                //避免真假都快时把时间oracle误判可用（CheckTheKey时间分支只看响应快于阈值）
+                if (!await DataComm.CheckCondition(AppConfig, "1=1"))
+                {
+                    inp.IsInject = false;
+                    Log.Show("时间判断值复核未通过（sleep真条件未触发延时），未采纳时间oracle！");
+                }
+            }
             if (inp.IsInject) {
                 AppConfig.DataConfig.SelectBoolInject = inp.BoolInjectType;
                 AppConfig.DataConfig.Reverse = inp.Revers;
@@ -3195,7 +3205,8 @@ public partial class MainViewViewModel : ViewModelBase
             Log.Warning("大侠，请先标记注入点，程序才能验证判断值！");
             return;
         }
-        if (string.IsNullOrEmpty(AppConfig.DataConfig.CheckValue))
+        bool isTimeChannel = AppConfig.DataConfig.EffectiveBoolType == BoolInjectType.Time;
+        if (!isTimeChannel && string.IsNullOrEmpty(AppConfig.DataConfig.CheckValue))
         {
             Log.Warning("大侠，请先设置判断值！");
             return;
@@ -3205,17 +3216,28 @@ public partial class MainViewViewModel : ViewModelBase
         bool isok = false;
         try
         {
-            HttpRequest hr = new HttpRequest(AppConfig);
-            hr.Payload = ConstData.TruePayload;
-            HttpResponse trueServer = await HTTPTool.SendRequestRetryAsync(hr);
-            HttpRequest hr1 = new HttpRequest(AppConfig);
-            hr1.Payload = ConstData.FalsePayload;
-            HttpResponse falseServer = await HTTPTool.SendRequestRetryAsync(hr1);
+            bool truep, falsep;
+            if (isTimeChannel)
+            {
+                //时间通道：真假条件经sleep包装发送（延时秒数=通道配置SleepInjectMaxTime，与取数同源），
+                //按响应耗时判定——裸发1=1/1=2真假都快，无法验证时间oracle
+                truep = await DataComm.CheckCondition(AppConfig, "1=1");
+                falsep = await DataComm.CheckCondition(AppConfig, "1=2");
+            }
+            else
+            {
+                HttpRequest hr = new HttpRequest(AppConfig);
+                hr.Payload = ConstData.TruePayload;
+                HttpResponse trueServer = await HTTPTool.SendRequestRetryAsync(hr);
+                HttpRequest hr1 = new HttpRequest(AppConfig);
+                hr1.Payload = ConstData.FalsePayload;
+                HttpResponse falseServer = await HTTPTool.SendRequestRetryAsync(hr1);
 
-            bool truep = TruthOracle.IsTrue(trueServer, AppConfig.DataConfig.CheckValue, AppConfig.DataConfig.Reverse, AppConfig.DataConfig.EffectiveBoolType,
-                AppConfig.DataConfig.SimilarTemplate, AppConfig.DataConfig.SimilarMode, AppConfig.DataConfig.SimilarCutoff);
-            bool falsep = TruthOracle.IsTrue(falseServer, AppConfig.DataConfig.CheckValue, AppConfig.DataConfig.Reverse, AppConfig.DataConfig.EffectiveBoolType,
-                AppConfig.DataConfig.SimilarTemplate, AppConfig.DataConfig.SimilarMode, AppConfig.DataConfig.SimilarCutoff);
+                truep = TruthOracle.IsTrue(trueServer, AppConfig.DataConfig.CheckValue, AppConfig.DataConfig.Reverse, AppConfig.DataConfig.EffectiveBoolType,
+                    AppConfig.DataConfig.SimilarTemplate, AppConfig.DataConfig.SimilarMode, AppConfig.DataConfig.SimilarCutoff);
+                falsep = TruthOracle.IsTrue(falseServer, AppConfig.DataConfig.CheckValue, AppConfig.DataConfig.Reverse, AppConfig.DataConfig.EffectiveBoolType,
+                    AppConfig.DataConfig.SimilarTemplate, AppConfig.DataConfig.SimilarMode, AppConfig.DataConfig.SimilarCutoff);
+            }
             isok = truep && !falsep;
         }
         catch (Exception ep)

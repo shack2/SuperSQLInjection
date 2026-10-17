@@ -83,16 +83,8 @@ namespace SuperSQLInjectionV2.Models
             Tools.Http.HttpConnectionPool.MaxPerKey = Math.Max(1, Math.Min(10, value));
         }
 
-        /// <summary>时间盲注延时秒数调整后，若当前注入点CheckValue为数字（时间通道），同步刷新使取数立即生效</summary>
-        partial void OnSleepInjectMaxTimeChanged(int value)
-        {
-            //TryParse静默处理：布尔关键字通道的CheckValue是页面特征词（非数字），不刷告警日志
-            if (DataConfig != null && DataConfig.IsTimeChannel
-                && int.TryParse(DataConfig.CheckValue, out int cv) && cv > 0)
-            {
-                DataConfig.CheckValue = value.ToString();
-            }
-        }
+        //时间盲注延时秒数（SleepInjectMaxTime）是时间通道延时的单一数据源：发包sleep/判定阈值/自适应加时
+        //均直接读写它，不再回写CheckValue（CheckValue是bool盲注的页面特征判断值，两者语义不混用）
 
 
         [ObservableProperty]
