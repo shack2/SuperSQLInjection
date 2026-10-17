@@ -133,10 +133,12 @@ namespace SuperSQLInjectionV2.Bypass
             //长度偏大会让服务器苦等剩余body字节卡数秒，偏小则残留字节污染同连接下一请求）
             request.HeaderAndBody = FixContentLength(request.HeaderAndBody);
 
-            //重建请求后必须带回Payload：请求日志/HTTP日志均从此取值展示注入payload
+            //重建请求后带回Payload：请求日志/HTTP日志展示用。
+            //记录发送期实际装配后的完整payload（injectPayload：vector模式含触发函数前缀/分隔符/后缀的完整注入串，
+            //非vector模式=原始表达式），而非仅query部分表达式，便于日志直接还原实际注入内容
             //T1：发送链路用轻量构造，跳过JSON/XML/multipart等全量解析（发送路径只用原文+Method/Path）
             HttpRequest result = HttpRequest.CreateForSend(request.AppConfig, request.HeaderAndBody);
-            result.Payload = request.Payload ?? "";
+            result.Payload = injectPayload;
             result.NullBodyHint = request.NullBodyHint;
             //后置伴随规则指定标记名随请求流传递（HTTPTool据此选择后置规则）
             result.SencondTag = sencondTag;

@@ -3,6 +3,7 @@ using SuperSQLInjectionV2.Models.Data;
 using SuperSQLInjectionV2.Payload;
 using SuperSQLInjectionV2.Tools.Http;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -85,6 +86,12 @@ namespace SuperSQLInjectionV2.Tools.Inject
                     }
                     string payload = hit.InjectType == InjectType.Union
                         ? PayloadFactory.BPTool.UnionAll(scalar, hit.SumColumnCount, hit.ShowColumnIndex, hit.UnionFill)
+                        //报错通道按vector模式三分支构造：裸QUERY槽塞裸表达式，vector模式包ConcatData标记，普通报错走ErrorData模板；
+                        //此前一律ErrorData，vector发送期再叠触发函数导致双重包装（EXTRACTVALUE套updatexml）
+                        : config.DataConfig.IsBareVectorQuery
+                        ? scalar
+                        : config.DataConfig.IsVectorMode
+                        ? PayloadFactory.BPTool.ConcatData(new List<string> { scalar })
                         : PayloadFactory.BPTool.ErrorData(scalar);
                     HttpRequest hr = new HttpRequest(config, hit.RequestTxt);
                     hr.Payload = payload;
