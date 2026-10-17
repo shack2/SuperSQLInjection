@@ -2899,7 +2899,7 @@
                                            CanUserResizeColumns="True"
                                            ItemsSource="{Binding AppConfig.RequestLog.Items}"
                                            SelectedItem="{Binding AppConfig.RequestLog.SelectItem}"
-                                           BorderThickness="1"
+                                           BorderThickness="0"
                                            ScrollViewer.AllowAutoHide="True">
                                     <TableView.Columns>
                                         <TableViewColumn Width="*" x:DataType="models:RequestLog" Binding="{Binding index}" Header="序号" HorizontalContentAlignment="Center" />
