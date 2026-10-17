@@ -1273,7 +1273,9 @@ namespace SuperSQLInjectionV2.Models.Data
             }
         }
 
-        /// <summary>缓存命中校验：按当前库Cast模板包装后做整值等值探测（盲注/Union/Error三通道共用；NoCast开启时不包装）</summary>
+        /// <summary>缓存命中校验（仅盲注/时间通道调用）：按当前库Cast模板包装后做整值等值探测（NoCast开启时不包装）。
+        /// Union/Error快通道不走bool oracle——其页面判定依据（关键字/相似度）与报错/联合回显无关，
+        /// 快通道校验在DataDumpWithNoFrom/DataDumpWithError内直接读值比对（请求数相同且不会误剔除）</summary>
         private static async Task<bool> ValueCacheVerifyHit(AppConfig config, string dataPayload, string cached)
         {
             return await PredictEqualCheck(config, CastWrapIfNeeded(config, dataPayload), cached).ConfigureAwait(false);
@@ -2037,7 +2039,7 @@ namespace SuperSQLInjectionV2.Models.Data
         {
             int sumCount = (int)config.DataConfig.SumColumnCount;
             int showIndex = (int)config.DataConfig.ShowColumnIndex;
-            string payloadData = PayloadFactory.BPTool.UnionAll(payload, sumCount, showIndex);
+            string payloadData = PayloadFactory.BPTool.UnionAll(payload, sumCount, showIndex, config.DataConfig.EffectiveUnionFill);
             HttpRequest request = HttpRequest.CreateForSend(config, config.RequestTxt); //T1轻量发送构造：跳过参数/JSON/XML解析
             request.Payload = payloadData;
             HttpResponse response = await HTTPTool.SendRequestRetryAsync(request).ConfigureAwait(false);
@@ -2046,17 +2048,13 @@ namespace SuperSQLInjectionV2.Models.Data
 
         public static async Task<string> DataDumpWithNoFrom(AppConfig config, string payload)
         {
-            //G4跨通道值缓存：Union通道取结构类单值前查缓存（键=原始payload哈希，与盲注通道共享同一键空间）
+            //G4跨通道值缓存：Union通道取结构类单值前查缓存（键=原始payload哈希，与盲注通道共享同一键空间）。
+            //校验语义同Error通道：bool oracle对Union回显不适用，直接读值比对（请求数相同，杜绝误剔除）
             string? cached = ValueCacheGet(config, payload);
-            if (cached != null)
+            if (cached != null && !config.DataConfig.ValueCacheVerify)
             {
-                if (!config.DataConfig.ValueCacheVerify || await ValueCacheVerifyHit(config, payload, cached).ConfigureAwait(false))
-                {
-                    Log.SysLog("值缓存命中（Union通道复用）：" + cached);
-                    return cached;
-                }
-                Log.Warning("值缓存已过期（目标值变化）：旧值=" + cached + "，剔除并重读");
-                ValueCacheRemove(config, payload);
+                Log.SysLog("值缓存命中（Union通道复用）：" + cached);
+                return cached;
             }
             string originalPayload = payload;
             //中文识别（--hex）：取值表达式HEX(CAST)包装，回显纯ASCII，取回后按DbEncoding解码
@@ -2072,6 +2070,17 @@ namespace SuperSQLInjectionV2.Models.Data
                 data = await UnionDumpChunked(config, payload).ConfigureAwait(false);
             }
             data = hex ? HexUnwrapIfNeeded(config, data) : data;
+            if (cached != null)
+            {
+                if (string.Equals(data, cached, StringComparison.Ordinal))
+                {
+                    Log.SysLog("值缓存校验一致（Union通道，1次请求）：" + cached);
+                }
+                else
+                {
+                    Log.Warning("值缓存已过期（目标值变化）：旧值=" + cached + "，新值=" + data + "，已更新缓存");
+                }
+            }
             ValueCachePut(config, originalPayload, data);
             return data;
         }
@@ -2198,17 +2207,14 @@ namespace SuperSQLInjectionV2.Models.Data
                 Log.Warning("SQLite不支持报错取数（cast失败不抛错），请改用盲注或Union通道！");
                 return "";
             }
-            //G4跨通道值缓存：Error通道取结构类单值前查缓存（与盲注/Union共享同一payload键空间）
+            //G4跨通道值缓存：Error通道取结构类单值前查缓存（与盲注/Union共享同一payload键空间）。
+            //校验语义：快通道读值本就1次请求，且bool oracle（页面关键字/相似度判定）对报错回显不适用——
+            //直接读值与缓存比对（请求数与"校验探测"相同，且杜绝CheckValue不适配报错页导致的恒假误剔除）
             string? cached = ValueCacheGet(config, payload);
-            if (cached != null)
+            if (cached != null && !config.DataConfig.ValueCacheVerify)
             {
-                if (!config.DataConfig.ValueCacheVerify || await ValueCacheVerifyHit(config, payload, cached).ConfigureAwait(false))
-                {
-                    Log.SysLog("值缓存命中（Error通道复用）：" + cached);
-                    return cached;
-                }
-                Log.Warning("值缓存已过期（目标值变化）：旧值=" + cached + "，剔除并重读");
-                ValueCacheRemove(config, payload);
+                Log.SysLog("值缓存命中（Error通道复用）：" + cached);
+                return cached;
             }
             string originalPayload = payload;
             //中文识别（--hex）：取值表达式HEX(CAST)包装，回显纯ASCII，取回后按DbEncoding解码
@@ -2225,6 +2231,17 @@ namespace SuperSQLInjectionV2.Models.Data
                 data = await ErrorDumpChunked(config, payload).ConfigureAwait(false);
             }
             data = hex ? HexUnwrapIfNeeded(config, data) : data;
+            if (cached != null)
+            {
+                if (string.Equals(data, cached, StringComparison.Ordinal))
+                {
+                    Log.SysLog("值缓存校验一致（Error通道，1次请求）：" + cached);
+                }
+                else
+                {
+                    Log.Warning("值缓存已过期（目标值变化）：旧值=" + cached + "，新值=" + data + "，已更新缓存");
+                }
+            }
             ValueCachePut(config, originalPayload, data);
             return data;
         }

@@ -2134,6 +2134,8 @@ public partial class MainViewViewModel : ViewModelBase
         {
             AppConfig.DataConfig.ShowColumnIndex = inp.ShowColumnIndex;
             AppConfig.DataConfig.SumColumnCount = inp.SumColumnCount;
+            //检测成功的填充字符同步到通道配置（空=ORDER BY路径未定，取数回退模板UnionFillStr）
+            AppConfig.DataConfig.UnionFill = inp.UnionFill ?? "";
         }
         if (inp.InjectType.Equals(InjectType.Error))
         {
@@ -2269,7 +2271,7 @@ public partial class MainViewViewModel : ViewModelBase
                 return;
             }
             string payload = type == InjectType.Union
-                ? PayloadFactory.BPTool.UnionAll(item.VerPayload, AppConfig.DataConfig.SumColumnCount, AppConfig.DataConfig.ShowColumnIndex)
+                ? PayloadFactory.BPTool.UnionAll(item.VerPayload, AppConfig.DataConfig.SumColumnCount, AppConfig.DataConfig.ShowColumnIndex, AppConfig.DataConfig.EffectiveUnionFill)
                 : PayloadFactory.BPTool.ErrorData(item.VerPayload);
             //编辑器不回写标记报文后，用最后一个命中点的标记报文构造请求
             if (string.IsNullOrEmpty(_lastHitRequestTxt))
@@ -2408,13 +2410,12 @@ public partial class MainViewViewModel : ViewModelBase
         AppConfig.DataConfig.SelectedForkName = CurrentContext.DbForkName ?? "";
         //编码已改为直接绑定全局配置（AppConfig.DataConfig.DbEncoding），此处仅同步回上下文用于摘要显示
         CurrentContext.DbEncoding = AppConfig.DataConfig.DbEncoding;
-        AppConfig.DataConfig.SumColumnCount = CurrentContext.SumColumnCount;
-        AppConfig.DataConfig.ShowColumnIndex = CurrentContext.ShowColumnIndex;
+        //Union列数/显示列/填充已直绑DataConfig（通道配置即改即生效），不再经CurrentContext中转覆盖
         //手工指定上下文与注入记录无关，复位vector取数模式防止残留记录状态污染
         AppConfig.DataConfig.ResetVectorMode();
         CurrentContext.Source = InjectContextSource.Manual;
         CurrentContext.SourceDetail = "手动覆盖";
-        Log.Success($"已手工指定注入上下文：{CurrentContext.InjectType} · {CurrentContext.DbType}{(string.IsNullOrEmpty(CurrentContext.DbForkName) ? "" : "(" + CurrentContext.DbForkName + ")")} · {CurrentContext.DbEncoding}（Union {CurrentContext.SumColumnCount} 列，显示列 {CurrentContext.ShowColumnIndex}），取数等利用将按此执行");
+        Log.Success($"已手工指定注入上下文：{CurrentContext.InjectType} · {CurrentContext.DbType}{(string.IsNullOrEmpty(CurrentContext.DbForkName) ? "" : "(" + CurrentContext.DbForkName + ")")} · {CurrentContext.DbEncoding}（Union {AppConfig.DataConfig.SumColumnCount} 列，显示列 {AppConfig.DataConfig.ShowColumnIndex}），取数等利用将按此执行");
     }
 
     /// <summary>
@@ -2527,6 +2528,7 @@ public partial class MainViewViewModel : ViewModelBase
             DynamicFeatures = inp.DynamicFeatures,
             SumColumnCount = inp.SumColumnCount,
             ShowColumnIndex = inp.ShowColumnIndex,
+            UnionFill = inp.UnionFill ?? "",
             UnionStartPayLoad = inp.UnionStartPayLoad ?? "",
             TestPayload = inp.TestPayload ?? "",
             RequestTxt = inp.RequestTxt ?? "",
@@ -2745,6 +2747,8 @@ public partial class MainViewViewModel : ViewModelBase
         {
             AppConfig.DataConfig.SumColumnCount = record.SumColumnCount;
             AppConfig.DataConfig.ShowColumnIndex = record.ShowColumnIndex;
+            //检测成功的填充字符随记录回填（空=旧记录无此字段，取数回退模板UnionFillStr；人工可再改）
+            AppConfig.DataConfig.UnionFill = record.UnionFill ?? "";
         }
         //非WHERE子句上下文告警：GROUP BY/ORDER BY/LIMIT/INSERT/UPDATE等位置检出时，取数"and"胶水可能不适用
         if (!string.IsNullOrWhiteSpace(record.Clause))

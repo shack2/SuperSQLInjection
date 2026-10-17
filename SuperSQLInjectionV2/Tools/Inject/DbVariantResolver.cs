@@ -84,7 +84,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                         return new VariantResult(family, "");
                     }
                     string payload = hit.InjectType == InjectType.Union
-                        ? PayloadFactory.BPTool.UnionAll(scalar, hit.SumColumnCount, hit.ShowColumnIndex)
+                        ? PayloadFactory.BPTool.UnionAll(scalar, hit.SumColumnCount, hit.ShowColumnIndex, hit.UnionFill)
                         : PayloadFactory.BPTool.ErrorData(scalar);
                     HttpRequest hr = new HttpRequest(config, hit.RequestTxt);
                     hr.Payload = payload;

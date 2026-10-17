@@ -231,16 +231,19 @@ namespace SuperSQLInjectionV2.Payload
         {
             List<string> newColumns = BasePayloadTool.ConcatColumns(dp.Columns, bp.IFNull, dp.NoCast ? "" : bp.Cast);
             string data = ConcatData(newColumns);
-            string newData = BasePayloadTool.InsertUnionDataToShowIndex(data, dp.SumCount, dp.ShowIndex, bp.UnionFillStr);
+            //填充优先级：人工/记录值（dp.UnionFill）> 模板UnionFillStr（对齐sqlmap uChar语义）
+            string fill = string.IsNullOrWhiteSpace(dp.UnionFill) ? bp.UnionFillStr : dp.UnionFill;
+            string newData = BasePayloadTool.InsertUnionDataToShowIndex(data, dp.SumCount, dp.ShowIndex, fill);
             return TemplateRenderer.Render(BasePayloadTool.WithoutDbQualifier(bp.UnionData, dp.DBName),
                 ("cols", newData), ("db", dp.DBName), ("table", dp.TableName),
                 ("rowIndex", dp.DataIndex + opt.DataIndexOffset), ("where", BasePayloadTool.WhereSql(dp.Where, false)));
         }
 
-        public string UnionAll(string paylaod, int sumCount, int showIndex)
+        public string UnionAll(string paylaod, int sumCount, int showIndex, string unionFill = "")
         {
             string data = ConcatData(new List<string> { paylaod });
-            string newData = BasePayloadTool.InsertUnionDataToShowIndex(data, sumCount, showIndex, bp.UnionFillStr);
+            string fill = string.IsNullOrWhiteSpace(unionFill) ? bp.UnionFillStr : unionFill;
+            string newData = BasePayloadTool.InsertUnionDataToShowIndex(data, sumCount, showIndex, fill);
             return TemplateRenderer.Render(bp.UnionAll, ("cols", newData));
         }
 

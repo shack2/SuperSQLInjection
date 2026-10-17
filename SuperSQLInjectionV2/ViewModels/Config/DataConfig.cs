@@ -143,6 +143,14 @@ namespace SuperSQLInjectionV2.Models
         [ObservableProperty] public partial int SumColumnCount { get; set; } = 4;
         [ObservableProperty] public partial int ShowColumnIndex { get; set; } = 2;
 
+        /// <summary>Union非显示列填充字符（空=自动：注入记录检测值优先，其次按库模板UnionFillStr；人工可填 NULL/1/'a' 等）。
+        /// 恢复Union注入记录时自动回填检测成功的填充值，人工修改后以人工值为准</summary>
+        [ObservableProperty] public partial string UnionFill { get; set; } = "";
+
+        /// <summary>取数实际生效的Union填充字符：人工/记录值（Trim后非空）优先，空串=交方言层回退模板UnionFillStr</summary>
+        [JsonIgnore]
+        public string EffectiveUnionFill => string.IsNullOrWhiteSpace(UnionFill) ? "" : UnionFill.Trim();
+
 
         public ObservableCollection<VersModel> VersItems { get; set; } = new ObservableCollection<VersModel>();
 

@@ -90,5 +90,9 @@ namespace SuperSQLInjectionV2.Models
         public string StartMark { get; set; } = "";
         public string EndMark { get; set; } = "";
         public string SplitMark { get; set; } = "";
+
+        /// <summary>Union命中时验证可用的填充字符（规范化：NULL / 1 / 'a'）。
+        /// 取数非显示列填充优先级：人工填写 > 本记录值 > 模板UnionFillStr（对齐sqlmap uChar语义）</summary>
+        public string UnionFill { get; set; } = "";
     }
 }

@@ -29,6 +29,9 @@ namespace SuperSQLInjectionV2.Payload
         /// <summary>no-cast：取数列不做cast/convert类型转换包装（no-cast 能力）</summary>
         public bool NoCast { get; set; } = false;
 
+        /// <summary>Union非显示列填充字符（空=方言层回退模板UnionFillStr；人工配置/注入记录检测值优先）</summary>
+        public string UnionFill { get; set; } = "";
+
         public DumpDataParam(List<string> columns,string dbName,string tableName,int sumCount, int showIndex, int dataIndex) {
             Columns = columns;
             DBName = dbName;

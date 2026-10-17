@@ -30,7 +30,7 @@ namespace SuperSQLInjectionV2.Payload
 
         string UnionData(DumpDataParam dp);
 
-        string UnionAll(string paylaod, int sumCount, int showIndex);
+        string UnionAll(string paylaod, int sumCount, int showIndex, string unionFill = "");
 
         string ConcatData(List<string> columns);
 

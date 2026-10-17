@@ -1530,6 +1530,14 @@ namespace SuperSQLInjectionV2.Tools.Inject
             inp.DBType = ResolveDb(test, ctx);
             inp.SumColumnCount = foundCount;
             inp.ShowColumnIndex = showCol;
+            //记录检测成功的填充字符与测试payload（展示/人工复现/取数填充优先依据，对齐sqlmap uChar语义）：
+            //填充路径（usedFrom!=null）记列数探测成功的charExpr规范化值；ORDER BY路径记NULL——
+            //显示位探针（非显示列恒NULL）成功本身已证明NULL填充可用（sqlmap uChar默认NULL同款）
+            string unionFillExpr = usedFrom != null ? (charExpr ?? "NULL") : "NULL";
+            inp.UnionFill = NormalizeUnionFill(unionFillExpr);
+            inp.TestPayload = " UNION ALL SELECT "
+                + string.Join(",", Enumerable.Repeat(unionFillExpr, foundCount))
+                + showFrom + comment;
             inp.Where = where;
             inp.VectorTemplate = HasVectorSlot(test.Vector) ? test.Vector : "";
             inp.OrigValue = ctx.PValue ?? "";
@@ -2765,6 +2773,27 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 return ph.RandNum.ToString();
             }
             return ph.Replace(c);
+        }
+
+        /// <summary>
+        /// Union填充字符规范化（随注入记录持久化）：检测期随机值（'qvxjka'/54321）归一为同类型通用字面量
+        /// （字符串→'a'、数字→1），NULL原样保留；取数复用时不携带检测期随机串，语义等价且可读
+        /// </summary>
+        private static string NormalizeUnionFill(string? charExpr)
+        {
+            if (string.IsNullOrWhiteSpace(charExpr) || charExpr.Equals("NULL", StringComparison.OrdinalIgnoreCase))
+            {
+                return "NULL";
+            }
+            if (charExpr.StartsWith('\''))
+            {
+                return "'a'";
+            }
+            if (charExpr.All(char.IsDigit))
+            {
+                return "1";
+            }
+            return charExpr;
         }
 
         /// <summary>

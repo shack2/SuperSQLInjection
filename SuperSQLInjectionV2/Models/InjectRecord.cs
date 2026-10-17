@@ -132,6 +132,10 @@ namespace SuperSQLInjectionV2.Models
         public string EndMark { get; set; } = "";
         public string SplitMark { get; set; } = "";
 
+        /// <summary>Union命中时验证可用的填充字符（规范化：NULL / 1 / 'a'；空=旧记录无此字段，取数回退模板UnionFillStr）。
+        /// 取数非显示列填充优先级：人工填写 > 本记录值 > 模板UnionFillStr（对齐sqlmap uChar语义）</summary>
+        public string UnionFill { get; set; } = "";
+
         /// <summary>注入上下文描述（由boundary前缀推断：数字型/单引号/双引号/括号嵌套）</summary>
         [System.Text.Json.Serialization.JsonIgnore]
         public string BoundaryDesc

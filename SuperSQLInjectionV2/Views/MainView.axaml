@@ -918,13 +918,19 @@
                                                                 </GroupBox>
                                                                 <!--  Union 通道参数  -->
                                                                 <GroupBox Classes="chgrp" Header="Union">
-                                                                    <Grid ColumnDefinitions="64,*,64,*">
+                                                                    <Grid ColumnDefinitions="64,*,64,*" RowDefinitions="Auto,Auto">
                                                                         <TextBlock Classes="kvkey" Text="列数：" VerticalAlignment="Center" />
                                                                         <NumericUpDown Grid.Column="1" Minimum="1" Maximum="60" Increment="1"
-                                                                                       Value="{Binding CurrentContext.SumColumnCount}" VerticalAlignment="Center" />
+                                                                                       Value="{Binding AppConfig.DataConfig.SumColumnCount}" VerticalAlignment="Center" />
                                                                         <TextBlock Grid.Column="2" Classes="kvkey" Text="显示列：" Margin="8,0,0,0" VerticalAlignment="Center" />
                                                                         <NumericUpDown Grid.Column="3" Minimum="1" Maximum="60" Increment="1"
-                                                                                       Value="{Binding CurrentContext.ShowColumnIndex}" VerticalAlignment="Center" />
+                                                                                       Value="{Binding AppConfig.DataConfig.ShowColumnIndex}" VerticalAlignment="Center" />
+                                                                        <TextBlock Grid.Row="1" Classes="kvkey" Text="填充：" Margin="0,6,0,0" VerticalAlignment="Center" />
+                                                                        <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,6,0,0"
+                                                                                 Text="{Binding AppConfig.DataConfig.UnionFill}"
+                                                                                 PlaceholderText="空=自动（记录检测值&gt;模板）；可填 NULL / 1 / 'a'"
+                                                                                 ToolTip.Tip="Union非显示列填充字符（对齐sqlmap --union-char）：空=自动优先用注入记录检测成功的填充值，其次按库模板；类型严格的目标取不到数时可手工指定 NULL / 1 / 'a' 等字面量"
+                                                                                 VerticalAlignment="Center" />
                                                                     </Grid>
                                                                 </GroupBox>
                                                                 <!--  报错通道参数（无报错通道的库自动隐藏；默认=原文复用检出payload，手工变体=模板触发函数）  -->

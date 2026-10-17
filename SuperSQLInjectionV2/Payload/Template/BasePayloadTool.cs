@@ -31,8 +31,9 @@ namespace SuperSQLInjectionV2.Payload
             }
             List<string> newColumns = ConcatColumns(dp.Columns, bp.IFNull, dp.NoCast ? "" : bp.Cast);
             string rowExpr = tool.ConcatData(newColumns);
-            //外层select列表：数据位放聚合结果别名sqli_agg，其余列用UnionFillStr填充
-            string outerCols = InsertUnionDataToShowIndex("sqli_agg", dp.SumCount, dp.ShowIndex, bp.UnionFillStr);
+            //外层select列表：数据位放聚合结果别名sqli_agg，其余列填充优先级：人工/记录值 > 模板UnionFillStr
+            string outerFill = string.IsNullOrWhiteSpace(dp.UnionFill) ? bp.UnionFillStr : dp.UnionFill;
+            string outerCols = InsertUnionDataToShowIndex("sqli_agg", dp.SumCount, dp.ShowIndex, outerFill);
             return TemplateRenderer.Render(WithoutDbQualifier(bp.UnionDataRows, dp.DBName),
                 ("cols", rowExpr), ("db", dp.DBName), ("table", dp.TableName),
                 ("rowIndex", dp.DataIndex), ("where", WhereSql(dp.Where, false)),

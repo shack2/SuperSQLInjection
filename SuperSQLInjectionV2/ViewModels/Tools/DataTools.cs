@@ -204,6 +204,8 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
 			DumpDataParam dp = new DumpDataParam(cols, DBName, TableName, (int)config.DataConfig.SumColumnCount,(int)config.DataConfig.ShowColumnIndex);
             dp.Where = config.DataDump.DumpWhere;
             dp.NoCast = config.DataDump.DumpNoCast;
+            //Union非显示列填充：人工/记录值优先，空=方言层回退模板UnionFillStr
+            dp.UnionFill = config.DataConfig.EffectiveUnionFill;
 
 			string data = await DataComm.DataDumpWithNoFrom(config, countPaylaod).ConfigureAwait(false);
 
