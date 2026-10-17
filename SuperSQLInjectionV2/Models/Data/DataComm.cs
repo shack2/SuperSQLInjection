@@ -827,6 +827,14 @@ namespace SuperSQLInjectionV2.Models.Data
                         break;
                     }
                 }
+                //防死循环兜底：多线程并发时_charFreqObserved被其他线程实时更新，权重在while迭代间漂移，
+                //可能出现累计权重到最后一个候选仍不足一半（cut=list.Count-1），此时高组=全集→探测恒真→
+                //候选集永不收敛（曾在时间盲注读@@basedir第9位'a'时 in(97,111) 死循环135次复现）。
+                //钳制高组至多n-1个、低组至少留1个，保证每次探测候选集严格收缩
+                if (cut > list.Count - 2)
+                {
+                    cut = list.Count - 2;
+                }
                 List<int> highGroup = list.Take(cut + 1).ToList();
                 string cond = "(case when (" + payload + ") in (" + string.Join(",", highGroup) + ") then 1 else 0 end)";
                 bool inHigh = await ProbeBool(config, cond, 0).ConfigureAwait(false);

@@ -59,8 +59,20 @@ namespace SuperSQLInjectionV2.Bypass
                 request.HeaderAndBody = SencondDirectiveRegex().Replace(request.HeaderAndBody, "");
             }
 
-            //替换request
-            request.HeaderAndBody = request.HeaderAndBody.Replace(ConstData.InjectStr, request.Payload, StringComparison.Ordinal);
+            //替换request（vector原文复用模式：发送期把payload装进检出vector的[INFERENCE]/[QUERY]槽位再替换标记——
+            //标记报文保持简单胶水可读，vector模板随注入记录持久化，分隔符按当前回显标记渲染永不失配）
+            string injectPayload = request.Payload ?? "";
+            if (config.DataConfig.IsVectorMode
+                && request.HeaderAndBody.Contains(ConstData.InjectStr, StringComparison.Ordinal))
+            {
+                //仅时间通道把判断值当延时秒数渲染[SLEEPTIME]（布尔关键字通道的判断值是页面特征词，非数字）；
+                //非时间通道/非数值回退占位符默认1秒
+                int sleep = config.DataConfig.IsTimeChannel && int.TryParse(config.DataConfig.CheckValue, out int sv) && sv > 0 ? sv : 1;
+                injectPayload = Tools.Inject.InjectDetectEngine.RenderVectorForSend(
+                    config.DataConfig.VectorTemplate, injectPayload, config.DataConfig.OrigValue, config.DataConfig.SelectedDBType,
+                    sleep > 0 ? sleep : 1);
+            }
+            request.HeaderAndBody = request.HeaderAndBody.Replace(ConstData.InjectStr, injectPayload, StringComparison.Ordinal);
 
             //找到需要处理的字符（编码策略按块位置推断：请求行/urlencoded体=URL编码；头区/JSON/XML/multipart体=原文）
             //T4+Q1：单次命名组正则同时捕获块类型与块体（替代旧lookbehind匹配+每块3次全报文Contains判定）

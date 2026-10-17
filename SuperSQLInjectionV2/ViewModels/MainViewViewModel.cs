@@ -2154,6 +2154,12 @@ public partial class MainViewViewModel : ViewModelBase
                 }
             }
         }
+        //vector原文复用上下文联动（报错[QUERY]/where=3[INFERENCE]）：利用标记报文只留$sql$胶水，
+        //发送期按VectorTemplate装配触发函数/包装结构（ConfirmDbBanner与取数链路依赖）；
+        //非vector命中写入1/空，同时清掉上一注入点的残留vector状态
+        AppConfig.DataConfig.Where = inp.Where;
+        AppConfig.DataConfig.VectorTemplate = inp.VectorTemplate ?? "";
+        AppConfig.DataConfig.OrigValue = inp.OrigValue ?? "";
         //标记报文不回写编辑器：检测页报文保持干净，利用标记只随注入点存入注入记录，
         //取数时在注入记录中选择对应注入点（恢复记录）才加载带标记的报文
         _lastHitRequestTxt = inp.RequestTxt;
@@ -2272,6 +2278,9 @@ public partial class MainViewViewModel : ViewModelBase
             }
             string payload = type == InjectType.Union
                 ? PayloadFactory.BPTool.UnionAll(item.VerPayload, AppConfig.DataConfig.SumColumnCount, AppConfig.DataConfig.ShowColumnIndex, AppConfig.DataConfig.EffectiveUnionFill)
+                //报错vector模式（[QUERY]槽位发送期装配）：塞裸表达式，vector分隔符即提取标记，不叠ErrorData第二层触发函数
+                : AppConfig.DataConfig.IsBareVectorQuery
+                ? item.VerPayload
                 : PayloadFactory.BPTool.ErrorData(item.VerPayload);
             //编辑器不回写标记报文后，用最后一个命中点的标记报文构造请求
             if (string.IsNullOrEmpty(_lastHitRequestTxt))

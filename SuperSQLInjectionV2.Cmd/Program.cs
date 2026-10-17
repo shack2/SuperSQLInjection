@@ -1011,6 +1011,13 @@ public static class Program
         config.DataConfig.TrueCode = best.TrueCode;
         config.DataConfig.FalseCode = best.FalseCode;
         config.DataConfig.SawUnexpectedCode = false;
+        //vector原文复用上下文（报错[QUERY]/where=3[INFERENCE]）：标记报文只留$sql$胶水，
+        //发送期按VectorTemplate装配触发函数/包装结构，缺了会把裸表达式发进无and胶水请求导致取数为空
+        config.DataConfig.Where = best.Where;
+        config.DataConfig.VectorTemplate = best.VectorTemplate ?? "";
+        config.DataConfig.OrigValue = best.OrigValue ?? "";
+        //检测期为报错vector预生成的回显标记同步启用（发送期vector分隔符渲染与取数解析同源）
+        Payload.EchoMarkers.Use(best.StartMark, best.EndMark, best.SplitMark, Payload.PayloadFactory.BasePayload);
         config.RequestTxt = best.RequestTxt;
         //检测期自动适配的编码工具随注入点恢复
         if (!string.IsNullOrEmpty(best.AutoTamper))

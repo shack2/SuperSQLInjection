@@ -33,12 +33,22 @@ namespace SuperSQLInjectionV2.Payload
         /// <summary>应用注入记录携带的标记；记录无标记（旧记录）时回退模板默认值</summary>
         public static void Use(InjectRecord record, BasePayload bp)
         {
-            if (record != null && !string.IsNullOrEmpty(record.StartMark)
-                && !string.IsNullOrEmpty(record.EndMark) && !string.IsNullOrEmpty(record.SplitMark))
+            if (record != null)
             {
-                Start = record.StartMark;
-                End = record.EndMark;
-                Split = record.SplitMark;
+                Use(record.StartMark, record.EndMark, record.SplitMark, bp);
+                return;
+            }
+            Init(bp);
+        }
+
+        /// <summary>应用注入点携带的标记（CMD检测命中后直接取数场景，无InjectRecord中转）；无标记回退模板默认值</summary>
+        public static void Use(string? start, string? end, string? split, BasePayload bp)
+        {
+            if (!string.IsNullOrEmpty(start) && !string.IsNullOrEmpty(end) && !string.IsNullOrEmpty(split))
+            {
+                Start = start;
+                End = end;
+                Split = split;
                 return;
             }
             Init(bp);

