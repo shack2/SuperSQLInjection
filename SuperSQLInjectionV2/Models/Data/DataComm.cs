@@ -300,7 +300,9 @@ namespace SuperSQLInjectionV2.Models.Data
                     //Oracle/DM：RPAD('5',N,'5')
                     _ => "(select rpad(chr(53)," + n + ",chr(53)) from dual)"
                 };
-                string payloadData = config.DataConfig.IsVectorMode
+                string payloadData = config.DataConfig.IsBareVectorQuery
+                    ? expr //vector分隔符已对齐回显标记：裸表达式进[QUERY]槽位，不叠ConcatData第二层标记
+                    : config.DataConfig.IsVectorMode
                     ? PayloadFactory.BPTool.ConcatData(new List<string> { expr })
                     : PayloadFactory.BPTool.ErrorData(expr);
                 HttpRequest request = HttpRequest.CreateForSend(config, config.RequestTxt); //T1轻量发送构造：跳过参数/JSON/XML解析
@@ -2234,7 +2236,9 @@ namespace SuperSQLInjectionV2.Models.Data
         /// </summary>
         private static async Task<string> ErrorDumpSingle(AppConfig config, string payload)
         {
-            string payloadData = config.DataConfig.IsVectorMode
+            string payloadData = config.DataConfig.IsBareVectorQuery
+                ? payload //vector分隔符已对齐回显标记：裸表达式进[QUERY]槽位，不叠ConcatData第二层标记
+                : config.DataConfig.IsVectorMode
                 ? PayloadFactory.BPTool.ConcatData(new List<string> { payload })
                 : PayloadFactory.BPTool.ErrorData(payload);
             HttpRequest request = HttpRequest.CreateForSend(config, config.RequestTxt); //T1轻量发送构造：跳过参数/JSON/XML解析
@@ -2355,9 +2359,12 @@ namespace SuperSQLInjectionV2.Models.Data
                 for (int s = startAt; s <= total; s += step)
                 {
                     config.CheckStop();
-                    //vector模式：substr切片同样只做ConcatData标记包装进[QUERY]槽位（同ErrorDumpSingle）
-                    string slicePayload = config.DataConfig.IsVectorMode
-                        ? PayloadFactory.BPTool.ConcatData(new List<string> { TemplateRenderer.Render(PayloadFactory.BasePayload.Substr, ("expr", payload), ("start", s), ("len", step)) })
+                    //vector模式：substr切片进[QUERY]槽位（同ErrorDumpSingle）；裸表达式模式不叠ConcatData第二层标记
+                    string sliceExpr = TemplateRenderer.Render(PayloadFactory.BasePayload.Substr, ("expr", payload), ("start", s), ("len", step));
+                    string slicePayload = config.DataConfig.IsBareVectorQuery
+                        ? sliceExpr
+                        : config.DataConfig.IsVectorMode
+                        ? PayloadFactory.BPTool.ConcatData(new List<string> { sliceExpr })
                         : PayloadFactory.BPTool.ErrorDataSubstr(payload, s, step);
                     HttpRequest request = HttpRequest.CreateForSend(config, config.RequestTxt); //T1轻量发送构造：跳过参数/JSON/XML解析
                     request.Payload = slicePayload;

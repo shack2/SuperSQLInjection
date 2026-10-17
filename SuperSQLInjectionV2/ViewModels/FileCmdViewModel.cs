@@ -253,7 +253,8 @@ namespace SuperSQLInjectionV2.ViewModels
                     FileMethods.Add("二进制下载(Java)");
                     FileMethods.Add("二进制上传(Java)");
                     CmdMethods.Add("Java命令执行(GETXML)");
-                    CmdMethodHint = "GETXML+Java存储过程：适用Oracle 9i~11g（DBMS_XMLQUERY可执行匿名PL/SQL；12c未验证，18c弃用/21c+移除）。需CREATE PROCEDURE权限+JVM，返回值限4000字符";
+                    CmdMethods.Add("DBMS_SCHEDULER命令执行(免JVM)");
+                    CmdMethodHint = "GETXML+Java：9i~11g（需CREATE PROCEDURE+JVM，18c弃用/21c+移除）；DBMS_SCHEDULER：9i~19c免JVM（需CREATE JOB+CREATE DIRECTORY，经GETXML原语部署，21c+/23ai不可用）。返回值限4000字符";
                     FileMethodHint = "Java通道读写文件（同版本限制），免堆叠；写文件内容限约2000字节（hex后受varchar2(4000)限制）；二进制走Java hex分片（1500字节/片）";
                     break;
                 case DBType.DM:
@@ -357,7 +358,7 @@ namespace SuperSQLInjectionV2.ViewModels
                 && !cmdDbType.Equals(DBType.H2)
                 && !cmdDbType.Equals(DBType.Oracle))
             {
-                Log.Warning("目前命令执行支持：SQLServer（xp_cmdshell/sp_OACreate）、PostgreSQL（COPY FROM PROGRAM/UDF）、Kingbase（COPY FROM PROGRAM）、MySQL（UDF sys_eval）、H2（CREATE ALIAS）、Oracle（GETXML+Java，限9i~11g）！");
+                Log.Warning("目前命令执行支持：SQLServer（xp_cmdshell/sp_OACreate）、PostgreSQL（COPY FROM PROGRAM/UDF）、Kingbase（COPY FROM PROGRAM）、MySQL（UDF sys_eval）、H2（CREATE ALIAS）、Oracle（GETXML+Java限9i~11g / DBMS_SCHEDULER免JVM限9i~19c）！");
                 return;
             }
             if (string.IsNullOrEmpty(CmdText))

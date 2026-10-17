@@ -84,5 +84,11 @@ namespace SuperSQLInjectionV2.Models
 
         /// <summary>检出boundary的SQL子句上下文（逗号分隔clause id：0=任意 1=WHERE 2=GROUP BY 3=ORDER BY 4=LIMIT 5=OFFSET 6=INSERT 7=UPDATE）；非0/1时取数"and"胶水可能不适用</summary>
         public string Clause { get; set; } = "";
+
+        /// <summary>报错vector复用时预生成的取数回显标记（命中烘焙vector前生成，三段齐备才有效；
+        /// 空=由注入记录保存时统一生成）。vector分隔符按 起始+分隔/分隔+结束 组合烘焙，与取数解析同源</summary>
+        public string StartMark { get; set; } = "";
+        public string EndMark { get; set; } = "";
+        public string SplitMark { get; set; } = "";
     }
 }

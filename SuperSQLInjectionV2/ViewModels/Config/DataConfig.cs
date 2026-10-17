@@ -48,8 +48,39 @@ namespace SuperSQLInjectionV2.Models
         /// <summary>当前选中的报错方式，切换后实时替换报错取数触发函数</summary>
         [ObservableProperty] public partial string SelectedErrorMethod { get; set; } = BasePayload.DefaultErrorMethodName;
 
+        /// <summary>报错方式人工覆盖标记：用户手工选择非默认方式时置真（取数停用检出vector原文复用，改用模板变体）；自动反推/切库复位不置真</summary>
+        [JsonIgnore]
+        public bool ErrorMethodManualOverride { get; private set; } = false;
+
+        /// <summary>自动反推写入标记（检测命中/恢复记录/切库复位的程序性赋值不视为人手工覆盖）</summary>
+        private bool _errorMethodAuto = false;
+
+        /// <summary>检测命中或恢复注入记录时自动反推报错方式（程序性赋值，不触发人工覆盖标记）</summary>
+        public void AutoSelectErrorMethod(string method)
+        {
+            _errorMethodAuto = true;
+            try
+            {
+                SelectedErrorMethod = method;
+            }
+            finally
+            {
+                _errorMethodAuto = false;
+            }
+        }
+
         partial void OnSelectedErrorMethodChanged(string value)
         {
+            if (!_errorMethodAuto)
+            {
+                ErrorMethodManualOverride = !string.IsNullOrEmpty(value)
+                    && !value.Equals(BasePayload.DefaultErrorMethodName, StringComparison.OrdinalIgnoreCase);
+                //人工切换为非默认方式：检出vector原文复用停用，明确告知取数触发函数已偏离检出payload
+                if (ErrorMethodManualOverride && !string.IsNullOrWhiteSpace(VectorTemplate))
+                {
+                    SuperSQLInjectionV2.Tools.Log.Show("报错方式已手工切换为「" + value + "」，取数将使用模板变体而非检出payload原文（切回「默认」恢复原文复用）");
+                }
+            }
             //实时切换报错取数触发函数（无对应变体时恢复默认ErrorData）
             PayloadFactory.BasePayload?.SetErrorMethod(value);
             //报错方式回显容量不同（updatexml≈32/extractvalue≈64），切换后清空实测值强制重新探测
@@ -188,7 +219,8 @@ namespace SuperSQLInjectionV2.Models
                         ErrorMethods.Add(name);
                     }
                 }
-                SelectedErrorMethod = BasePayload.DefaultErrorMethodName;
+                //切库/切fork的程序性复位：清除人工覆盖标记（变体随库变化，人工选择不跨库保留）
+                AutoSelectErrorMethod(BasePayload.DefaultErrorMethodName);
             }
             if (Avalonia.Application.Current == null || Dispatcher.UIThread.CheckAccess())
             {
@@ -399,9 +431,18 @@ namespace SuperSQLInjectionV2.Models
         [JsonIgnore]
         public string OrigValue { get; set; } = "";
 
-        /// <summary>是否为where=3参数替换vector取数模式（取数payload直接进vector槽位，不走"and"胶水/报错触发模板）</summary>
+        /// <summary>是否为vector原文复用取数模式（取数payload直接进检出用例vector槽位，不走"and"胶水/报错触发模板）：
+        /// where=3参数替换点全技术适用；报错技术where=1/2同样原文复用（检出payload的触发函数/包装结构与取数完全一致），
+        /// 人工切换非默认报错方式（ErrorMethodManualOverride）时报错通道回退模板变体</summary>
         [JsonIgnore]
-        public bool IsVectorMode => Where == 3 && !string.IsNullOrWhiteSpace(VectorTemplate);
+        public bool IsVectorMode => !string.IsNullOrWhiteSpace(VectorTemplate)
+            && (Where == 3 || (SelectedInjectType == InjectType.Error && !ErrorMethodManualOverride));
+
+        /// <summary>vector报错裸表达式模式：vector含[QUERY]数据槽时，槽位塞裸表达式——
+        /// vector分隔符烘焙时已对齐回显标记组合（EchoMarkers.Start+Split/Split+End），
+        /// 分隔符本身就是提取标记，不再叠ConcatData第二层标记（报错回显容量仅~31字符，双重标记会吃光容量）</summary>
+        [JsonIgnore]
+        public bool IsBareVectorQuery => IsVectorMode && VectorTemplate.Contains("[QUERY]", StringComparison.Ordinal);
 
         /// <summary>实测报错回显净容量（取数时探针二分测得，随注入记录恢复；>0时报错分片优先用此步长替代模板ErrorChunkLen）。运行时派生不持久化，注入记录侧持久化</summary>
         [JsonIgnore]

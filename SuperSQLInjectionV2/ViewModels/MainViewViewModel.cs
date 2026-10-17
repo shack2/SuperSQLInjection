@@ -2144,11 +2144,11 @@ public partial class MainViewViewModel : ViewModelBase
             {
                 if (Avalonia.Application.Current == null || Dispatcher.UIThread.CheckAccess())
                 {
-                    AppConfig.DataConfig.SelectedErrorMethod = method;
+                    AppConfig.DataConfig.AutoSelectErrorMethod(method);
                 }
                 else
                 {
-                    Dispatcher.UIThread.Post( ()=> AppConfig.DataConfig.SelectedErrorMethod = method);
+                    Dispatcher.UIThread.Post( ()=> AppConfig.DataConfig.AutoSelectErrorMethod(method));
                 }
             }
         }
@@ -2544,8 +2544,18 @@ public partial class MainViewViewModel : ViewModelBase
             UriIndex = inp.UriIndex,
             Clause = inp.Clause ?? ""
         };
-        //每注入点生成随机回显标记（防固定短串与页面内容冲突），随记录持久化
-        (record.StartMark, record.EndMark, record.SplitMark) = Payload.EchoMarkers.Generate();
+        //每注入点生成随机回显标记（防固定短串与页面内容冲突），随记录持久化；
+        //报错vector复用的命中已在烘焙前预生成标记（vector分隔符按该标记组合烘焙），此处优先复用保持一致
+        if (!string.IsNullOrEmpty(inp.StartMark) && !string.IsNullOrEmpty(inp.EndMark) && !string.IsNullOrEmpty(inp.SplitMark))
+        {
+            record.StartMark = inp.StartMark;
+            record.EndMark = inp.EndMark;
+            record.SplitMark = inp.SplitMark;
+        }
+        else
+        {
+            (record.StartMark, record.EndMark, record.SplitMark) = Payload.EchoMarkers.Generate();
+        }
         return record;
     }
 
@@ -2650,6 +2660,9 @@ public partial class MainViewViewModel : ViewModelBase
         //保证标记形态与当前编码/取数链路一致；定位失败时RebakeRecordRequest内部回退存储报文。
         //报文+URL成对回写期间挂同步守卫：URL变更触发"一律按新URL重建默认请求"会冲掉刚加载的标记报文，
         //URL/请求方式由SyncUrlFromRecord显式回写，无需联动回路参与
+        //回显标记随记录恢复（记录无标记的旧数据回退模板默认值）——必须先于RebakeRecordRequest：
+        //报错vector重烘焙的分隔符对齐当前EchoMarkers组合（Start+Split/Split+End），顺序颠倒会用上一个记录的标记烘焙
+        Payload.EchoMarkers.Use(record, Payload.PayloadFactory.BasePayload);
         _requestSyncGuard = true;
         try
         {
@@ -2660,8 +2673,6 @@ public partial class MainViewViewModel : ViewModelBase
         {
             _requestSyncGuard = false;
         }
-        //回显标记随记录恢复（记录无标记的旧数据回退模板默认值）
-        Payload.EchoMarkers.Use(record, Payload.PayloadFactory.BasePayload);
         //旧记录迁移：Bool盲注+时间判定 升级为独立的时间盲注类型
         if (record.InjectType == InjectType.Blind && record.BoolInjectType == BoolInjectType.Time)
         {

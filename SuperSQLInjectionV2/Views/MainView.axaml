@@ -927,10 +927,11 @@
                                                                                        Value="{Binding CurrentContext.ShowColumnIndex}" VerticalAlignment="Center" />
                                                                     </Grid>
                                                                 </GroupBox>
-                                                                <!--  报错通道参数（无报错通道的库自动隐藏）  -->
+                                                                <!--  报错通道参数（无报错通道的库自动隐藏；默认=原文复用检出payload，手工变体=模板触发函数）  -->
                                                                 <GroupBox Classes="chgrp" Header="报错" IsVisible="{Binding AppConfig.DataConfig.ErrorChannelVisible}">
                                                                     <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding AppConfig.DataConfig.ErrorMethods}"
-                                                                              SelectedItem="{Binding AppConfig.DataConfig.SelectedErrorMethod}" VerticalAlignment="Center" />
+                                                                              SelectedItem="{Binding AppConfig.DataConfig.SelectedErrorMethod}" VerticalAlignment="Center"
+                                                                              ToolTip.Tip="默认=取数原文复用检测命中的报错payload（触发函数/包装结构一致，sqlmap vector同款）；手工选择变体=改用取数模板触发函数（应对需换函数的场景），回显容量自动重探" />
                                                                 </GroupBox>
                                                                 <!--  Bool盲注判断参数  -->
                                                                 <GroupBox Classes="chgrp" Header="Bool盲注">
@@ -1602,6 +1603,7 @@
                                                             </PathIcon.Data>
                                                         </PathIcon>
                                                         <TextBlock Text="{Binding Value}" Background="{Binding SearchHitBrush}" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding !IsEdit}" />
+                                                        <TextBlock Classes="Secondary" Text="{Binding ChildCountText}" VerticalAlignment="Center" IsVisible="{Binding ChildCountText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                                         <TextBox Text="{Binding Value}" MinWidth="100" VerticalAlignment="Center" IsVisible="{Binding IsEdit}" LostFocus="TreeNodeEditLostFocus" />
                                                     </StackPanel>
                                                 </TreeDataTemplate>
@@ -2968,13 +2970,21 @@
                                            ScrollViewer.AllowAutoHide="True">
                                     <TableView.Columns>
                                         <TableViewColumn Width="*" x:DataType="models:RequestLog" Binding="{Binding index}" Header="序号" HorizontalContentAlignment="Center" />
-                                        <TableViewColumn Width="5*" x:DataType="models:RequestLog" Binding="{Binding Payload}" Header="Payload" />
+                                        <TableViewColumn Width="5*" x:DataType="models:RequestLog" Header="Payload">
+                                            <!--  完整payload悬停可见（列宽不足时省略号截断，右键"复制值"可取全文）  -->
+                                            <TableViewColumn.CellTemplate>
+                                                <DataTemplate x:DataType="models:RequestLog">
+                                                    <TextBlock Text="{Binding Payload}" TextTrimming="CharacterEllipsis"
+                                                               VerticalAlignment="Center" ToolTip.Tip="{Binding Payload}" />
+                                                </DataTemplate>
+                                            </TableViewColumn.CellTemplate>
+                                        </TableViewColumn>
                                         <TableViewColumn Width="*" x:DataType="models:RequestLog" Binding="{Binding Request.Host}" Header="主机" HorizontalContentAlignment="Center" />
                                         <TableViewColumn Width="*" x:DataType="models:RequestLog" Binding="{Binding Request.Port}" Header="端口" HorizontalContentAlignment="Center" />
                                         <TableViewColumn Width="1.2*" x:DataType="models:RequestLog" Binding="{Binding Proxy}" Header="代理" HorizontalContentAlignment="Center" />
                                         <TableViewColumn Width="*" x:DataType="models:RequestLog" Binding="{Binding Response.StatusCode}" Header="状态码" HorizontalContentAlignment="Center" />
                                         <TableViewColumn Width="*" x:DataType="models:RequestLog" Binding="{Binding UseTime}" Header="用时" HorizontalContentAlignment="Center" />
-                                        <TableViewColumn Width="*" x:DataType="models:RequestLog" Binding="{Binding Response.BodyLength}" Header="响应内容长度" HorizontalContentAlignment="Center" />
+                                        <TableViewColumn Width="*" x:DataType="models:RequestLog" Binding="{Binding Response.BodyLength}" Header="响应长度" HorizontalContentAlignment="Center" />
                                     </TableView.Columns>
                                     <TableView.ContextFlyout>
                                         <MenuFlyout>

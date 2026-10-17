@@ -134,13 +134,35 @@ namespace SuperSQLInjectionV2.Tools.Inject
         /// </summary>
         public string ReplaceSql(string? template, SuperSQLInjectionV2.Payload.LiteralEncoder enc)
         {
+            return ReplaceSql(template, enc, null, null);
+        }
+
+        /// <summary>
+        /// SQL上下文渲染（显式分隔符版）：rawStart/rawStop非空时代替本实例随机分隔符。
+        /// 利用期vector烘焙用——把vector自带的[DELIMITER_START]/[DELIMITER_STOP]对齐为取数回显标记组合
+        /// （EchoMarkers.Start+Split / Split+End），使vector分隔符本身就是提取标记，
+        /// [QUERY]槽位塞裸表达式即可（不再叠ConcatData第二层标记，报错回显容量不被双重标记吃光）。
+        /// </summary>
+        public string ReplaceSql(string? template, SuperSQLInjectionV2.Payload.LiteralEncoder enc, string? rawStart, string? rawStop)
+        {
             if (string.IsNullOrEmpty(template))
             {
                 return template ?? "";
             }
+            string start = rawStart ?? RawDelimiterStart;
+            string stop = rawStop ?? RawDelimiterStop;
             string t = template
-                .Replace("'[DELIMITER_START]'", SuperSQLInjectionV2.Payload.TemplateDialect.Encode(RawDelimiterStart, enc), StringComparison.Ordinal)
-                .Replace("'[DELIMITER_STOP]'", SuperSQLInjectionV2.Payload.TemplateDialect.Encode(RawDelimiterStop, enc), StringComparison.Ordinal);
+                .Replace("'[DELIMITER_START]'", SuperSQLInjectionV2.Payload.TemplateDialect.Encode(start, enc), StringComparison.Ordinal)
+                .Replace("'[DELIMITER_STOP]'", SuperSQLInjectionV2.Payload.TemplateDialect.Encode(stop, enc), StringComparison.Ordinal);
+            //未加引号的分隔符占位符（若有）也按显式值替换，避免Replace回退到本实例随机串
+            if (rawStart != null)
+            {
+                t = t.Replace("[DELIMITER_START]", start, StringComparison.Ordinal);
+            }
+            if (rawStop != null)
+            {
+                t = t.Replace("[DELIMITER_STOP]", stop, StringComparison.Ordinal);
+            }
             return Replace(t);
         }
     }

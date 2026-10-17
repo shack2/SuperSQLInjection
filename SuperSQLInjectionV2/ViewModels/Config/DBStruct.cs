@@ -35,6 +35,18 @@ namespace SuperSQLInjectionV2.Models
             OnPropertyChanged(nameof(SearchHitBrush));
         }
         [ObservableProperty] private ObservableCollection<DBStruct> _subItems = new ObservableCollection<DBStruct>();
+        /// <summary>子节点计数文本：库节点显示表数量、表节点显示字段数（列节点/空节点不显示）</summary>
+        public string ChildCountText
+        {
+            get
+            {
+                if (DBStructType.ColumnName.Equals(Type) || SubItems.Count == 0)
+                {
+                    return "";
+                }
+                return "[" + SubItems.Count + "]";
+            }
+        }
         public DBStruct (){
             _subItems.CollectionChanged += OnMyCollectionChanged;
         }
@@ -44,11 +56,14 @@ namespace SuperSQLInjectionV2.Models
             {
                 case NotifyCollectionChangedAction.Add:
                     WeakReferenceMessenger.Default.Send(new AddStatusInfoMsg { });
+                    OnPropertyChanged(nameof(ChildCountText));
                     break;
                 case NotifyCollectionChangedAction.Remove:
                     WeakReferenceMessenger.Default.Send(new AddStatusInfoMsg { });
+                    OnPropertyChanged(nameof(ChildCountText));
                     break;
                 default:
+                    OnPropertyChanged(nameof(ChildCountText));
                     break;
             }
         }

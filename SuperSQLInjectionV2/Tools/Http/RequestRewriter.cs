@@ -601,11 +601,12 @@ namespace SuperSQLInjectionV2.Tools.Http
                     2 => "-" + new Random().Next(1000, 99999).ToString(),
                     _ => record.OrigValue ?? ""
                 };
-                string? bakedVector = record.Where == 3
+                //where=3或报错技术（检出vector原文复用，与检测期ExploitMarkedValue同条件）烘焙vector
+                string? bakedVector = (record.Where == 3 || record.InjectType == InjectType.Error)
                     ? Inject.InjectDetectEngine.BakeVectorForRestore(record.VectorTemplate, record.OrigValue, record.DBType)
                     : null;
                 string marked = Inject.InjectDetectEngine.BakeExploitMarkedValue(
-                    baseValue, record.Prefix, record.Suffix, record.DBType, bakedVector);
+                    baseValue, record.Prefix, record.Suffix, record.DBType, bakedVector, record.Where != 3);
                 //base64包装参数：重烘焙标记值把基底值并入普通Encode块（与检测期标记形态一致；
                 //base64编码回写由AutoTamper恢复机制启用的base64encode工具完成）
                 if ("base64encode".Equals(record.AutoTamper, StringComparison.OrdinalIgnoreCase))
