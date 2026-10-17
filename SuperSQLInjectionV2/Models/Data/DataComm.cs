@@ -240,8 +240,25 @@ namespace SuperSQLInjectionV2.Models.Data
                 Match m = GetCachedRegex("(?<=(" + start + "))[^<\\r\\n]*").Match(body);
                 if (m.Success && m.Value.Length > 0)
                 {
-                    Log.Warning("检测到服务器截断输出（结束标记丢失），已抢救部分数据：" + m.Value.Length + "字符（possible server trimmed output）");
-                    return m.Value;
+                    string value = m.Value;
+                    //截齐尾部残片：截断发生在结束标记中途时，value尾部=结束标记的前缀片段+错误消息包裹引号
+                    //（MySQL XPATH syntax error: '...' 等报错串以引号收尾；EchoMarkers为纯小写字母+下划线，引号必是包裹符）
+                    if (value.EndsWith('\'') || value.EndsWith('"'))
+                    {
+                        value = value[..^1];
+                    }
+                    //剥掉最长的"结束标记前缀"后缀（如 _lmyi__eol 是 stop=_lmyi__eolxx 的截断前缀）
+                    string stop = EchoMarkers.Split + EchoMarkers.End;
+                    for (int k = Math.Min(value.Length, stop.Length - 1); k > 0; k--)
+                    {
+                        if (value.EndsWith(stop.Substring(0, k), StringComparison.Ordinal))
+                        {
+                            value = value[..^k];
+                            break;
+                        }
+                    }
+                    Log.Warning("检测到服务器截断输出（结束标记丢失），已抢救部分数据：" + value.Length + "字符（possible server trimmed output）");
+                    return value;
                 }
             }
             catch (Exception e)
@@ -446,6 +463,7 @@ namespace SuperSQLInjectionV2.Models.Data
                 if (t > 0 && t < 30)
                 {
                     config.SleepInjectMaxTime = t + 1;
+                    RaiseTimeSleepFloor(t + 1);
                     Log.Warning("时间盲注字符复核未通过（读到值与库中不符），延时自动+1秒（当前" + config.SleepInjectMaxTime + "s）重读该字符……");
                 }
             }
@@ -533,7 +551,12 @@ namespace SuperSQLInjectionV2.Models.Data
                 string judgeVal = dc.EffectiveBoolType == BoolInjectType.Time
                     ? config.SleepInjectMaxTime.ToString()
                     : dc.CheckValue;
-                return TruthOracle.IsTrue(response, judgeVal, dc.Reverse, dc.EffectiveBoolType);
+                bool truth = TruthOracle.IsTrue(response, judgeVal, dc.Reverse, dc.EffectiveBoolType);
+                if (dc.EffectiveBoolType == BoolInjectType.Time)
+                {
+                    RecordTimeProbe(config, response);
+                }
+                return truth;
             }
             for (int attempt = 0; ; attempt++)
             {
@@ -551,6 +574,93 @@ namespace SuperSQLInjectionV2.Models.Data
                 }
                 //灰区重发：同一请求原样重发（脏数据防护由SendBoolGuarded兜底）
                 response = await SendBoolGuarded(config, request).ConfigureAwait(false);
+            }
+        }
+
+        //---------------- 时间盲注延时自适应下调（滚动窗口RTT分离度评估） ----------------
+        //与ValidateCharByBool复核失败+1s构成双向自适应：滚动窗口内真/假探测RTT分离余量充足时
+        //延时-1s（下限1s，且不低于本会话复核失败抬升的floor），快稳目标（如局域网/低抖动）取数耗时近似减半；
+        //误判由逐字符复核/MD5整串校验兜底并自动+1s回升（回升值抬升floor，防下调→误判→回升震荡）。
+        private static readonly object _timeStatLock = new();
+        private static readonly List<(long rtt, bool delayed)> _timeWindow = new();
+        private static AppConfig? _timeWindowCfg;
+        private static int _timeSleepFloor = 1;
+
+        /// <summary>
+        /// 记录时间通道探测RTT并按窗口评估延时下调。统计口径=物理延时（响应是否超过判定阈值），
+        /// 与Reverse反取无关（反取只翻转逻辑真假，不翻转SQL层sleep条件）
+        /// </summary>
+        private static void RecordTimeProbe(AppConfig config, HttpResponse response)
+        {
+            if (response == null || response.RunTime <= 0)
+            {
+                return;
+            }
+            int cur = config.SleepInjectMaxTime;
+            if (cur <= _timeSleepFloor || cur <= 1)
+            {
+                return;
+            }
+            lock (_timeStatLock)
+            {
+                if (!ReferenceEquals(_timeWindowCfg, config))
+                {
+                    //换目标/换配置：清空窗口与floor重新评估
+                    _timeWindowCfg = config;
+                    _timeWindow.Clear();
+                    _timeSleepFloor = 1;
+                }
+                cur = config.SleepInjectMaxTime;
+                if (cur <= _timeSleepFloor || cur <= 1)
+                {
+                    return;
+                }
+                long threshold = cur * 1000L - cur * MyTools.deviation; //与TruthOracle时间判定同公式
+                _timeWindow.Add((response.RunTime, response.RunTime > threshold));
+                if (_timeWindow.Count < 10)
+                {
+                    return;
+                }
+                var falses = _timeWindow.Where(x => !x.delayed).Select(x => x.rtt).ToList();
+                var trues = _timeWindow.Where(x => x.delayed).Select(x => x.rtt).ToList();
+                if (falses.Count < 3 || trues.Count < 3)
+                {
+                    //真假样本不足无法评估分离度：滑出最旧样本继续观察
+                    _timeWindow.RemoveAt(0);
+                    return;
+                }
+                long fMax = falses.Max();
+                long tMin = trues.Min();
+                int next = cur - 1;
+                long thresholdNext = next * 1000L - next * MyTools.deviation;
+                //假侧防误真：假RTT须低于新阈值一半（新阈值本身已含2%容差，余量充足）；
+                //真侧防误假：缩减1s后真RTT同步回落约1s，回落后仍须高于新阈值（余量≥20ms且≥假侧RTT，
+                //与现行2%容差设计同比例安全；边界误判由逐字符复核/MD5校验兜底并自动+1s回升）
+                bool falseOk = fMax <= thresholdNext / 2;
+                bool trueOk = tMin - 1000L >= thresholdNext + Math.Max(20, fMax);
+                if (falseOk && trueOk)
+                {
+                    config.SleepInjectMaxTime = next;
+                    _timeWindow.Clear();
+                    Log.SysLog("时间盲注响应分离余量充足（非延时≤" + fMax + "ms，延时≥" + tMin + "ms），延时自适应下调 " + cur + "s → " + next + "s（复核失败会自动回升）");
+                }
+                else
+                {
+                    _timeWindow.RemoveAt(0);
+                }
+            }
+        }
+
+        /// <summary>时间通道复核失败抬升延时下限（ValidateCharByBool +1s 时调用），防自适应下调震荡</summary>
+        private static void RaiseTimeSleepFloor(int sec)
+        {
+            lock (_timeStatLock)
+            {
+                if (sec > _timeSleepFloor)
+                {
+                    _timeSleepFloor = sec;
+                }
+                _timeWindow.Clear();
             }
         }
 
