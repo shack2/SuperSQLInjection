@@ -73,6 +73,9 @@ public sealed class CliOptions
     public bool HexDecode;                 // --hex 中文识别
     public bool FreshQueries;              // --fresh-queries 忽略跨会话值缓存（对标sqlmap同名参数）
     public bool NoPredict;                 // --no-predict 关闭值预测（字典预测+n-gram加权；对标sqlmap --predict-output反向开关）
+    public bool NoOnlineLearn;             // --no-online-learn 关闭在线学习（n-gram权重按成功样本动态调整）
+    public bool NoChannelUpgrade;          // --no-channel-upgrade 关闭通道升级（盲注尝试升级为报错/Union通道）
+    public bool NoCacheVerify;             // --no-cache-verify 关闭缓存效验（缓存命中后抽样复验防脏数据）
 
     // ---- 输出/其他 ----
     public string? OutputDir;              // --output-dir
@@ -167,6 +170,9 @@ public sealed class CliOptions
                     case "--hex": o.HexDecode = true; break;
                     case "--fresh-queries": o.FreshQueries = true; break;
                     case "--no-predict": o.NoPredict = true; break;
+                    case "--no-online-learn": o.NoOnlineLearn = true; break;
+                    case "--no-channel-upgrade": o.NoChannelUpgrade = true; break;
+                    case "--no-cache-verify": o.NoCacheVerify = true; break;
                     case "--output-dir": o.OutputDir = Val(); break;
                     case "--batch": o.Batch = true; break;
                     case "--help": o.ShowHelp = true; break;
@@ -264,6 +270,9 @@ public sealed class CliOptions
           --hex                   中文识别（HEX 包装防乱码）
           --fresh-queries         忽略跨会话值缓存，全部重新读取
           --no-predict            关闭值预测（常见值字典+n-gram字符预测）
+          --no-online-learn       关闭在线学习（n-gram权重动态调整）
+          --no-channel-upgrade    关闭通道升级（盲注不尝试升级为报错/Union）
+          --no-cache-verify       关闭缓存效验（缓存命中后不抽样复验）
 
         输出:
           --output-dir=DIR        结果保存目录（默认 output/<host>_<port>/）

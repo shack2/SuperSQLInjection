@@ -135,6 +135,8 @@ public static class Program
             Log.Warning("未发现注入点。可提高 --level/--risk，或加 --no-smart 全量重测，或换个参数试试");
             return 1;
         }
+        //检测命中即做族→Fork精确识别（banner特征词/布尔探针，与GUI检测流程对齐；报告与会话记录携带Fork名）
+        await ConfirmForkDetection(tr.Config, tr.Hits, opt).ConfigureAwait(false);
         PrintReport(tr.Hits);
         if (!tr.Resumed)
         {
@@ -391,6 +393,48 @@ public static class Program
     }
 
     /// <summary>单目标检测报告（控制台）</summary>
+    /// <summary>检测命中后族→Fork精确识别（纯检测路径）：取最优命中点按通道做banner/探针识别，回写Fork名；失败不影响检测结论</summary>
+    private static async Task ConfirmForkDetection(AppConfig config, List<InjectPoint> hits, CliOptions opt)
+    {
+        try
+        {
+            InjectPoint best = PickBest(hits, opt);
+            //变体库型（金仓/openGauss/达梦直出时）归一到族宿主+Fork名
+            var (fam, fork0) = SuperSQLInjectionV2.Payload.DbProfile.ToFamilyFork(best.DBType);
+            if (fam != best.DBType)
+            {
+                if (string.IsNullOrEmpty(best.ForkName)) best.ForkName = fork0;
+                best.DBType = fam;
+            }
+            if (best.DBType == DBType.UnKnow || !string.IsNullOrEmpty(best.ForkName))
+            {
+                return;
+            }
+            //Union/报错通道的banner标量payload构造依赖payload工厂与vector上下文
+            ApplyHit(config, best);
+            SuperSQLInjectionV2.Payload.PayloadFactory.ForkName = "";
+            SuperSQLInjectionV2.Payload.PayloadFactory.Init(best.DBType);
+            var result = await SuperSQLInjectionV2.Tools.Inject.DbVariantResolver.ResolveAsync(config, best).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(result.ForkName))
+            {
+                best.ForkName = result.ForkName;
+                //同族其他命中点同步Fork名（报告与会话记录完整携带）
+                foreach (InjectPoint h in hits)
+                {
+                    if (h.DBType == best.DBType && string.IsNullOrEmpty(h.ForkName))
+                    {
+                        h.ForkName = result.ForkName;
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            //fork识别失败不影响检测结论
+            Log.SysLog("Fork识别跳过：" + e.Message);
+        }
+    }
+
     private static void PrintReport(List<InjectPoint> hits)
     {
         Console.WriteLine();
@@ -455,6 +499,9 @@ public static class Program
         config.DataConfig.HexDecode = opt.HexDecode;
         config.DataConfig.ValueCache = !opt.FreshQueries;   //--fresh-queries 忽略值缓存
         config.DataConfig.PredictOutput = !opt.NoPredict;   //--no-predict 关闭值预测
+        config.DataConfig.NgramOnlineLearn = !opt.NoOnlineLearn;       //--no-online-learn 关闭在线学习
+        config.DataConfig.ChannelUpgrade = !opt.NoChannelUpgrade;      //--no-channel-upgrade 关闭通道升级
+        config.DataConfig.ValueCacheVerify = !opt.NoCacheVerify;       //--no-cache-verify 关闭缓存效验
         config.DataDump.DumpNoCast = opt.NoCast;
         if (!string.IsNullOrWhiteSpace(opt.Where)) config.DataDump.DumpWhere = opt.Where!;
         if (!string.IsNullOrWhiteSpace(opt.DnsDomain))
@@ -669,7 +716,8 @@ public static class Program
         // ---- 枚举表 ----
         if (opt.Tables)
         {
-            string db = RequireDb(opt, "--tables");
+            //Access 无库概念（字典猜解表名），免 -D
+            string db = dbType == DBType.Access && string.IsNullOrWhiteSpace(opt.Db) ? "Access" : RequireDb(opt, "--tables");
             Console.WriteLine();
             Log.Highlight($"========== 表列表（{db}） ==========");
             //Access 无元数据可读（msysobjects 默认拒绝）：走 exists 布尔字典猜解
@@ -687,7 +735,8 @@ public static class Program
         List<string>? dumpCols = null;
         if (opt.Columns || (opt.Dump && string.IsNullOrWhiteSpace(opt.ColumnList)))
         {
-            string db = RequireDb(opt, "--columns");
+            //Access 无库概念（字典猜解字段名），免 -D
+            string db = dbType == DBType.Access && string.IsNullOrWhiteSpace(opt.Db) ? "Access" : RequireDb(opt, "--columns");
             string table = RequireTable(opt, "--columns");
             if (opt.Columns)
             {
@@ -715,7 +764,8 @@ public static class Program
         // ---- dump ----
         if (opt.Dump)
         {
-            string db = RequireDb(opt, "--dump");
+            //Access 无库概念，免 -D
+            string db = dbType == DBType.Access && string.IsNullOrWhiteSpace(opt.Db) ? "Access" : RequireDb(opt, "--dump");
             string table = RequireTable(opt, "--dump");
             List<string> cols = !string.IsNullOrWhiteSpace(opt.ColumnList)
                 ? opt.ColumnList!.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList
