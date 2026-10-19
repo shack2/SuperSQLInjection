@@ -6,10 +6,10 @@
     <!-- QuickJS P/Invoke 封装使用指针/fixed/stackalloc -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>SuperSQLInjectionV2</RootNamespace>
-    <Version>2.0.4</Version>
-    <AssemblyVersion>2.0.4.0</AssemblyVersion>
-    <FileVersion>2.0.4.0</FileVersion>
-    <InformationalVersion>2.0.4</InformationalVersion>
+    <Version>2.0.5</Version>
+    <AssemblyVersion>2.0.5.0</AssemblyVersion>
+    <FileVersion>2.0.5.0</FileVersion>
+    <InformationalVersion>2.0.5</InformationalVersion>
     <ApplicationIcon />
     <OutputType>Library</OutputType>
     <!-- 验证开关：dotnet build -p:ForceJsonSourceGen=true 强制JSON走源生成路径（JIT下模拟AOT序列化行为，供harness探针验证） -->

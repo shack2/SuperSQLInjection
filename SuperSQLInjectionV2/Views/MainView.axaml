@@ -166,6 +166,13 @@
                                         <TextBlock Text="请求日志" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
                                     </StackPanel>
                                 </Button>
+                                <Button Classes="navitem" Classes.active="{Binding NavPage12Visible}"
+                                        Command="{Binding SelectNavCommand}" CommandParameter="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <PathIcon Foreground="#2FA88F" Classes="luc" Data="{StaticResource LgLock}"/>
+                                        <TextBlock Text="Hash解密" VerticalAlignment="Center" IsVisible="{Binding !IsNavCollapsed}" />
+                                    </StackPanel>
+                                </Button>
 
                                 <TextBlock Classes="navcaption" Text="帮 助" IsVisible="{Binding !IsNavCollapsed}" />
                                 <Button Classes="navitem" Classes.active="{Binding NavPage11Visible}"
@@ -2042,7 +2049,7 @@
                                                         <TextBlock Text="监听端口：" Classes="Secondary" VerticalAlignment="Center" />
                                                         <NumericUpDown Width="90" Minimum="1" Maximum="65535" Value="{Binding AppConfig.DataConfig.DnsServerPort}" VerticalAlignment="Center" />
                                                         <TextBlock Text="{Binding AppConfig.DataConfig.DnsServerStatus}" Classes="Secondary" VerticalAlignment="Center" />
-                                                        <Button Classes="minibtn" Height="26" Padding="12,0" Click="ApplyDnsServerC" VerticalAlignment="Center">
+                                                        <Button Classes="minibtn" Height="26" Padding="12,0" Command="{Binding ApplyDnsServerCommand}" VerticalAlignment="Center">
                                                             <StackPanel Orientation="Horizontal" Spacing="4">
                                                                 <PathIcon Data="{StaticResource MdCheck}" Width="12" Height="12" />
                                                                 <TextBlock Text="应用" VerticalAlignment="Center" />
@@ -2089,7 +2096,7 @@
                                                        BorderThickness="1"
                                                        ScrollViewer.AllowAutoHide="True">
                                                 <TableView.Columns>
-                                                    <TableViewColumn Width="56" Header="选用" x:DataType="models:UaItem">
+                                                    <TableViewColumn Width="56" Header="选用" x:DataType="models:UaItem" HorizontalContentAlignment="Center">
                                                         <TableViewColumn.CellTemplate>
                                                             <DataTemplate x:DataType="models:UaItem">
                                                                 <CheckBox IsChecked="{Binding IsSelected}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -2355,17 +2362,17 @@
                                     <TabItem.Header>
                                         <WrapPanel>
                                             <PathIcon Data="{StaticResource IconCodeScript}" Width="14" Height="14" VerticalAlignment="Center" />
-                                            <TextBlock Margin="6,0,0,0" Text="脚本库" VerticalAlignment="Center" ToolTip.Tip="编码链（内置/自定义变换）与动态值脚本统一管理" />
+                                            <TextBlock Margin="6,0,0,0" Text="防护绕过脚本" VerticalAlignment="Center" ToolTip.Tip="Payload/报文变换脚本（编码链按序号自动按序执行）；动态规则脚本在「动态规则」页管理" />
                                         </WrapPanel>
                                     </TabItem.Header>
                                     <TabItem.Content>
-                                        <Grid RowDefinitions="Auto,Auto,*" Margin="0,10,0,0">
+                                        <Grid RowDefinitions="Auto,*" Margin="0,10,0,0">
                                             <!--  工具栏：左侧操作按钮，右侧搜索框  -->
                                             <Grid Margin="0,0,0,10" ColumnDefinitions="Auto,*" MinHeight="40">
                                                 <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                                                     <Button Classes="miniaddbtn" Height="28" Padding="14,0" VerticalAlignment="Center"
                                                             Command="{Binding AddTokenScriptCommand}"
-                                                            ToolTip.Tip="新增JS脚本（QuickJS执行，function tamper(input){...}）：Payload/报文变换加入编码链，响应提取/值生成保存为动态值脚本">
+                                                            ToolTip.Tip="新增JS脚本（QuickJS执行，function tamper(input){...}）：Payload/报文变换=防护绕过脚本（入编码链按序自动执行）">
                                                         <StackPanel Orientation="Horizontal" Spacing="5">
                                                             <PathIcon Data="{StaticResource MdPlus}" Width="13" Height="13" />
                                                             <TextBlock Text="添加脚本" VerticalAlignment="Center" />
@@ -2379,10 +2386,10 @@
                                                                   ToolTip.Tip="弹窗确认后批量删除勾选行的脚本（内置规则自动跳过；动态值类同步清空规则引用）" />
                                                     <u:IconButton Icon="{StaticResource LgChevronUp}" Content="上 移" VerticalAlignment="Center" Classes="tbtn"
                                                                   Theme="{DynamicResource SolidIconButton}" Command="{Binding MoveEncodeToolUpCommand}"
-                                                                  ToolTip.Tip="选中行上移一位（仅编码链脚本参与排序；也可直接拖拽行到目标位置）" />
+                                                                  ToolTip.Tip="选中行上移一位（仅防护绕过脚本参与编码链排序；也可直接拖拽行到目标位置）" />
                                                     <u:IconButton Icon="{StaticResource LgChevronDown}" Content="下 移" VerticalAlignment="Center" Classes="tbtn"
                                                                   Theme="{DynamicResource SolidIconButton}" Command="{Binding MoveEncodeToolDownCommand}"
-                                                                  ToolTip.Tip="选中行下移一位（仅编码链脚本参与排序；也可直接拖拽行到目标位置）" />
+                                                                  ToolTip.Tip="选中行下移一位（仅防护绕过脚本参与编码链排序；也可直接拖拽行到目标位置）" />
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                     <TextBox Width="190" Height="30" VerticalAlignment="Center"
@@ -2395,81 +2402,82 @@
                                                     </TextBox>
                                                 </StackPanel>
                                             </Grid>
-                                            <!--  空态水印  -->
-                                            <TextBlock Grid.Row="2" ZIndex="1" Text="暂无脚本——点击工具栏「添加自定义脚本」创建"
-                                                       FontSize="13" Foreground="{DynamicResource DsgInk3}"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
-                                                       IsVisible="{Binding FilteredScriptLib.Count, Converter={StaticResource EmptyToBoolConverter}}" />
-                                            <TableView
-                                                          Grid.Row="2"
-                                                          CanUserResizeColumns="True"
-                                                          Name="EncodeDataGrid"
-                                                          ItemsSource="{Binding FilteredScriptLib}"
-                                                          SelectedItem="{Binding SelectedScriptRow}"
-                                                          BorderThickness="1"
-                                                          ScrollViewer.AllowAutoHide="True">
-                                                <TableView.Columns>
-                                                    <TableViewColumn Header="选择" Width="60" HorizontalContentAlignment="Center">
-                                                        <TableViewColumn.CellTemplate>
-                                                            <DataTemplate x:DataType="models:ScriptLibRow">
-                                                                <CheckBox IsChecked="{Binding RowChecked}" Click="RowCheckSelectC" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                            </DataTemplate>
-                                                        </TableViewColumn.CellTemplate>
-                                                    </TableViewColumn>
-                                                    <TableViewColumn Header="序号" Width="60" HorizontalContentAlignment="Center">
-                                                        <TableViewColumn.CellTemplate>
-                                                            <DataTemplate x:DataType="models:ScriptLibRow">
-                                                                <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" Classes="Secondary"
-                                                                           Text="{Binding SeqText}" ToolTip.Tip="加载/执行顺序（序号小的先执行）：编码链脚本=链内执行顺序；动态值脚本=全库连续加载序号（按名称被动态规则引用执行）" />
-                                                            </DataTemplate>
-                                                        </TableViewColumn.CellTemplate>
-                                                    </TableViewColumn>
-                                                    <TableViewColumn Width="1.2*" x:DataType="models:ScriptLibRow" HorizontalContentAlignment="Center" Binding="{Binding Name}" Header="名称" />
-                                                    <TableViewColumn Header="用途" Width="1.1*" HorizontalContentAlignment="Center">
-                                                        <TableViewColumn.CellTemplate>
-                                                            <DataTemplate x:DataType="models:ScriptLibRow">
-                                                                <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center"
-                                                                           Text="{Binding UsageName}" ToolTip.Tip="Payload变换/报文变换=编码链脚本；响应提取/值生成=动态值脚本（用途切换请用编辑弹窗，保存后自动归入对应类别）" />
-                                                            </DataTemplate>
-                                                        </TableViewColumn.CellTemplate>
-                                                    </TableViewColumn>
-                                                    <TableViewColumn Width="2.5*" x:DataType="models:ScriptLibRow" Binding="{Binding DescText}" Header="功能说明" />
-                                                    <TableViewColumn Header="是否启用" Width="0.8*" HorizontalContentAlignment="Center">
-                                                        <TableViewColumn.CellTemplate>
-                                                            <DataTemplate x:DataType="models:ScriptLibRow">
-                                                                <ToggleSwitch Classes="se" IsChecked="{Binding Enable}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                            </DataTemplate>
-                                                        </TableViewColumn.CellTemplate>
-                                                    </TableViewColumn>
-                                                    <TableViewColumn Header="操作" Width="1.2*" HorizontalContentAlignment="Center">
-                                                        <TableViewColumn.CellTemplate>
-                                                            <DataTemplate x:DataType="models:ScriptLibRow">
-                                                                <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                    <Button Classes="opico view"
-                                                                            ToolTip.Tip="编辑该脚本（保存到磁盘脚本文件即时生效）"
-                                                                            Command="{Binding $parent[TableView].DataContext.EditTokenScriptCommand}" CommandParameter="{Binding}">
-                                                                        <PathIcon Foreground="#4C8DFF" Classes="luc" Data="{StaticResource LgPencil}" />
-                                                                    </Button>
-                                                                    <Button Classes="opico del"
-                                                                            ToolTip.Tip="删除该脚本"
-                                                                            Command="{Binding $parent[TableView].DataContext.RemoveTokenScriptCommand}" CommandParameter="{Binding}">
-                                                                        <PathIcon Foreground="#E5A33C" Classes="luc" Data="{StaticResource LgTrash2}" />
-                                                                    </Button>
-                                                                </StackPanel>
-                                                            </DataTemplate>
-                                                        </TableViewColumn.CellTemplate>
-                                                    </TableViewColumn>
-                                                </TableView.Columns>
-                                                <TableView.ContextFlyout>
-                                                    <MenuFlyout>
-                                                        <MenuItem Header="删除选中" Click="RemoveBypassSelect">
-                                                            <MenuItem.Icon>
-                                                                <PathIcon Data="{StaticResource SemiIconDelete}" />
-                                                            </MenuItem.Icon>
-                                                        </MenuItem>
-                                                    </MenuFlyout>
-                                                </TableView.ContextFlyout>
-                                            </TableView>
+                                            <!--  防护绕过脚本表（编码链按序号自动按序执行）  -->
+                                            <Grid Grid.Row="1">
+                                                        <TextBlock ZIndex="1" Text="暂无防护绕过脚本——点击工具栏「添加脚本」创建（用途选 Payload/报文变换）"
+                                                                   FontSize="13" Foreground="{DynamicResource DsgInk3}"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                                                                   IsVisible="{Binding FilteredTransformLib.Count, Converter={StaticResource EmptyToBoolConverter}}" />
+                                                        <TableView
+                                                                      CanUserResizeColumns="True"
+                                                                      Name="EncodeDataGrid"
+                                                                      BorderThickness="0,1,0,0"  
+                                                                      ItemsSource="{Binding FilteredTransformLib}"
+                                                                      SelectedItem="{Binding SelectedScriptRow}"
+                                                                      ScrollViewer.AllowAutoHide="True">
+                                                            <TableView.Columns>
+                                                                <TableViewColumn Header="选择" Width="60" HorizontalContentAlignment="Center">
+                                                                    <TableViewColumn.CellTemplate>
+                                                                        <DataTemplate x:DataType="models:ScriptLibRow">
+                                                                            <CheckBox IsChecked="{Binding RowChecked}" Click="RowCheckSelectC" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                        </DataTemplate>
+                                                                    </TableViewColumn.CellTemplate>
+                                                                </TableViewColumn>
+                                                                <TableViewColumn Header="序号" Width="60" HorizontalContentAlignment="Center">
+                                                                    <TableViewColumn.CellTemplate>
+                                                                        <DataTemplate x:DataType="models:ScriptLibRow">
+                                                                            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" Classes="Secondary"
+                                                                                       Text="{Binding SeqText}" ToolTip.Tip="编码链加载/执行顺序（序号小的先执行）；支持拖拽行或工具栏上移/下移调整" />
+                                                                        </DataTemplate>
+                                                                    </TableViewColumn.CellTemplate>
+                                                                </TableViewColumn>
+                                                                <TableViewColumn Width="1.2*" x:DataType="models:ScriptLibRow" HorizontalContentAlignment="Center" Binding="{Binding Name}" Header="名称" />
+                                                                <TableViewColumn Header="用途" Width="1.1*" HorizontalContentAlignment="Center">
+                                                                    <TableViewColumn.CellTemplate>
+                                                                        <DataTemplate x:DataType="models:ScriptLibRow">
+                                                                            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                                                       Text="{Binding UsageName}" ToolTip.Tip="Payload变换=Encode块内payload变换；报文变换=整份HTTP报文改写（用途切换请用编辑弹窗）" />
+                                                                        </DataTemplate>
+                                                                    </TableViewColumn.CellTemplate>
+                                                                </TableViewColumn>
+                                                                <TableViewColumn Width="2.5*" x:DataType="models:ScriptLibRow" Binding="{Binding DescText}" Header="功能说明" />
+                                                                <TableViewColumn Header="是否启用" Width="0.8*" HorizontalContentAlignment="Center">
+                                                                    <TableViewColumn.CellTemplate>
+                                                                        <DataTemplate x:DataType="models:ScriptLibRow">
+                                                                            <ToggleSwitch Classes="se" IsChecked="{Binding Enable}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                        </DataTemplate>
+                                                                    </TableViewColumn.CellTemplate>
+                                                                </TableViewColumn>
+                                                                <TableViewColumn Header="操作" Width="1.2*" HorizontalContentAlignment="Center">
+                                                                    <TableViewColumn.CellTemplate>
+                                                                        <DataTemplate x:DataType="models:ScriptLibRow">
+                                                                            <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                                <Button Classes="opico view"
+                                                                                        ToolTip.Tip="编辑该脚本（保存到磁盘脚本文件即时生效）"
+                                                                                        Command="{Binding $parent[TableView].DataContext.EditTokenScriptCommand}" CommandParameter="{Binding}">
+                                                                                    <PathIcon Foreground="#4C8DFF" Classes="luc" Data="{StaticResource LgPencil}" />
+                                                                                </Button>
+                                                                                <Button Classes="opico del"
+                                                                                        ToolTip.Tip="删除该脚本"
+                                                                                        Command="{Binding $parent[TableView].DataContext.RemoveTokenScriptCommand}" CommandParameter="{Binding}">
+                                                                                    <PathIcon Foreground="#E5A33C" Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                                                </Button>
+                                                                            </StackPanel>
+                                                                        </DataTemplate>
+                                                                    </TableViewColumn.CellTemplate>
+                                                                </TableViewColumn>
+                                                            </TableView.Columns>
+                                                            <TableView.ContextFlyout>
+                                                                <MenuFlyout>
+                                                                    <MenuItem Header="删除选中" Click="RemoveBypassSelect">
+                                                                        <MenuItem.Icon>
+                                                                            <PathIcon Data="{StaticResource SemiIconDelete}" />
+                                                                        </MenuItem.Icon>
+                                                                    </MenuItem>
+                                                                </MenuFlyout>
+                                                            </TableView.ContextFlyout>
+                                                        </TableView>
+                                            </Grid>
                                         </Grid>
                                     </TabItem.Content>
                                 </TabItem>
@@ -2481,8 +2489,10 @@
                                         </WrapPanel>
                                     </TabItem.Header>
                                     <TabItem.Content>
-                                        <Grid RowDefinitions="Auto,Auto,*" Margin="0,10,0,0">
-                                            <!--  工具栏：左侧操作按钮，右侧搜索框  -->
+                                        <TabControl Margin="0,10,0,0">
+                                            <TabItem Header="规则管理">
+                                                <Grid RowDefinitions="Auto,*">
+                                                    <!--  工具栏：左侧操作按钮，右侧搜索框  -->
                                             <Grid Margin="0,0,0,10" ColumnDefinitions="Auto,*" MinHeight="40">
                                                 <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                                                     <Button Classes="miniaddbtn" Height="28" Padding="14,0" VerticalAlignment="Center"
@@ -2499,9 +2509,6 @@
                                                     <u:IconButton Icon="{StaticResource SemiIconDeleteStroked}" Content="删 除" VerticalAlignment="Center" Classes="opdel tbtn"
                                                                   Theme="{DynamicResource SolidIconButton}" Command="{Binding RemoveCheckedCompanionRulesCommand}"
                                                                   ToolTip.Tip="弹窗确认后批量删除勾选行的规则" />
-                                                    <u:IconButton Icon="{StaticResource SemiIconCodeStroked}" Content="管理脚本" VerticalAlignment="Center" Classes="tbtn"
-                                                                  Theme="{DynamicResource SolidIconButton}" Command="{Binding ManageTokenScriptsCommand}"
-                                                                  ToolTip.Tip="切换到脚本库选项卡，统一管理全部脚本（编码链变换/动态值）" />
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                     <TextBox Width="190" Height="30" VerticalAlignment="Center"
@@ -2516,11 +2523,11 @@
                                             </Grid>
 
                                             <!--  空态水印  -->
-                                            <TextBlock Grid.Row="2" ZIndex="1" Text="暂无动态规则——点击工具栏「添加规则」创建"
+                                            <TextBlock Grid.Row="1" ZIndex="1" Text="暂无动态规则——点击工具栏「添加规则」创建"
                                                        FontSize="13" Foreground="{DynamicResource DsgInk3}"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
                                                        IsVisible="{Binding FilteredCompanionRules.Count, Converter={StaticResource EmptyToBoolConverter}}" />
-                                            <TableView Grid.Row="2"
+                                            <TableView Grid.Row="1"
                                                        CanUserResizeColumns="True"
                                                        Name="CompanionRuleTable"
                                                        ItemsSource="{Binding FilteredCompanionRules}"
@@ -2569,7 +2576,115 @@
                                                     </TableViewColumn>
                                                 </TableView.Columns>
                                             </TableView>
-                                        </Grid>
+                                                </Grid>
+                                            </TabItem>
+                                            <TabItem Header="动态规则脚本">
+                                                <Grid RowDefinitions="Auto,*">
+                                                    <!--  工具栏：左侧操作按钮，右侧搜索框  -->
+                                                    <Grid Margin="0,0,0,10" ColumnDefinitions="Auto,*" MinHeight="40">
+                                                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                                            <Button Classes="miniaddbtn" Height="28" Padding="14,0" VerticalAlignment="Center"
+                                                                    Command="{Binding AddDynRuleScriptCommand}"
+                                                                    ToolTip.Tip="新增JS脚本（QuickJS执行）：响应提取=从抓取响应报文提取动态值；值生成=以主请求报文为输入生成动态值（被动态规则引用）">
+                                                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                                                    <PathIcon Data="{StaticResource MdPlus}" Width="13" Height="13" />
+                                                                    <TextBlock Text="添加脚本" VerticalAlignment="Center" />
+                                                                </StackPanel>
+                                                            </Button>
+                                                            <u:IconButton Icon="{StaticResource SemiIconEditStroked}" Content="修 改" VerticalAlignment="Center" Classes="opedit tbtn"
+                                                                          Theme="{DynamicResource SolidIconButton}" Command="{Binding EditTokenScriptCommand}"
+                                                                          ToolTip.Tip="编辑选中或勾选行的脚本（勾选多行时取第一条；改名自动同步规则引用；保存到磁盘脚本文件即时生效）" />
+                                                            <u:IconButton Icon="{StaticResource SemiIconDeleteStroked}" Content="删除选中" VerticalAlignment="Center" Classes="opdel tbtn"
+                                                                          Theme="{DynamicResource SolidIconButton}" Command="{Binding RemoveCheckedTokenScriptsCommand}"
+                                                                          ToolTip.Tip="弹窗确认后批量删除勾选行的脚本（引用它的规则将清空脚本设置）" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                            <TextBox Width="190" Height="30" VerticalAlignment="Center"
+                                                                     Text="{Binding ScriptLibSearchKeyword}"
+                                                                     PlaceholderText="名称/用途模糊搜索">
+                                                                <TextBox.InnerLeftContent>
+                                                                    <PathIcon Data="{StaticResource SemiIconSearchStroked}" Width="13" Height="13" Margin="8,0,0,0"
+                                                                              Foreground="{DynamicResource DsgInk3}" />
+                                                                </TextBox.InnerLeftContent>
+                                                            </TextBox>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <TextBlock Grid.Row="1" ZIndex="1" Text="暂无动态规则脚本——点击工具栏「添加脚本」创建（用途选 响应提取/值生成）"
+                                                               FontSize="13" Foreground="{DynamicResource DsgInk3}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                                                               IsVisible="{Binding FilteredTokenLib.Count, Converter={StaticResource EmptyToBoolConverter}}" />
+                                                    <TableView Grid.Row="1"
+                                                                  CanUserResizeColumns="True"
+                                                                  Name="TokenScriptGrid"
+                                                                  ItemsSource="{Binding FilteredTokenLib}"
+                                                                  SelectedItem="{Binding SelectedScriptRow}"
+                                                                  BorderThickness="0"
+                                                                  ScrollViewer.AllowAutoHide="True">
+                                                        <TableView.Columns>
+                                                            <TableViewColumn Header="选择" Width="60" HorizontalContentAlignment="Center">
+                                                                <TableViewColumn.CellTemplate>
+                                                                    <DataTemplate x:DataType="models:ScriptLibRow">
+                                                                        <CheckBox IsChecked="{Binding RowChecked}" Click="RowCheckSelectC" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                    </DataTemplate>
+                                                                </TableViewColumn.CellTemplate>
+                                                            </TableViewColumn>
+                                                            <TableViewColumn Width="1.2*" x:DataType="models:ScriptLibRow" HorizontalContentAlignment="Center" Binding="{Binding Name}" Header="名称" />
+                                                            <TableViewColumn Header="用途" Width="1.0*" HorizontalContentAlignment="Center">
+                                                                <TableViewColumn.CellTemplate>
+                                                                    <DataTemplate x:DataType="models:ScriptLibRow">
+                                                                        <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                                                   Text="{Binding UsageName}" ToolTip.Tip="响应提取=从抓取响应报文提取动态值；值生成=以主请求报文为输入生成动态值（API签名等场景）" />
+                                                                    </DataTemplate>
+                                                                </TableViewColumn.CellTemplate>
+                                                            </TableViewColumn>
+                                                            <TableViewColumn Header="被引用" Width="1.0*" HorizontalContentAlignment="Center">
+                                                                <TableViewColumn.CellTemplate>
+                                                                    <DataTemplate x:DataType="models:ScriptLibRow">
+                                                                        <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" Classes="Secondary"
+                                                                                   Text="{Binding RefText}" ToolTip.Tip="{Binding RefRuleNames, StringFormat='引用本脚本的规则：{0}', FallbackValue='未被任何动态规则引用（删除/改名不影响规则）', TargetNullValue='未被任何动态规则引用（删除/改名不影响规则）'}" />
+                                                                    </DataTemplate>
+                                                                </TableViewColumn.CellTemplate>
+                                                            </TableViewColumn>
+                                                            <TableViewColumn Width="2.3*" x:DataType="models:ScriptLibRow" Binding="{Binding DescText}" Header="功能说明" />
+                                                            <TableViewColumn Header="是否启用" Width="0.8*" HorizontalContentAlignment="Center">
+                                                                <TableViewColumn.CellTemplate>
+                                                                    <DataTemplate x:DataType="models:ScriptLibRow">
+                                                                        <ToggleSwitch Classes="se" IsChecked="{Binding Enable}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                    </DataTemplate>
+                                                                </TableViewColumn.CellTemplate>
+                                                            </TableViewColumn>
+                                                            <TableViewColumn Header="操作" Width="1.2*" HorizontalContentAlignment="Center">
+                                                                <TableViewColumn.CellTemplate>
+                                                                    <DataTemplate x:DataType="models:ScriptLibRow">
+                                                                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                            <Button Classes="opico view"
+                                                                                    ToolTip.Tip="编辑该脚本（保存到磁盘脚本文件即时生效；改名自动同步规则引用）"
+                                                                                    Command="{Binding $parent[TableView].DataContext.EditTokenScriptCommand}" CommandParameter="{Binding}">
+                                                                                <PathIcon Foreground="#4C8DFF" Classes="luc" Data="{StaticResource LgPencil}" />
+                                                                            </Button>
+                                                                            <Button Classes="opico del"
+                                                                                    ToolTip.Tip="删除该脚本（引用它的规则将清空脚本设置）"
+                                                                                    Command="{Binding $parent[TableView].DataContext.RemoveTokenScriptCommand}" CommandParameter="{Binding}">
+                                                                                <PathIcon Foreground="#E5A33C" Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                                            </Button>
+                                                                        </StackPanel>
+                                                                    </DataTemplate>
+                                                                </TableViewColumn.CellTemplate>
+                                                            </TableViewColumn>
+                                                        </TableView.Columns>
+                                                        <TableView.ContextFlyout>
+                                                            <MenuFlyout>
+                                                                <MenuItem Header="删除选中" Click="RemoveTokenLibSelect">
+                                                                    <MenuItem.Icon>
+                                                                        <PathIcon Data="{StaticResource SemiIconDelete}" />
+                                                                    </MenuItem.Icon>
+                                                                </MenuItem>
+                                                            </MenuFlyout>
+                                                        </TableView.ContextFlyout>
+                                                    </TableView>
+                                                </Grid>
+                                            </TabItem>
+                                        </TabControl>
                                     </TabItem.Content>
                                 </TabItem>
                             </TabControl>
@@ -3123,6 +3238,114 @@
                                             </TabItem.Content>
                                         </TabItem>
                                     </TabControl>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <!--  ======== P12 Hash在线解密（输入+结果+接口配置表） ========  -->
+                        <Border Classes="pageflat" IsVisible="{Binding NavPage12Visible}">
+                            <Grid RowDefinitions="Auto,Auto,*" Margin="10,10,10,10">
+                                <!--  输入行  -->
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <TextBlock Text="Hash值：" Classes="Primary" VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1" Height="32" VerticalAlignment="Center"
+                                             Text="{Binding HashInput}"
+                                             PlaceholderText="输入待解密的Hash值（MD5/SHA1等，取决于接口支持）" />
+                                    <Button Grid.Column="2" Margin="10,0,0,0" Classes="miniaddbtn" Height="30" Padding="18,0" VerticalAlignment="Center"
+                                            Command="{Binding CrackHashCommand}" IsEnabled="{Binding !HashCracking}"
+                                            ToolTip.Tip="按下方接口列表顺序轮询所有启用接口，任一接口解出明文即停">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <PathIcon Data="{StaticResource LgSearch}" Width="13" Height="13" />
+                                            <TextBlock Text="在线解密" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                                <!--  结果区  -->
+                                <TextBox Grid.Row="1" Margin="0,10,0,0" Height="110" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                                         Text="{Binding HashCrackResult}"
+                                         PlaceholderText="解密结果与各接口尝试过程显示在这里" />
+                                <!--  接口配置  -->
+                                <Grid Grid.Row="2" Margin="0,10,0,0" RowDefinitions="Auto,*">
+                                    <!--  工具栏：左侧操作按钮  -->
+                                    <Grid Margin="0,0,0,10" ColumnDefinitions="Auto,*" MinHeight="40">
+                                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                            <Button Classes="miniaddbtn" Height="28" Padding="14,0" VerticalAlignment="Center"
+                                                    Command="{Binding AddHashApiCommand}"
+                                                    ToolTip.Tip="新增在线解密接口（cmd5类站点：URL/POST数据用{hash}占位，提取正则取明文）">
+                                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                                    <PathIcon Data="{StaticResource MdPlus}" Width="13" Height="13" />
+                                                    <TextBlock Text="添加接口" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Button>
+                                            <u:IconButton Icon="{StaticResource SemiIconEditStroked}" Content="修 改" VerticalAlignment="Center" Classes="opedit tbtn"
+                                                          Theme="{DynamicResource SolidIconButton}" Command="{Binding EditHashApiCommand}"
+                                                          ToolTip.Tip="编辑选中或勾选行的接口（勾选多行时取第一条；也可点操作列编辑按钮）" />
+                                            <u:IconButton Icon="{StaticResource SemiIconDeleteStroked}" Content="删除选中" VerticalAlignment="Center" Classes="opdel tbtn"
+                                                          Theme="{DynamicResource SolidIconButton}" Command="{Binding RemoveCheckedHashApisCommand}"
+                                                          ToolTip.Tip="弹窗确认后批量删除勾选行的接口" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Classes="Secondary" VerticalAlignment="Center" HorizontalAlignment="Right"
+                                                   Text="接口失效时点「修改」调整URL/提取正则，弹窗内可输入测试hash真实发包验证" />
+                                    </Grid>
+                                    <TextBlock Grid.Row="1" ZIndex="1" Text="暂无解密接口——点击工具栏「添加接口」创建"
+                                               FontSize="13" Foreground="{DynamicResource DsgInk3}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                                               IsVisible="{Binding AppConfig.HashApiItems.Count, Converter={StaticResource EmptyToBoolConverter}}" />
+                                    <TableView Grid.Row="1"
+                                               CanUserResizeColumns="True"
+                                               Name="HashApiGrid"
+                                               ItemsSource="{Binding AppConfig.HashApiItems}"
+                                               SelectedItem="{Binding SelectedHashApi}"
+                                               BorderThickness="0"
+                                               ScrollViewer.AllowAutoHide="True">
+                                        <TableView.Columns>
+                                            <TableViewColumn Header="选择" Width="60" HorizontalContentAlignment="Center">
+                                                <TableViewColumn.CellTemplate>
+                                                    <DataTemplate x:DataType="models:HashApiConfig">
+                                                        <CheckBox IsChecked="{Binding RowChecked}" Click="RowCheckSelectC" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </DataTemplate>
+                                                </TableViewColumn.CellTemplate>
+                                            </TableViewColumn>
+                                            <TableViewColumn Width="1.1*" x:DataType="models:HashApiConfig" HorizontalContentAlignment="Center" Binding="{Binding Name}" Header="名称" />
+                                            <TableViewColumn Width="3*" x:DataType="models:HashApiConfig" Binding="{Binding Url}" Header="URL（{hash}为占位符）" />
+                                            <TableViewColumn Width="0.6*" x:DataType="models:HashApiConfig" HorizontalContentAlignment="Center" Binding="{Binding Method}" Header="方法" />
+                                            <TableViewColumn Width="2*" x:DataType="models:HashApiConfig" Binding="{Binding Regex}" Header="提取正则" />
+                                            <TableViewColumn Header="是否启用" Width="0.8*" HorizontalContentAlignment="Center">
+                                                <TableViewColumn.CellTemplate>
+                                                    <DataTemplate x:DataType="models:HashApiConfig">
+                                                        <ToggleSwitch Classes="se" IsChecked="{Binding Enable}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </DataTemplate>
+                                                </TableViewColumn.CellTemplate>
+                                            </TableViewColumn>
+                                            <TableViewColumn Header="操作" Width="1.2*" HorizontalContentAlignment="Center">
+                                                <TableViewColumn.CellTemplate>
+                                                    <DataTemplate x:DataType="models:HashApiConfig">
+                                                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <Button Classes="opico view"
+                                                                    ToolTip.Tip="编辑该接口（弹窗内可测试）"
+                                                                    Command="{Binding $parent[TableView].DataContext.EditHashApiCommand}" CommandParameter="{Binding}">
+                                                                <PathIcon Foreground="#4C8DFF" Classes="luc" Data="{StaticResource LgPencil}" />
+                                                            </Button>
+                                                            <Button Classes="opico del"
+                                                                    ToolTip.Tip="删除该接口"
+                                                                    Command="{Binding $parent[TableView].DataContext.RemoveHashApiCommand}" CommandParameter="{Binding}">
+                                                                <PathIcon Foreground="#E5A33C" Classes="luc" Data="{StaticResource LgTrash2}" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </TableViewColumn.CellTemplate>
+                                            </TableViewColumn>
+                                        </TableView.Columns>
+                                        <TableView.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuItem Header="删除选中" Click="RemoveHashApiSelect">
+                                                    <MenuItem.Icon>
+                                                        <PathIcon Data="{StaticResource SemiIconDelete}" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                            </MenuFlyout>
+                                        </TableView.ContextFlyout>
+                                    </TableView>
                                 </Grid>
                             </Grid>
                         </Border>

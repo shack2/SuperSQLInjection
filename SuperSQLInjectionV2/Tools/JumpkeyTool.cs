@@ -54,5 +54,13 @@ namespace SuperSQLInjectionV2.Tools
             }
             return dict;
         }
+
+        /// <summary>从 jumpkey.txt 加载并刷新检测用字典（无UI入口共用，如CMD启动；检测引擎经 ConstData.JumpkeyList 读取），返回加载项数</summary>
+        public static int LoadIntoDetectDict()
+        {
+            List<string> items = Load();
+            ConstData.JumpkeyList = ToDict(items);
+            return items.Count;
+        }
     }
 }

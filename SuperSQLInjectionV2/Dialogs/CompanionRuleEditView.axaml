@@ -77,7 +77,7 @@
                           IsChecked="{Binding Rule.UseScript}"
                           ToolTip.Tip="脚本输入为抓取请求返回的完整HTTP响应报文（头+body），输出动态值" />
                 <TextBlock VerticalAlignment="Center" Classes="Secondary hint"
-                           Text="脚本在 防护绕过-动态值脚本 页统一管理" />
+                           Text="脚本在 防护绕过-脚本库-动态规则脚本 页统一管理" />
             </WrapPanel>
             <WrapPanel ItemSpacing="10" IsVisible="{Binding Rule.SubstrRowVisible}">
                 <TextBlock Text="开始字符：" VerticalAlignment="Center" />
@@ -100,7 +100,7 @@
                 </ComboBox>
                 <Button Classes="minibtn" Height="28" Padding="14,0" VerticalAlignment="Center"
                         Command="{Binding AddScriptCommand}"
-                        ToolTip.Tip="弹窗新增动态值脚本（按当前来源预设类型），保存后自动选中">
+                        ToolTip.Tip="弹窗新增动态规则脚本（按当前来源预设类型），保存后自动选中">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <PathIcon Data="{StaticResource MdPlus}" Width="13" Height="13" />
                         <TextBlock Text="添加脚本" VerticalAlignment="Center" />

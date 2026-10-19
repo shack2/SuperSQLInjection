@@ -93,6 +93,20 @@ public static class Program
             return 2;
         }
 
+        //跳过参数列表（jumpkey.txt，与GUI共用 config/injection/）：检测引擎按参数名跳过静态/Token类参数
+        try
+        {
+            int jumpCount = JumpkeyTool.LoadIntoDetectDict();
+            if (jumpCount > 0)
+            {
+                Log.SysLog($"跳过参数已加载 {jumpCount} 项（jumpkey.txt）");
+            }
+        }
+        catch (Exception e)
+        {
+            Log.SysLog("跳过参数列表加载失败（忽略）：" + e.Message);
+        }
+
         try
         {
             return await Run(opt);

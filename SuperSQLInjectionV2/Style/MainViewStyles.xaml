@@ -98,14 +98,14 @@
             </Style>
             <!--  查看/编辑变体：悬停主色淡底+主色图标  -->
             <Style Selector="Button.opico.view:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
+                <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint2}" />
             </Style>
             <Style Selector="Button.opico.view:pointerover PathIcon.luc">
                 <Setter Property="Foreground" Value="{DynamicResource DsgPrimary}" />
             </Style>
             <!--  删除变体：悬停红色淡底+红色图标  -->
             <Style Selector="Button.opico.del:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource DsgErrorTint}" />
+                <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint2}" />
             </Style>
             <Style Selector="Button.opico.del:pointerover PathIcon.luc">
                 <Setter Property="Foreground" Value="{DynamicResource DsgError}" />
@@ -216,22 +216,34 @@
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="VerticalAlignment" Value="Center" />
                  <Setter Property="VerticalContentAlignment" Value="Center" />
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimaryTint2}" />
-                <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint}" />
-                <Setter Property="Foreground" Value="{DynamicResource DsgPrimaryHover}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimary}" />
+                <Setter Property="Background" Value="{DynamicResource DsgPrimary}" />
+                <Setter Property="Foreground" Value="{DynamicResource DsgOnPrimary}" />
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="Cursor" Value="Hand" />
+            </Style>
+
+            <Style Selector="Button.miniaddbtn TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource DsgOnPrimary}" />
             </Style>
            
             <Style Selector="Button.miniaddbtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                 <Setter Property="Background" Value="{DynamicResource DsgPrimaryHover}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimaryHover}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}" />
                  <Setter Property="Foreground" Value="{DynamicResource DsgOnPrimary}" />
             </Style>
 
             <Style Selector="Button.miniaddbtn:pressed /template/ ContentPresenter#PART_ContentPresenter">
                 <Setter Property="Background" Value="{DynamicResource SemiColorPrimaryPointerover}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimaryPointerover}" />
+                <Setter Property="Foreground" Value="{DynamicResource DsgOnPrimary}" />
+            </Style>
+
+            <!--  弹窗打开时Ursa遮罩把背景内容整体置IsEnabled=false，主题禁用态灰字会盖过按钮文字；
+                  禁用态强制与常态同色（弹窗下的按钮本就不是"不可用"语义）  -->
+            <Style Selector="Button.miniaddbtn:disabled /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource DsgPrimaryHover}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DsgPrimaryHover}" />
                 <Setter Property="Foreground" Value="{DynamicResource DsgOnPrimary}" />
             </Style>
           
@@ -251,6 +263,7 @@
                 <Setter Property="Cursor" Value="Hand" />
             </Style>
 
+
             <!--  Semi主题的Button悬停/按下背景写在模板ContentPresenter上（模板触发器盖过Button.Background的TemplateBinding），
                   悬停/按下背景必须定位到模板内部的PART_ContentPresenter才生效  -->
             <Style Selector="Button.minibtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -260,6 +273,13 @@
             <Style Selector="Button.minibtn:pressed /template/ ContentPresenter#PART_ContentPresenter">
                 <Setter Property="Background" Value="{DynamicResource DsgPrimaryTint2}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimaryPointerover}" />
+            </Style>
+
+            <!--  弹窗遮罩禁用背景内容时保持与常态同色（同miniaddbtn）  -->
+            <Style Selector="Button.minibtn:disabled /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DsgBorder}" />
+                <Setter Property="Foreground" Value="{DynamicResource DsgInk1}" />
             </Style>
        
             <!--  日志过滤 chips  -->
@@ -325,8 +345,7 @@
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
             <Style Selector="Border.sbbadge TextBlock">
-                <Setter Property="FontSize" Value="11" />
-                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="FontSize" Value="12" />
                 <Setter Property="Foreground" Value="{DynamicResource DsgInk2}" />
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>

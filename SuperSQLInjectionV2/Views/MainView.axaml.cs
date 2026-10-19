@@ -53,8 +53,10 @@ public partial class MainView : UserControl
         ProxyDataGrid.SelectionMode = SelectionMode.Multiple;
         ReplaceDataGrid.SelectionMode = SelectionMode.Multiple;
         EncodeDataGrid.SelectionMode = SelectionMode.Multiple;
+        TokenScriptGrid.SelectionMode = SelectionMode.Multiple;
         PayloadTemplateDataGrid.SelectionMode = SelectionMode.Multiple;
         DynamicDataGrid.SelectionMode = SelectionMode.Multiple;
+        HashApiGrid.SelectionMode = SelectionMode.Multiple;
 
         //HTTP报文编辑器主题：自定义xshd高亮（浅/深两套），外观色取自Dsg设计令牌，跟随应用主题切换
         EditorThemeTool.ApplyHttpEditorTheme(HttpEditors);
@@ -263,15 +265,6 @@ public partial class MainView : UserControl
         if (!string.IsNullOrEmpty(text))
         {
             TopLevel.GetTopLevel(this)?.Clipboard?.SetTextAsync(text);
-        }
-    }
-
-    /// <summary>网络设置DNSLog页：应用内置DNS接收服务配置（按开关/端口/域名启停）</summary>
-    private void ApplyDnsServerC(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is SuperSQLInjectionV2.ViewModels.MainViewViewModel vm)
-        {
-            SuperSQLInjectionV2.Models.Data.DnsServerManager.EnsureState(vm.AppConfig);
         }
     }
 
@@ -624,6 +617,16 @@ public partial class MainView : UserControl
 
     }
 
+    /// <summary>Hash解密页：接口表右键"删除选中"</summary>
+    private void RemoveHashApiSelect(object? sender, RoutedEventArgs e)
+    {
+        HashApiGrid.SelectedItems?.Cast<Models.HashApiConfig>().ToList().ForEach(x =>
+        {
+            _viewModel?.AppConfig?.HashApiItems.Remove(x);
+        });
+
+    }
+
     /// <summary>
     /// 选择Access表名/字段名外部字典txt（网络设置页"浏览"按钮）
     /// </summary>
@@ -794,6 +797,15 @@ public partial class MainView : UserControl
     {
         //多选删除按行类型分流（变换类出编码链，动态值类清规则引用）
         EncodeDataGrid.SelectedItems?.Cast<ScriptLibRow>().ToList().ForEach(x =>
+        {
+            _viewModel?.RemoveTokenScriptCommand.Execute(x);
+        });
+    }
+
+    /// <summary>脚本库-动态值子页右键"删除选中"（与编码链子页同一命令，按行类型分流）</summary>
+    private void RemoveTokenLibSelect(object? sender, RoutedEventArgs e)
+    {
+        TokenScriptGrid.SelectedItems?.Cast<ScriptLibRow>().ToList().ForEach(x =>
         {
             _viewModel?.RemoveTokenScriptCommand.Execute(x);
         });

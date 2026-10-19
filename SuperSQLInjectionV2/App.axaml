@@ -248,7 +248,7 @@
         <ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary x:Key="Light">
                 <SolidColorBrush x:Key="SemiColorPrimary" Color="#2563EB" />
-                <SolidColorBrush x:Key="SemiColorPrimaryPointerover" Color="#3B82F6" />
+                <SolidColorBrush x:Key="SemiColorPrimaryPointerover" Color="#5e92ed" />
                 <SolidColorBrush x:Key="SemiColorPrimaryActive" Color="#1D4ED8" />
                 <SolidColorBrush x:Key="WindowDefaultBackground" Color="#F4F6FA" />
                 <SolidColorBrush x:Key="TextBoxBorderedDefaultBorderBrush" Color="#E5E7EB" />
@@ -265,10 +265,10 @@
                 <SolidColorBrush x:Key="DsgInk1" Color="#333333" />
                 <SolidColorBrush x:Key="DsgInk2" Color="#666666" />
                 <SolidColorBrush x:Key="DsgInk3" Color="#939CAB" />
-                <SolidColorBrush x:Key="DsgPrimary" Color="#1D4ED8" />
+                <SolidColorBrush x:Key="DsgPrimary" Color="#1f4fcd" />
                 <Color x:Key="DsgPrimaryColor">#2563EB</Color>
                 <Color x:Key="DsgPrimaryHoverColor">#3B82F6</Color>
-                <SolidColorBrush x:Key="DsgPrimaryHover" Color="#1D4ED8" />
+                <SolidColorBrush x:Key="DsgPrimaryHover" Color="#366cc8" />
                 <SolidColorBrush x:Key="DsgOnPrimary" Color="#FFFFFF" />
                 <SolidColorBrush x:Key="DsgPrimaryTint" Color="#EAF1FE" />
                 <SolidColorBrush x:Key="DsgPrimaryTint2" Color="#DBE8FE" />
@@ -330,9 +330,9 @@
                 <SolidColorBrush x:Key="DsgInk1" Color="#E6EAF2" />
                 <SolidColorBrush x:Key="DsgInk2" Color="#A2AABB" />
                 <SolidColorBrush x:Key="DsgInk3" Color="#67707F" />
-                <SolidColorBrush x:Key="DsgPrimary" Color="#22D3EE" />
+                <SolidColorBrush x:Key="DsgPrimary" Color="#06B6D4" />
                 <Color x:Key="DsgPrimaryColor">#22D3EE</Color>
-                <Color x:Key="DsgPrimaryHoverColor">#06B6D4</Color>
+                <Color x:Key="DsgPrimaryHoverColor">#22D3EE</Color>
                 <SolidColorBrush x:Key="DsgPrimaryHover" Color="#0891B2" />
                 <!--  深色下主色实心/悬停底为浅青#67E8F9，其上文字须用深色墨蓝保证对比度  -->
                 <SolidColorBrush x:Key="DsgOnPrimary" Color="#FFFFFF" />

@@ -512,7 +512,7 @@ public partial class MainViewViewModel : ViewModelBase
         }
         if (!SelectedScriptRow.IsTransform)
         {
-            NotificationManager?.Show("动态值脚本不参与编码链排序！");
+            NotificationManager?.Show("动态规则脚本不参与编码链排序！");
             return;
         }
         MoveEncodeTool(SelectedScriptRow.Tool, AppConfig.ByPassConfig.EncodeTools.IndexOf(SelectedScriptRow.Tool!) - 1);
@@ -528,7 +528,7 @@ public partial class MainViewViewModel : ViewModelBase
         }
         if (!SelectedScriptRow.IsTransform)
         {
-            NotificationManager?.Show("动态值脚本不参与编码链排序！");
+            NotificationManager?.Show("动态规则脚本不参与编码链排序！");
             return;
         }
         MoveEncodeTool(SelectedScriptRow.Tool, AppConfig.ByPassConfig.EncodeTools.IndexOf(SelectedScriptRow.Tool!) + 1);
@@ -560,26 +560,33 @@ public partial class MainViewViewModel : ViewModelBase
         return vm.Confirmed;
     }
 
-    /// <summary>脚本库统一添加：4种用途可选；payload/request保存为编码链自定义节点（默认不启用，需开启启用开关入链），extract/generate保存为动态值脚本</summary>
+    /// <summary>防护绕过脚本页添加：仅变换类用途（Payload/报文变换），保存为编码链自定义节点（默认不启用，需开启启用开关入链）</summary>
     [RelayCommand]
     private async Task AddTokenScript()
     {
-        var vm = TokenScriptEditViewModel.FromUsage(null);
-        if (await ShowTokenScriptEditDialog(vm, "添加脚本"))
+        var vm = TokenScriptEditViewModel.FromUsage(null, ScriptUsage.PayloadTransform);
+        vm.TransformOnly = true;
+        if (await ShowTokenScriptEditDialog(vm, "添加防护绕过脚本"))
         {
-            if (vm.IsTransformUsage)
+            AppConfig.ByPassConfig.EncodeTools.Add(vm.ToEncodeTool());
+            RefreshScriptLibFilter();
+            NotificationManager?.Show("添加成功！");
+        }
+    }
+
+    /// <summary>动态规则页-脚本子页添加：仅动态值用途（响应提取/值生成），保存为动态规则脚本</summary>
+    [RelayCommand]
+    private async Task AddDynRuleScript()
+    {
+        var vm = TokenScriptEditViewModel.FromModel(null, 0);
+        if (await ShowTokenScriptEditDialog(vm, "添加动态规则脚本"))
+        {
+            ScriptTamperModel item = vm.ToModel();
+            AppConfig.TokenScripts.Add(item);
+            //新脚本自动设为当前生效前置规则的抓取脚本
+            if (AppConfig.ActiveCompanionBefore != null)
             {
-                AppConfig.ByPassConfig.EncodeTools.Add(vm.ToEncodeTool());
-            }
-            else
-            {
-                ScriptTamperModel item = vm.ToModel();
-                AppConfig.TokenScripts.Add(item);
-                //新脚本自动设为当前生效前置规则的抓取脚本
-                if (AppConfig.ActiveCompanionBefore != null)
-                {
-                    AppConfig.ActiveCompanionBefore.ScriptName = item.Name;
-                }
+                AppConfig.ActiveCompanionBefore.ScriptName = item.Name;
             }
             RefreshScriptLibFilter();
             NotificationManager?.Show("添加成功！");
@@ -596,66 +603,41 @@ public partial class MainViewViewModel : ViewModelBase
             NotificationManager?.Show("请先选择或勾选要编辑的脚本！");
             return;
         }
-        //全部脚本走统一编辑弹窗（4种用途）：内置项限定变换类用途、代码保存写磁盘脚本文件；
-        //自定义项保存时按所选用途在编码链/动态值集合间迁移
-        var vm = row.IsTransform
-            ? TokenScriptEditViewModel.FromEncodeTool(row.Tool!)
-            : TokenScriptEditViewModel.FromUsage(row.Token);
-        if (!await ShowTokenScriptEditDialog(vm, "编辑脚本"))
+        //按脚本类别限定用途集合：防护绕过脚本仅变换类，动态规则脚本仅动态值类（类别归属由所在页签决定，不允许跨类迁移）
+        TokenScriptEditViewModel vm;
+        if (row.IsTransform)
         {
-            return;
-        }
-        string oldName = row.Name;
-        if (vm.IsTransformUsage)
-        {
-            if (row.IsTransform)
-            {
-                //变换→变换：原地更新（内置项代码写磁盘脚本文件）
-                vm.ApplyToEncodeTool(row.Tool!);
-            }
-            else
-            {
-                //动态值→变换：从动态值集合移除（清空伴随规则引用），加入编码链（默认停用）
-                ClearTokenScriptRefs(oldName);
-                AppConfig.TokenScripts.Remove(row.Token!);
-                AppConfig.ByPassConfig.EncodeTools.Add(vm.ToEncodeTool());
-            }
+            vm = TokenScriptEditViewModel.FromEncodeTool(row.Tool!);
+            vm.TransformOnly = true;
         }
         else
         {
-            if (row.IsTransform)
+            vm = TokenScriptEditViewModel.FromModel(row.Token);
+        }
+        if (!await ShowTokenScriptEditDialog(vm, row.IsTransform ? "编辑防护绕过脚本" : "编辑动态规则脚本"))
+        {
+            return;
+        }
+        if (row.IsTransform)
+        {
+            //原地更新（内置项代码写磁盘脚本文件）
+            vm.ApplyToEncodeTool(row.Tool!);
+        }
+        else
+        {
+            //原地更新，改名时同步所有引用该脚本的动态规则（按Name解析）
+            string oldName = row.Name;
+            vm.ApplyTo(row.Token!);
+            foreach (Models.CompanionRequestConfig rule in AppConfig.CompanionRules)
             {
-                //变换→动态值：从编码链移除，加入动态值脚本集合
-                AppConfig.ByPassConfig.EncodeTools.Remove(row.Tool!);
-                AppConfig.TokenScripts.Add(vm.ToModel());
-            }
-            else
-            {
-                //动态值→动态值：原地更新，改名时同步所有引用该脚本的伴随规则（按Name解析）
-                vm.ApplyTo(row.Token!);
-                foreach (Models.CompanionRequestConfig rule in AppConfig.CompanionRules)
+                if (rule.ScriptName == oldName)
                 {
-                    if (rule.ScriptName == oldName)
-                    {
-                        rule.ScriptName = row.Token!.Name;
-                    }
+                    rule.ScriptName = row.Token!.Name;
                 }
             }
         }
         RefreshScriptLibFilter();
         NotificationManager?.Show("保存成功！");
-    }
-
-    /// <summary>清空引用指定动态值脚本的伴随规则（脚本删除/迁移出动态值集合时调用）</summary>
-    private void ClearTokenScriptRefs(string scriptName)
-    {
-        foreach (Models.CompanionRequestConfig rule in AppConfig.CompanionRules)
-        {
-            if (rule.ScriptName == scriptName)
-            {
-                rule.ScriptName = "";
-            }
-        }
     }
 
     [RelayCommand]
@@ -686,12 +668,150 @@ public partial class MainViewViewModel : ViewModelBase
         }
     }
 
-    /// <summary>数据管理页/动态规则页"管理脚本"入口：跳转防护绕过页并定位到脚本库选项卡（第3个，索引2）</summary>
+    #endregion
+
+    #region Hash在线解密（多接口轮询命中即停；接口配置独立持久化 config/rules/hashapis.json）
+
+    [ObservableProperty] private string _hashInput = "";
+    [ObservableProperty] private string _hashCrackResult = "";
+    [ObservableProperty] private bool _hashCracking = false;
+    [ObservableProperty] private Models.HashApiConfig? _selectedHashApi;
+
+    /// <summary>在线解密：按列表顺序轮询全部启用接口，任一接口解出明文即停；过程写结果区与日志</summary>
     [RelayCommand]
-    private void ManageTokenScripts()
+    private async Task CrackHash()
     {
-        SelectedNavIndex = 6;
-        BypassTabIndex = 2;
+        if (HashCracking)
+        {
+            return;
+        }
+        string hash = (HashInput ?? "").Trim();
+        if (hash.Length == 0)
+        {
+            NotificationManager?.Show("请输入待解密的Hash值！");
+            return;
+        }
+        var apis = AppConfig.HashApiItems.Where(a => a.Enable).ToList();
+        if (apis.Count == 0)
+        {
+            NotificationManager?.Show("没有启用的解密接口——请先在下方接口列表添加或启用！");
+            return;
+        }
+        HashCracking = true;
+        HashCrackResult = "";
+        Log.Show("开始Hash在线解密：" + hash + "（启用接口 " + apis.Count + " 个，命中即停）");
+        var lines = new List<string>();
+        string? plainText = null;
+        try
+        {
+            foreach (Models.HashApiConfig api in apis)
+            {
+                SuperSQLInjectionV2.Tools.HashCrackTool.CrackReply reply = await SuperSQLInjectionV2.Tools.HashCrackTool.QueryOneAsync(AppConfig, api, hash);
+                if (reply.Found)
+                {
+                    lines.Add("[" + api.Name + "] 解密成功（" + reply.CostMs + "ms）：" + reply.Text);
+                    plainText = reply.Text;
+                    break;
+                }
+                lines.Add("[" + api.Name + "] 未命中（" + reply.CostMs + "ms）：" + reply.Error);
+                HashCrackResult = string.Join("\n", lines);
+            }
+        }
+        finally
+        {
+            HashCracking = false;
+        }
+        if (plainText != null)
+        {
+            HashCrackResult = "明文：" + plainText + "\n\n" + string.Join("\n", lines);
+            Log.Success("Hash解密成功：" + hash + " => " + plainText);
+        }
+        else
+        {
+            HashCrackResult = "全部启用接口均未解密成功\n\n" + string.Join("\n", lines);
+            Log.Warning("Hash解密未命中：" + hash + "（" + lines.Count + " 个接口均未收录或接口失效）");
+        }
+    }
+
+    /// <summary>接口添加/编辑共用弹窗</summary>
+    private async Task<bool> ShowHashApiEditDialog(Dialogs.HashApiEditViewModel vm, string title)
+    {
+        var options = new OverlayDialogOptions
+        {
+            FullScreen = false,
+            HorizontalAnchor = HorizontalPosition.Center,
+            VerticalAnchor = VerticalPosition.Center,
+            Mode = DialogMode.None,
+            Buttons = DialogButton.None,
+            Title = title,
+            CanLightDismiss = true,
+            CanDragMove = true,
+            IsCloseButtonVisible = true,
+            CanResize = true,
+        };
+        await OverlayDialog.ShowStandardAsync<Dialogs.HashApiEditView, Dialogs.HashApiEditViewModel>(vm, options: options);
+        return vm.Confirmed;
+    }
+
+    [RelayCommand]
+    private async Task AddHashApi()
+    {
+        var vm = Dialogs.HashApiEditViewModel.FromItem(AppConfig, null);
+        if (await ShowHashApiEditDialog(vm, "添加解密接口"))
+        {
+            AppConfig.HashApiItems.Add(vm.ToItem());
+        }
+    }
+
+    /// <summary>编辑接口：操作列传行对象；工具栏无参时取选中行/勾选首行</summary>
+    [RelayCommand]
+    private async Task EditHashApi(Models.HashApiConfig? item)
+    {
+        item ??= SelectedHashApi ?? AppConfig.HashApiItems.FirstOrDefault(a => a.RowChecked);
+        if (item == null)
+        {
+            NotificationManager?.Show("请先选择要编辑的接口！");
+            return;
+        }
+        var vm = Dialogs.HashApiEditViewModel.FromItem(AppConfig, item);
+        if (await ShowHashApiEditDialog(vm, "编辑解密接口"))
+        {
+            vm.ApplyTo(item);
+        }
+    }
+
+    [RelayCommand]
+    private async Task RemoveHashApi(Models.HashApiConfig? item)
+    {
+        if (item == null)
+        {
+            return;
+        }
+        var result = await OverlayMessageBox.ShowAsync("确认删除接口「" + item.Name + "」？", "删除确认", button: MessageBoxButton.YesNo);
+        if (MessageBoxResult.Yes.Equals(result))
+        {
+            AppConfig.HashApiItems.Remove(item);
+        }
+    }
+
+    [RelayCommand]
+    private async Task RemoveCheckedHashApis()
+    {
+        var checkedItems = AppConfig.HashApiItems.Where(a => a.RowChecked).ToList();
+        if (checkedItems.Count == 0)
+        {
+            NotificationManager?.Show("请先勾选要删除的接口！");
+            return;
+        }
+        var result = await OverlayMessageBox.ShowAsync("确认删除勾选的 " + checkedItems.Count + " 个接口？", "删除确认", button: MessageBoxButton.YesNo);
+        if (!MessageBoxResult.Yes.Equals(result))
+        {
+            return;
+        }
+        foreach (Models.HashApiConfig item in checkedItems)
+        {
+            AppConfig.HashApiItems.Remove(item);
+        }
     }
 
     #endregion
@@ -712,6 +832,12 @@ public partial class MainViewViewModel : ViewModelBase
 
     /// <summary>脚本库过滤视图（TableView绑定源：内置/自定义编码链脚本 + 动态值脚本统一展示，按用途区分）</summary>
     public ObservableCollection<Models.ScriptLibRow> FilteredScriptLib { get; } = new();
+
+    /// <summary>脚本库-编码链子页视图（与 FilteredScriptLib 共享行实例，勾选/编辑同源；仅 payload/报文变换类）</summary>
+    public ObservableCollection<Models.ScriptLibRow> FilteredTransformLib { get; } = new();
+
+    /// <summary>脚本库-动态值子页视图（与 FilteredScriptLib 共享行实例；仅响应提取/值生成类，含被引用统计）</summary>
+    public ObservableCollection<Models.ScriptLibRow> FilteredTokenLib { get; } = new();
 
     partial void OnDynRuleSearchKeywordChanged(string value) => RefreshDynRuleFilter();
 
@@ -751,7 +877,7 @@ public partial class MainViewViewModel : ViewModelBase
             || (r.Summary?.Contains(kw, StringComparison.OrdinalIgnoreCase) == true);
     }
 
-    /// <summary>按搜索关键字重建动态规则过滤视图（增删改/配置替换/关键字变化后调用）</summary>
+    /// <summary>按搜索关键字重建动态规则过滤视图（增删改/配置替换/关键字变化后调用）；规则变化同步刷新脚本库（动态值脚本的被引用统计依赖规则集合）</summary>
     public void RefreshDynRuleFilter()
     {
         string kw = DynRuleSearchKeyword ?? "";
@@ -763,6 +889,7 @@ public partial class MainViewViewModel : ViewModelBase
                 FilteredCompanionRules.Add(rule);
             }
         }
+        RefreshScriptLibFilter();
     }
 
     private static bool ScriptLibHit(Models.ScriptLibRow row, string kw)
@@ -772,13 +899,15 @@ public partial class MainViewViewModel : ViewModelBase
             || row.UsageName.Contains(kw, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>按搜索关键字重建脚本库过滤视图（编码链脚本含内置项按链序在前，动态值脚本在后；重建时保留勾选与选中状态）</summary>
+    /// <summary>按搜索关键字重建脚本库过滤视图（编码链脚本含内置项按链序在前，动态值脚本在后；重建时保留勾选与选中状态；同步填充两个子页视图并统计动态值脚本被引用次数）</summary>
     public void RefreshScriptLibFilter()
     {
         string kw = ScriptLibSearchKeyword ?? "";
         var checkedKeys = FilteredScriptLib.Where(r => r.RowChecked).Select(r => (r.IsTransform, r.Name)).ToHashSet();
         var selectedKey = SelectedScriptRow != null ? (SelectedScriptRow.IsTransform, SelectedScriptRow.Name) : ((bool, string)?)null;
         FilteredScriptLib.Clear();
+        FilteredTransformLib.Clear();
+        FilteredTokenLib.Clear();
         foreach (var t in AppConfig.ByPassConfig.EncodeTools)
         {
             var row = Models.ScriptLibRow.FromTool(t);
@@ -786,17 +915,29 @@ public partial class MainViewViewModel : ViewModelBase
             {
                 row.RowChecked = checkedKeys.Contains((true, row.Name));
                 FilteredScriptLib.Add(row);
+                FilteredTransformLib.Add(row);
             }
         }
+        //动态值脚本被引用统计（按 ScriptName 反查动态规则；供子页"被引用"列与删除提示）
+        var refLookup = AppConfig.CompanionRules
+            .Where(r => !string.IsNullOrEmpty(r.ScriptName))
+            .GroupBy(r => r.ScriptName)
+            .ToDictionary(g => g.Key, g => g.Select(r => r.Name).ToList());
         int tokenBase = AppConfig.ByPassConfig.EncodeTools.Count; //动态值脚本序号接续编码链（全库连续编号，搜索过滤时序号稳定）
         for (int si = 0; si < AppConfig.TokenScripts.Count; si++)
         {
             var row = Models.ScriptLibRow.FromToken(AppConfig.TokenScripts[si]);
             row.TokenSeq = tokenBase + si + 1;
+            if (refLookup.TryGetValue(row.Name, out var ruleNames))
+            {
+                row.RefCount = ruleNames.Count;
+                row.RefRuleNames = string.Join("、", ruleNames);
+            }
             if (ScriptLibHit(row, kw))
             {
                 row.RowChecked = checkedKeys.Contains((false, row.Name));
                 FilteredScriptLib.Add(row);
+                FilteredTokenLib.Add(row);
             }
         }
         if (selectedKey != null)
@@ -840,8 +981,10 @@ public partial class MainViewViewModel : ViewModelBase
             NotificationManager?.Show("请先勾选要删除的脚本！");
             return;
         }
+        int refTotal = checkedRows.Where(r => !r.IsTransform).Sum(r => r.RefCount);
+        string refHint = refTotal > 0 ? $"其中动态值脚本正被 {refTotal} 处规则引用，删除后这些规则将清空脚本设置。" : "";
         var result = await OverlayMessageBox.ShowAsync(
-            "确认删除勾选的 " + checkedRows.Count + " 个脚本？引用这些脚本的规则将清空脚本设置。",
+            "确认删除勾选的 " + checkedRows.Count + " 个脚本？" + refHint,
             "删除确认", button: MessageBoxButton.YesNo);
         if (!MessageBoxResult.Yes.Equals(result))
         {
@@ -1277,6 +1420,36 @@ public partial class MainViewViewModel : ViewModelBase
         }
     }
 
+    /// <summary>代理开关回退重入守卫（无代理数据时强制关开关，避免重复日志/提示）</summary>
+    private bool _proxyEnableGuard = false;
+
+    /// <summary>用例目录内容签名：目录无变化时进入页面跳过重复加载（手动"重新加载"按钮仍可强制刷新）</summary>
+    private string _payloadPageSignature = "";
+
+    /// <summary>计算 config/injection 目录签名（文件名|大小|修改时间），用例与报错指纹同目录，一个签名全覆盖</summary>
+    private static string ComputeInjectionDirSignature()
+    {
+        try
+        {
+            string dir = SuperSQLInjectionV2.Tools.Inject.InjectPayloadLoader.Dir;
+            if (!Directory.Exists(dir))
+            {
+                return "";
+            }
+            var sb = new System.Text.StringBuilder();
+            foreach (string f in Directory.GetFiles(dir, "*.xml").OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            {
+                var fi = new FileInfo(f);
+                sb.Append(fi.Name).Append('|').Append(fi.Length).Append('|').Append(fi.LastWriteTimeUtc.Ticks).Append(';');
+            }
+            return sb.ToString();
+        }
+        catch
+        {
+            return Guid.NewGuid().ToString("N"); //异常时返回随机值强制重载
+        }
+    }
+
     /// <summary>重新加载用例列表（进入页面/写盘后刷新）</summary>
     [RelayCommand]
     private void ReloadPayloads()
@@ -1300,6 +1473,7 @@ public partial class MainViewViewModel : ViewModelBase
                 PayloadFilterDbms = dbms;
             }, DispatcherPriority.Background);
             ApplyPayloadFilter();
+            _payloadPageSignature = ComputeInjectionDirSignature(); //写盘/手动刷新后同步签名，避免导航时重复加载
             Log.Show("已加载检测用例 " + _allPayloads.Count + " 条（" + files.Count + "个文件）！");
         }
         catch (Exception e)
@@ -1521,6 +1695,7 @@ public partial class MainViewViewModel : ViewModelBase
             FingerprintDbmsFilters = new ObservableCollection<string>(s_allFilterOption.Concat(
                 _allFingerprints.Select(f => f.Dbms).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(d => d)));
             ApplyFingerprintFilter();
+            _payloadPageSignature = ComputeInjectionDirSignature(); //写盘/手动刷新后同步签名，避免导航时重复加载
         }
         catch (Exception e)
         {
@@ -3337,6 +3512,7 @@ public partial class MainViewViewModel : ViewModelBase
     [ObservableProperty] private bool _navPage9Visible = false;
     [ObservableProperty] private bool _navPage10Visible = false;
     [ObservableProperty] private bool _navPage11Visible = false;
+    [ObservableProperty] private bool _navPage12Visible = false;
 
     /// <summary>顶部命令栏（URL卡片+公共配置）是否显示：仅注入检测页与数据操作页显示</summary>
     [ObservableProperty] private bool _topBarVisible = true;
@@ -3418,6 +3594,7 @@ public partial class MainViewViewModel : ViewModelBase
         NavPage9Visible = value == 9;
         NavPage10Visible = value == 10;
         NavPage11Visible = value == 11;
+        NavPage12Visible = value == 12;
         NavCurrentPageName = value switch
         {
             0 => "注入检测",
@@ -3430,10 +3607,11 @@ public partial class MainViewViewModel : ViewModelBase
             7 => "编码工具",
             8 => "请求日志",
             11 => "关于",
+            12 => "Hash解密",
             _ => ""
         };
         TopBarVisible = value == 0 || value == 4;
-        LogPageAllowed = value != 5 && value != 6 && value != 7 && value != 8 && value != 9 && value != 10 && value != 11;
+        LogPageAllowed = value != 5 && value != 6 && value != 7 && value != 8 && value != 9 && value != 10 && value != 11 && value != 12;
         DataStatsVisible = value == 0 || value == 3 || value == 4;
         if (value == 5)
         {
@@ -3441,8 +3619,12 @@ public partial class MainViewViewModel : ViewModelBase
         }
         if (value == 10)
         {
-            ReloadPayloads(); //进入检测用例页时刷新用例列表（文件可能被外部改过）
-            ReloadFingerprints(); //同步刷新报错指纹列表
+            //目录签名变化才重载（外部改文件/新增用例文件仍会被感知），否则复用已加载列表
+            if (ComputeInjectionDirSignature() != _payloadPageSignature)
+            {
+                ReloadPayloads();
+                ReloadFingerprints();
+            }
         }
     }
 
@@ -3993,6 +4175,13 @@ public partial class MainViewViewModel : ViewModelBase
     }
 
 
+    /// <summary>网络设置DNSLog页：应用内置DNS接收服务配置（按开关/端口/域名启停）</summary>
+    [RelayCommand]
+    private void ApplyDnsServer()
+    {
+        Models.Data.DnsServerManager.EnsureState(AppConfig);
+    }
+
     // ---------------- 跳过参数（jumpkey.txt）管理 ----------------
 
     /// <summary>跳过参数列表：注入检测时命中参数名（不区分大小写）直接跳过，对应 config/injection/jumpkey.txt</summary>
@@ -4329,11 +4518,29 @@ public partial class MainViewViewModel : ViewModelBase
             if (e.PropertyName == nameof(ProxyConfig.ProxyEnable))
             {
                 bool enable = AppConfig.ProxyConfig.ProxyEnable;
+                //无代理数据时不允许开启：回退开关并提示（发送链路本就会在无可用代理时直连，这里把开关状态也对齐，避免误导）
+                if (enable && AppConfig.ProxyConfig.ProxyItems.Count == 0)
+                {
+                    if (_proxyEnableGuard)
+                    {
+                        return;
+                    }
+                    _proxyEnableGuard = true;
+                    AppConfig.ProxyConfig.ProxyEnable = false; //同步重入本处理器，被守卫直接返回
+                    _proxyEnableGuard = false;
+                    NotificationManager?.Show("代理列表为空，无法开启代理——请先添加代理！");
+                    return;
+                }
                 ProxyModeText = enable ? "代理模式" : "直连模式";
                 if (enable)
                 {
                     string mode = AppConfig.ProxyConfig.SelectProxyType == ProxyType.Rand ? "代理池轮换" : "固定代理";
                     Log.Show($"已开启代理模式（{mode}），当前代理：{AppConfig.ProxyConfig.CurrentProxyText}");
+                    //开关已开但无可用资源（未启用/未验证通过）时发送链路自动直连，此处提前明示
+                    if (!AppConfig.ProxyConfig.ProxyItems.Any(p => p.IsEnabled && p.IsOk))
+                    {
+                        Log.Warning("代理开关已开启，但代理池无可用代理（未启用或未验证通过），请求将直连——请先「验证」代理！");
+                    }
                 }
                 else
                 {

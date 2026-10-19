@@ -23,6 +23,7 @@ namespace SuperSQLInjectionV2.Bypass
     ///   dynamic-rules.json   动态规则（DRule/二次注入）
     ///   replace-rules.json   字符替换规则
     ///   proxies.json         代理池
+    ///   hashapis.json        Hash在线解密接口（cmd5类站点适配，{hash}占位+提取正则）
     /// 旧布局迁移（一次性）：tampers/*.js（按 //@scope）与 token-scripts/*.js（按 //@kind）移入 scripts/ 并重写统一元数据头；
     /// builtin_*.js 前缀脚本改名去前缀（剥 //@builtin 头）；tampers/builtin.json+custom.json 双链与旧版 chain.json
     /// （含 Builtin 字段）归并为新 chain.json（Builtin项按 key.js 引用脚本文件）；迁移后旧文件删除。
@@ -83,6 +84,19 @@ namespace SuperSQLInjectionV2.Bypass
             public string Type { get; set; } = "HTTP/HTTPS"; // socks5 或 HTTP/HTTPS
             public string Username { get; set; } = "";
             public string Password { get; set; } = "";
+        }
+
+        //======== Hash在线解密接口 DTO（hashapis.json）========
+        public sealed class HashApiDto
+        {
+            public string Name { get; set; } = "";
+            public string Url { get; set; } = "";
+            public string Method { get; set; } = "GET";
+            public string PostData { get; set; } = "";
+            public string PostContentType { get; set; } = "application/x-www-form-urlencoded";
+            public string TokenRegex { get; set; } = "";
+            public string Regex { get; set; } = "";
+            public bool Enable { get; set; } = true;
         }
 
         public static string DefaultDir =>
@@ -185,6 +199,7 @@ namespace SuperSQLInjectionV2.Bypass
                 LoadDynamicRules(config, Path.Combine(dir, "dynamic-rules.json"));
                 LoadReplaceRules(config, Path.Combine(dir, "replace-rules.json"));
                 LoadProxies(config, Path.Combine(dir, "proxies.json"));
+                LoadHashApis(config, Path.Combine(dir, "hashapis.json"));
             }
             catch (Exception e)
             {
@@ -740,6 +755,81 @@ namespace SuperSQLInjectionV2.Bypass
             return "Socks5".Equals(type, StringComparison.Ordinal) ? "Socks5" : "HTTP";
         }
 
+        /// <summary>内置Hash解密接口种子（加载后按名补齐缺失项，用户同名配置不动）</summary>
+        private static List<HashApiConfig> BuiltinHashApiSeeds()
+        {
+            return new List<HashApiConfig>
+            {
+                //cmd5网页表单：ASP.NET站，先GET取__VIEWSTATE令牌（{token}）再POST表单，Button1=解密 已预百分号编码
+                new HashApiConfig
+                {
+                    Name = "cmd5",
+                    Url = "https://www.cmd5.com/",
+                    Method = "POST",
+                    PostContentType = "application/x-www-form-urlencoded",
+                    TokenRegex = "__VIEWSTATE\" value=\"(?<result>[^\"]*)\"",
+                    PostData = "__EVENTTARGET=&__EVENTARGUMENT=&__VIEWSTATE={token}&__VIEWSTATEGENERATOR=CA0B0334&__VIEWSTATEENCRYPTED="
+                        + "&ctl00$ContentPlaceHolder1$TextBoxInput={hash}&ctl00$ContentPlaceHolder1$InputHashType=md5"
+                        + "&ctl00$ContentPlaceHolder1$Button1=%E8%A7%A3%E5%AF%86"
+                        + "&ctl00$ContentPlaceHolder1$HiddenField1=&ctl00$ContentPlaceHolder1$HiddenField2=",
+                    Regex = "Answer\" class=\"LabelAnswer\"[^>]*>(?<result>[^<]*)"
+                },
+                //cmd5付费API：GET纯文本返回明文；CMD5-ERROR:开头为错误（提取正则\A锚定+负向前瞻跳过错误串，错误原文由引擎带进提示）
+                new HashApiConfig
+                {
+                    Name = "cmd5-api",
+                    Url = "http://www.cmd5.com/api.ashx?email=1341413415@qq.com&key=4cb6ef974ed05d255a83e3ecb7712426&hash={hash}",
+                    Method = "GET",
+                    Regex = "\\A(?<result>(?!CMD5-ERROR)[\\s\\S]+)"
+                },
+                //chamd5：JSON API（注意：免费查询现已要求登录，未登录会报"未收录/未命中"，属站点策略非配置错误）
+                new HashApiConfig
+                {
+                    Name = "chamd5",
+                    Url = "https://chamd5.com/HttpProxyAccess.aspx/ajax_me1ody",
+                    Method = "POST",
+                    PostContentType = "application/json; charset=utf-8",
+                    PostData = "{\"hash\": \"{hash}\",\"type\": \"md5\"}",
+                    Regex = "result\\\\?\":\\\\?\"(?<result>[^\"\\\\]+)"
+                }
+            };
+        }
+
+        /// <summary>Hash在线解密接口加载；文件缺失全量落种子，文件存在按名补齐缺失的内置接口（用户已有配置不动）</summary>
+        private static void LoadHashApis(AppConfig config, string file)
+        {
+            if (File.Exists(file))
+            {
+                try
+                {
+                    List<HashApiDto>? dtos = JsonSerializer.Deserialize(File.ReadAllText(file), JsonCtx.IndentedInfo<List<HashApiDto>>());
+                    if (dtos != null)
+                    {
+                        foreach (HashApiDto d in dtos)
+                        {
+                            config.HashApiItems.Add(new HashApiConfig
+                            {
+                                Name = d.Name, Url = d.Url, Method = d.Method, PostData = d.PostData,
+                                PostContentType = d.PostContentType, TokenRegex = d.TokenRegex, Regex = d.Regex, Enable = d.Enable
+                            });
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Log.SysLog("Hash解密接口解析失败（按空处理）：" + e.Message);
+                }
+            }
+            //按名补齐内置种子（老配置文件自动获得新增的内置接口）
+            foreach (HashApiConfig seed in BuiltinHashApiSeeds())
+            {
+                if (!config.HashApiItems.Any(a => seed.Name.Equals(a.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    config.HashApiItems.Add(seed);
+                }
+            }
+        }
+
         //================================================ 保存 ================================================
 
         /// <summary>把 config 中的五类规则写回 rules 目录（原子性按文件级尽力而为，目录自动创建）</summary>
@@ -753,6 +843,7 @@ namespace SuperSQLInjectionV2.Bypass
                 SaveDynamicRules(config, Path.Combine(dir, "dynamic-rules.json"));
                 SaveReplaceRules(config, Path.Combine(dir, "replace-rules.json"));
                 SaveProxies(config, Path.Combine(dir, "proxies.json"));
+                SaveHashApis(config, Path.Combine(dir, "hashapis.json"));
             }
             catch (Exception e)
             {
@@ -923,6 +1014,17 @@ namespace SuperSQLInjectionV2.Bypass
                 Host = p.Host, Port = p.Port, Type = p.proxyType, Username = p.username, Password = p.password
             }).ToList();
             File.WriteAllText(file, JsonSerializer.Serialize(dtos, JsonCtx.IndentedInfo<List<ProxyDto>>()));
+        }
+
+        private static void SaveHashApis(AppConfig config, string file)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            var dtos = config.HashApiItems.Select(a => new HashApiDto
+            {
+                Name = a.Name, Url = a.Url, Method = a.Method, PostData = a.PostData,
+                PostContentType = a.PostContentType, TokenRegex = a.TokenRegex, Regex = a.Regex, Enable = a.Enable
+            }).ToList();
+            File.WriteAllText(file, JsonSerializer.Serialize(dtos, JsonCtx.IndentedInfo<List<HashApiDto>>()));
         }
     }
 }

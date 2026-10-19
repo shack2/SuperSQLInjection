@@ -96,7 +96,7 @@ namespace SuperSQLInjectionV2.Bypass
                     ScriptTamperModel? gen = config.ResolveTokenScript(before, 1);
                     if (gen == null || string.IsNullOrWhiteSpace(gen.Code))
                     {
-                        return ("", "请求中存在<DRule>标记，但脚本生成模式未配置动态值脚本！请在防护绕过-动态值脚本页新增脚本并在规则中选择。");
+                        return ("", "请求中存在<DRule>标记，但脚本生成模式未配置动态值脚本！请在防护绕过-脚本库-动态规则脚本页新增脚本并在规则中选择。");
                     }
                     return (ScriptTamperEngine.Tamper(gen, scriptInput ?? "") ?? "", null);
                 }
@@ -116,7 +116,7 @@ namespace SuperSQLInjectionV2.Bypass
                     ScriptTamperModel? script = config.ResolveTokenScript(before, 0);
                     if (script == null || string.IsNullOrWhiteSpace(script.Code))
                     {
-                        return ("", "请求中存在<DRule>标记，但未配置动态值抓取脚本！请在防护绕过-动态值脚本页新增脚本并在规则中选择。");
+                        return ("", "请求中存在<DRule>标记，但未配置动态值抓取脚本！请在防护绕过-脚本库-动态规则脚本页新增脚本并在规则中选择。");
                     }
                     //脚本提取：输入为抓取请求返回的完整HTTP响应报文（头+\r\n\r\n+body），输出随机值
                     return (ScriptTamperEngine.Tamper(script, tokenResponse.HeaderAndBody) ?? "", null);

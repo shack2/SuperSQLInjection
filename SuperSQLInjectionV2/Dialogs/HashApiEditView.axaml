@@ -1,0 +1,80 @@
+<UserControl
+    x:Class="SuperSQLInjectionV2.Dialogs.HashApiEditView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialogs="clr-namespace:SuperSQLInjectionV2.Dialogs"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="400"
+    d:DesignWidth="600"
+    x:CompileBindings="True"
+    x:DataType="dialogs:HashApiEditViewModel"
+    mc:Ignorable="d">
+    <Grid Width="600" Height="400" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto" Margin="12">
+
+        <!-- 名称 + 方法 + 启用 -->
+        <Grid ColumnDefinitions="Auto,*,Auto,100,Auto">
+            <TextBlock Text="名称：" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" VerticalAlignment="Center" Text="{Binding Name}"
+                     PlaceholderText="接口名称，如 cmd5" />
+            <TextBlock Grid.Column="2" Text="方法：" Margin="10,0,0,0" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding MethodItems}" SelectedIndex="{Binding MethodIndex}" />
+            <CheckBox Grid.Column="4" Margin="14,0,0,0" Content="启用"
+                      IsChecked="{Binding Enable}" VerticalAlignment="Center" />
+        </Grid>
+
+        <!-- URL -->
+        <Grid Grid.Row="1" Margin="0,10,0,0" ColumnDefinitions="Auto,*">
+            <TextBlock Text="URL：" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" VerticalAlignment="Center" Text="{Binding Url}"
+                     PlaceholderText="https://example.com/decode?hash={hash}（{hash}为占位符）" />
+        </Grid>
+
+        <!-- POST数据 + ContentType -->
+        <Grid Grid.Row="2" Margin="0,10,0,0" ColumnDefinitions="Auto,*,Auto,180" IsVisible="{Binding PostVisible}">
+            <TextBlock Text="POST数据：" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" VerticalAlignment="Center" Text="{Binding PostData}"
+                     PlaceholderText="hash={hash}&amp;token={token}（占位符可空）" />
+            <TextBlock Grid.Column="2" Text="类型：" Margin="10,0,0,0" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding ContentTypeItems}" SelectedIndex="{Binding ContentTypeIndex}" />
+        </Grid>
+
+        <!-- 令牌预取正则 -->
+        <Grid Grid.Row="3" Margin="0,10,0,0" ColumnDefinitions="Auto,*">
+            <TextBlock Text="令牌正则：" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" VerticalAlignment="Center" Text="{Binding TokenRegex}"
+                     PlaceholderText="可空：ASP.NET表单站先GET取__VIEWSTATE等令牌替换{token}，如 __VIEWSTATE&quot; value=&quot;(?&lt;result&gt;[^&quot;]*)&quot;" />
+        </Grid>
+
+        <!-- 提取正则 -->
+        <Grid Grid.Row="4" Margin="0,10,0,0" ColumnDefinitions="Auto,*">
+            <TextBlock Text="提取正则：" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" VerticalAlignment="Center" Text="{Binding Regex}"
+                     PlaceholderText="命名组优先：Answer&quot;&gt;(?&lt;result&gt;.+?)&lt;；无命名组取第1组/整段匹配" />
+        </Grid>
+
+        <!-- 测试区 -->
+        <Grid Grid.Row="5" Margin="0,14,0,0" ColumnDefinitions="Auto,*,Auto">
+            <TextBlock Text="测试hash：" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" VerticalAlignment="Center" Text="{Binding TestHash}"
+                     PlaceholderText="输入一个已知hash真实发包验证接口，如 5f4dcc3b5aa765d61d8327deb882cf99" />
+            <Button Grid.Column="2" Margin="10,0,0,0" Theme="{DynamicResource OutlineButton}" Width="80"
+                    Content="测 试" Command="{Binding TestCommand}" IsEnabled="{Binding !Testing}" />
+        </Grid>
+        <TextBlock Grid.Row="6" Margin="0,8,0,0" VerticalAlignment="Center" Opacity="0.8"
+                   Text="{Binding TestResult}" TextWrapping="Wrap" />
+
+        <!-- 状态 + 按钮 -->
+        <Grid Grid.Row="8" Margin="0,10,0,0" ColumnDefinitions="*,Auto">
+            <TextBlock VerticalAlignment="Center" Opacity="0.7" Text="{Binding Status}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                <Button Theme="{DynamicResource SolidButton}" Width="90"
+                        Content="保 存" Command="{Binding ConfirmCommand}" />
+                <Button Theme="{DynamicResource OutlineButton}" Width="90"
+                        Content="取 消" Command="{Binding CancelCommand}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

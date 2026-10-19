@@ -122,13 +122,13 @@ namespace SuperSQLInjectionV2.Models
         [ObservableProperty]
         public partial ScriptScope Scope { get; set; } = ScriptScope.Payload;
 
-        /// <summary>动态值脚本类型：0=请求抓取（输入=抓取请求返回的HTTP响应报文），1=自主生成（输入=主请求报文，输出=动态值，API签名等场景）；仅动态值脚本使用，默认0兼容旧配置</summary>
+        /// <summary>动态值脚本类型：0=响应提取（输入=抓取请求返回的HTTP响应报文），1=值生成（输入=主请求报文，输出=动态值，API签名等场景）；仅动态值脚本使用，默认0兼容旧配置</summary>
         [ObservableProperty]
         public partial int Kind { get; set; } = 0;
 
         /// <summary>动态值脚本类型显示名（表格列绑定）</summary>
         [JsonIgnore]
-        public string KindName => Kind == 1 ? "自主生成" : "请求抓取";
+        public string KindName => Kind == 1 ? "值生成" : "响应提取";
 
         partial void OnKindChanged(int value) => OnPropertyChanged(nameof(KindName));
     }

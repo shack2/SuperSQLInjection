@@ -210,33 +210,28 @@ namespace SuperSQLInjectionV2.Models
         [JsonIgnore]
         public ObservableCollection<ScriptTamperModel> TokenScripts { get; set; } = new ObservableCollection<ScriptTamperModel>();
 
-        /// <summary>解析当前生效的动态值脚本：按规则ScriptName匹配（类型不限）→指定类型第一个启用脚本→任意第一个启用脚本；kind=-1不按类型过滤</summary>
+        /// <summary>Hash在线解密接口列表（cmd5类站点适配，{hash}占位+提取正则）</summary>
+        //规则与状态分离：独立持久化到 config/rules/hashapis.json（RuleStore），不进 lastconfig.json
+        [JsonIgnore]
+        public ObservableCollection<HashApiConfig> HashApiItems { get; set; } = new ObservableCollection<HashApiConfig>();
+
+        /// <summary>解析当前生效的动态值脚本：按规则ScriptName匹配（类型不限，显式引用优先）→指定类型第一个启用脚本；
+        /// 不做跨类型兜底——拿不到对应类型脚本时返回null，由调用方报"未配置脚本"错误，避免拿错类型脚本静默错跑产生垃圾结果</summary>
         public ScriptTamperModel? ResolveTokenScript(CompanionRequestConfig? rule = null, int kind = -1)
         {
-            ScriptTamperModel? found = null;
             string? scriptName = rule?.ScriptName;
             if (!string.IsNullOrEmpty(scriptName))
             {
                 foreach (ScriptTamperModel s in TokenScripts)
                 {
-                    if (s.Name == scriptName) { found = s; break; }
+                    if (s.Name == scriptName) { return s; }
                 }
             }
-            if (found == null && kind >= 0)
+            foreach (ScriptTamperModel s in TokenScripts)
             {
-                foreach (ScriptTamperModel s in TokenScripts)
-                {
-                    if (s.Enable && s.Kind == kind) { found = s; break; }
-                }
+                if (s.Enable && (kind < 0 || s.Kind == kind)) { return s; }
             }
-            if (found == null)
-            {
-                foreach (ScriptTamperModel s in TokenScripts)
-                {
-                    if (s.Enable) { found = s; break; }
-                }
-            }
-            return found;
+            return null;
         }
 
         //---- 绕过管道实例状态（原static字典按AppConfig键控常驻内存，收归实例随配置生命周期回收；均不参与序列化）----

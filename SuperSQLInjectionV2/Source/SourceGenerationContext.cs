@@ -57,6 +57,8 @@ namespace SuperSQLInjectionV2.Source
     [JsonSerializable(typeof(List<SuperSQLInjectionV2.Bypass.RuleStore.DynamicRuleDto>))]
     [JsonSerializable(typeof(SuperSQLInjectionV2.Bypass.RuleStore.ProxyDto))]
     [JsonSerializable(typeof(List<SuperSQLInjectionV2.Bypass.RuleStore.ProxyDto>))]
+    [JsonSerializable(typeof(SuperSQLInjectionV2.Bypass.RuleStore.HashApiDto))]
+    [JsonSerializable(typeof(List<SuperSQLInjectionV2.Bypass.RuleStore.HashApiDto>))]
     [JsonSerializable(typeof(List<ReplaceModel>))]
     //软件更新
     [JsonSerializable(typeof(CheckUpdateResponse))]

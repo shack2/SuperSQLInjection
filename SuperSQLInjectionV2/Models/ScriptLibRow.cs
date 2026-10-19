@@ -70,6 +70,15 @@ namespace SuperSQLInjectionV2.Models
         /// <summary>序号列文本（变换类=编码链加载/执行顺序；动态值=全库连续加载序号）</summary>
         public string SeqText => Tool != null ? Tool.Seq.ToString() : (TokenSeq > 0 ? TokenSeq.ToString() : "");
 
+        /// <summary>被动态规则引用次数（RefreshScriptLibFilter 按 AppConfig.CompanionRules 统计赋值；仅动态值类行有意义）</summary>
+        public int RefCount { get; set; }
+
+        /// <summary>引用本脚本的规则名列表（逗号分隔，被引用列 tooltip 展示）</summary>
+        public string RefRuleNames { get; set; } = "";
+
+        /// <summary>被引用列文本（变换类行空；动态值行：N 条规则 / 未引用）</summary>
+        public string RefText => Tool != null ? "" : (RefCount > 0 ? RefCount + " 条规则" : "未引用");
+
         /// <summary>功能说明（优先 //@description 元数据，空则取代码首行注释）</summary>
         public string DescText
         {

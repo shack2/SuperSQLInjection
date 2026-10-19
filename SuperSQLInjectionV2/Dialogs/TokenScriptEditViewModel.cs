@@ -25,6 +25,9 @@ public partial class TokenScriptEditViewModel : ObservableObject, IDialogContext
     /// <summary>是否展示全部4种用途（脚本库统一添加/编辑=true；动态规则弹窗内嵌添加=false，仅动态值两种）</summary>
     [ObservableProperty] private bool _showTransformUsages = true;
 
+    /// <summary>仅展示变换类两种用途（防护绕过脚本页添加/编辑=true，优先级高于ShowTransformUsages）</summary>
+    [ObservableProperty] private bool _transformOnly = false;
+
     /// <summary>全部用途选项</summary>
     public static string[] AllUsageNames { get; } =
     [
@@ -34,14 +37,14 @@ public partial class TokenScriptEditViewModel : ObservableObject, IDialogContext
         "值生成（动态值：输入=主请求报文，输出=动态值）"
     ];
 
-    /// <summary>当前可选用途（ShowTransformUsages=false时仅动态值两种）</summary>
-    public string[] UsageChoices => ShowTransformUsages ? AllUsageNames : AllUsageNames[2..];
+    /// <summary>当前可选用途（TransformOnly=仅变换两种；ShowTransformUsages=false=仅动态值两种）</summary>
+    public string[] UsageChoices => TransformOnly ? AllUsageNames[..2] : ShowTransformUsages ? AllUsageNames : AllUsageNames[2..];
 
     /// <summary>下拉选中索引（与Usage双向映射：隐藏变换类时索引0/1对应extract/generate）</summary>
     public int UsageIndex
     {
-        get => ShowTransformUsages ? Usage : Usage - 2;
-        set => Usage = ShowTransformUsages ? value : value + 2;
+        get => TransformOnly ? Usage : ShowTransformUsages ? Usage : Usage - 2;
+        set => Usage = TransformOnly ? value : ShowTransformUsages ? value : value + 2;
     }
 
     /// <summary>旧接口兼容：动态值脚本类型（0=请求抓取 1=自主生成），与Usage互映射</summary>
@@ -52,7 +55,7 @@ public partial class TokenScriptEditViewModel : ObservableObject, IDialogContext
     }
 
     /// <summary>旧接口兼容：动态值类型选项</summary>
-    public string[] KindNames { get; } = ["请求抓取（输入=抓取响应报文）", "自主生成（输入=主请求报文，输出=动态值）"];
+    public string[] KindNames { get; } = ["响应提取（输入=抓取响应报文）", "值生成（输入=主请求报文，输出=动态值）"];
 
     /// <summary>当前用途是否编码链变换类（payload/request）</summary>
     public bool IsTransformUsage => ScriptUsages.IsTransform((ScriptUsage)Usage);
@@ -138,8 +141,8 @@ public partial class TokenScriptEditViewModel : ObservableObject, IDialogContext
         };
     }
 
-    /// <summary>请求抓取模板：从抓取请求返回的完整HTTP响应报文中提取动态值</summary>
-    public const string DefaultCodeFetch = "// 请求抓取：输入为抓取请求返回的完整HTTP响应报文（响应头+空行+响应体）\n"
+    /// <summary>响应提取模板：从抓取请求返回的完整HTTP响应报文中提取动态值</summary>
+    public const string DefaultCodeFetch = "// 响应提取：输入为抓取请求返回的完整HTTP响应报文（响应头+空行+响应体）\n"
         + "// 返回从响应中提取的动态值字符串\n"
         + "function tamper(response){\n"
         + "    // 示例：从响应体中提取 token 字段\n"
@@ -147,8 +150,8 @@ public partial class TokenScriptEditViewModel : ObservableObject, IDialogContext
         + "    return m ? m[1] : '';\n"
         + "}";
 
-    /// <summary>自主生成模板：输入为主请求报文，返回动态值（API签名/时间戳等场景）</summary>
-    public const string DefaultCodeGenerate = "// 自主生成：输入为主请求报文（请求行+请求头+空行+请求体）\n"
+    /// <summary>值生成模板：输入为主请求报文，返回动态值（API签名/时间戳等场景）</summary>
+    public const string DefaultCodeGenerate = "// 值生成：输入为主请求报文（请求行+请求头+空行+请求体）\n"
         + "// 返回动态值字符串，回填主请求的 <DRule> 标记（API签名/时间戳/随机数等场景）\n"
         + "function tamper(request){\n"
         + "    // 示例1：时间戳动态值\n"
@@ -200,6 +203,12 @@ public partial class TokenScriptEditViewModel : ObservableObject, IDialogContext
     }
 
     partial void OnShowTransformUsagesChanged(bool value)
+    {
+        OnPropertyChanged(nameof(UsageChoices));
+        OnPropertyChanged(nameof(UsageIndex));
+    }
+
+    partial void OnTransformOnlyChanged(bool value)
     {
         OnPropertyChanged(nameof(UsageChoices));
         OnPropertyChanged(nameof(UsageIndex));

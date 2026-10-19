@@ -125,7 +125,7 @@ public partial class CompanionRuleEditViewModel : ObservableObject, IDialogConte
             VerticalOffset = 0,
             Mode = DialogMode.None,
             Buttons = DialogButton.None,
-            Title = "添加动态值脚本",
+            Title = "添加动态规则脚本",
             CanLightDismiss = true,
             CanDragMove = true,
             IsCloseButtonVisible = true,
