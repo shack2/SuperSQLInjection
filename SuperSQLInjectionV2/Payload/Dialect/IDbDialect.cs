@@ -57,6 +57,9 @@ namespace SuperSQLInjectionV2.Payload
         /// </summary>
         bool MinValueChainPaging { get; }
 
+        /// <summary>模板是否提供稳定排序和Keyset分页；不支持的方言明确回退，不拼凑SQL。</summary>
+        bool StablePaging { get; }
+
         /// <summary>MIN 值链取数表达式：lastValue=null 取首值（无链条件），否则取 &gt;lastValue 的最小值</summary>
         string DataValueChain(DumpDataParam dp, string? lastValue);
 

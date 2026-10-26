@@ -32,6 +32,9 @@ public sealed class CliOptions
 
     // ---- 请求 ----
     public string? Proxy;                  // --proxy http://127.0.0.1:8080 / socks5://...
+    public string? AuthType;               // --auth-type Basic/Digest/NTLM
+    public string? AuthCred;               // --auth-cred user:password
+    public string? AuthDomain;             // --auth-domain（NTLM）
     public int Timeout = 15;               // --timeout 秒
     public int Retries = 1;                // --retries
     public int DelayMs = 0;                // --delay 毫秒
@@ -41,6 +44,7 @@ public sealed class CliOptions
     public string? Tamper;                 // --tamper 逗号分隔编码工具名
     public string? RulesDir;               // --rules-dir 规则库目录（默认 config/rules/）
     public bool FollowRedirects;           // --follow-redirects
+    public bool CookieJar;                 // --cookie-jar 保持目标Cookie会话
 
     // ---- 取数动作 ----
     public bool Banner;                    // --banner 版本
@@ -79,6 +83,9 @@ public sealed class CliOptions
 
     // ---- 输出/其他 ----
     public string? OutputDir;              // --output-dir
+    public string? BatchOutput;            // --batch-output=FILE 批量结果JSON/CSV
+    public string? SupportMatrix;           // --support-matrix=FILE 从实际合并模板导出JSON能力矩阵
+    public bool RawCsv;                    // --raw-csv 关闭Excel公式防护
     public bool Batch = true;              // --batch（CLI 默认非交互）
     public bool ShowHelp;                  // -h/--help
     public bool ShowVersion;               // --version
@@ -134,6 +141,9 @@ public sealed class CliOptions
                     case "--dns-domain": o.DnsDomain = Val(); break;
                     case "--dns-token": o.DnsToken = Val(); break;
                     case "--proxy": o.Proxy = Val(); break;
+                    case "--auth-type": o.AuthType = Val(); break;
+                    case "--auth-cred": o.AuthCred = Val(); break;
+                    case "--auth-domain": o.AuthDomain = Val(); break;
                     case "--timeout": o.Timeout = int.Parse(Val()); break;
                     case "--retries": o.Retries = int.Parse(Val()); break;
                     case "--delay": o.DelayMs = (int)(double.Parse(Val()) * (a.Contains('.', StringComparison.Ordinal) ? 1000 : 1)); break;
@@ -143,6 +153,7 @@ public sealed class CliOptions
                     case "--tamper": o.Tamper = Val(); break;
                     case "--rules-dir": o.RulesDir = Val(); break;
                     case "--follow-redirects": o.FollowRedirects = true; break;
+                    case "--cookie-jar": o.CookieJar = true; break;
                     case "--banner": o.Banner = true; break;
                     case "--current-user": o.CurrentUser = true; break;
                     case "--current-db": o.CurrentDb = true; break;
@@ -174,6 +185,9 @@ public sealed class CliOptions
                     case "--no-channel-upgrade": o.NoChannelUpgrade = true; break;
                     case "--no-cache-verify": o.NoCacheVerify = true; break;
                     case "--output-dir": o.OutputDir = Val(); break;
+                    case "--batch-output": o.BatchOutput = Val(); break;
+                    case "--support-matrix": o.SupportMatrix = Val(); break;
+                    case "--raw-csv": o.RawCsv = true; break;
                     case "--batch": o.Batch = true; break;
                     case "--help": o.ShowHelp = true; break;
                     case "--version": o.ShowVersion = true; break;
@@ -236,6 +250,9 @@ public sealed class CliOptions
 
         请求:
           --proxy=PROXY           代理（http:// 或 socks5://host:port）
+          --auth-type=TYPE        HTTP认证：Basic / Digest / NTLM
+          --auth-cred=USER:PASS   HTTP认证凭据（密码可包含冒号，按首个冒号分隔）
+          --auth-domain=DOMAIN    NTLM域（可选）
           --timeout=N             超时秒数（默认 15）
           --retries=N             超时重试（默认 1）
           --delay=N               每次请求前延时（毫秒）
@@ -244,7 +261,8 @@ public sealed class CliOptions
           --user-agent=UA         指定 User-Agent
           --tamper=A,B            编码处理工具链（内置名/key 或 rules 目录中的自定义脚本名）
           --rules-dir=DIR         规则库目录（默认 config/rules/，与 GUI 共用：自定义tamper/动态规则/字符替换/代理池）
-          --follow-redirects      跟随 302 重定向
+          --follow-redirects      跟随 3xx 重定向
+          --cookie-jar            保持目标Cookie会话（默认关闭）
 
         取数动作（检测到注入后执行，可组合）:
           --banner                数据库版本
@@ -276,6 +294,9 @@ public sealed class CliOptions
 
         输出:
           --output-dir=DIR        结果保存目录（默认 output/<host>_<port>/）
+          --batch-output=FILE     批量检测机器可读结果，按扩展名输出 .json 或 .csv
+          --support-matrix=FILE   从实际合并模板导出数据库/Fork能力矩阵JSON（无需目标）
+          --raw-csv               CSV保留原始文本（默认开启Excel公式防护）
           --batch                 非交互模式（默认）
           --version               显示版本
           --selftest              自检：真实加载 QuickJS 原生库执行 JS 探针（CI 冒烟用）

@@ -7,10 +7,10 @@
     <Nullable>enable</Nullable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <!-- 显式版本号：防止 CI 工作流环境变量泄漏为 MSBuild Version 属性导致 NuGet 还原失败 -->
-    <Version>2.0.5</Version>
-    <AssemblyVersion>2.0.5.0</AssemblyVersion>
-    <FileVersion>2.0.5.0</FileVersion>
-    <InformationalVersion>2.0.5</InformationalVersion>
+    <Version>2.0.6</Version>
+    <AssemblyVersion>2.0.6.0</AssemblyVersion>
+    <FileVersion>2.0.6.0</FileVersion>
+    <InformationalVersion>2.0.6</InformationalVersion>
   </PropertyGroup>
 
   <PropertyGroup>

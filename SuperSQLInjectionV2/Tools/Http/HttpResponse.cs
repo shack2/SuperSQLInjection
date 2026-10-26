@@ -22,6 +22,21 @@ namespace SuperSQLInjectionV2.Tools.Http
 
         public long RunTime { get; set; } = 0;
 
+        /// <summary>响应Body是否按协议完整读取；不完整响应禁止参与相似度、布尔和取数解析。</summary>
+        public bool IsBodyComplete { get; set; }
+
+        /// <summary>读取或解压过程中是否发生超时。</summary>
+        public bool IsTimedOut { get; set; }
+
+        /// <summary>响应是否因大小上限被截断。</summary>
+        public bool IsTruncated { get; set; }
+
+        /// <summary>响应完整性异常说明，仅用于诊断，不参与页面内容比较。</summary>
+        public string? IntegrityError { get; set; }
+
+        /// <summary>可进入上层协议判定的响应；状态码为0或Body不完整时不可用。</summary>
+        public bool IsUsable => StatusCode > 0 && IsBodyComplete && !IsTruncated;
+
         /// <summary>
         /// HTTP协议版本
         /// </summary>
@@ -40,7 +55,17 @@ namespace SuperSQLInjectionV2.Tools.Http
             set
             {
                 _bodyData = value;
-                ParseBodyByEncoding();
+                try
+                {
+                    ParseBodyByEncoding();
+                }
+                catch (HttpResponseLimitException ex)
+                {
+                    IsBodyComplete = false;
+                    IsTruncated = true;
+                    IntegrityError = ex.Message;
+                    Body = Array.Empty<byte>();
+                }
             }
         }
 
@@ -181,7 +206,11 @@ namespace SuperSQLInjectionV2.Tools.Http
 
         private void ParseBodyByEncoding()
         {
-
+            int rawLimit = Math.Max(1, AppConfig.MaxResponseBodyBytes);
+            if (BodyData.Length > rawLimit)
+            {
+                throw new HttpResponseLimitException($"响应体超过上限 {rawLimit} 字节");
+            }
             if (Headers.ContainsKey(HttpConst.Content_Encoding))
             {
                 if (Headers[HttpConst.Content_Encoding].Contains("gzip", StringComparison.Ordinal))
@@ -194,14 +223,12 @@ namespace SuperSQLInjectionV2.Tools.Http
                 }
                 else if (Headers[HttpConst.Content_Encoding].Contains("br", StringComparison.Ordinal))
                 {
-                    //Brotli解码兜底：浏览器报文常带Accept-Encoding: br，服务端真返回br时避免BodyTxt变二进制乱码
                     Body = UnBrotli();
                 }
                 else
                 {
-                    Body=BodyData.ToArray();
+                    Body = BodyData.ToArray();
                 }
-
             }
             else
             {
@@ -209,96 +236,33 @@ namespace SuperSQLInjectionV2.Tools.Http
             }
         }
 
-        public byte[] UnGzip()
-        {
-            //BodyData写入后Position在末尾，解压前归位；leaveOpen=true防止包装流关闭时连带关闭BodyData
-            if (BodyData.CanSeek)
-            {
-                BodyData.Position = 0;
-            }
-            GZipStream gs = new GZipStream(BodyData, CompressionMode.Decompress, true);
-            MemoryStream outbuf = new MemoryStream();
-            byte[] block = new byte[1024];
+        public byte[] UnGzip() => DecodeBody(() => new GZipStream(BodyData, CompressionMode.Decompress, true));
 
-            try
-            {
-                while (true)
-                {
-                    int bytesRead = gs.Read(block, 0, block.Length);
-                    if (bytesRead <= 0)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        outbuf.Write(block, 0, bytesRead);
-                    }
-                }
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-                outbuf.Close();
-                gs.Close();
-            }
-            return outbuf.ToArray();
-
-        }
-
-        public byte[] UnDeflate()
-        {
-            if (BodyData.CanSeek)
-            {
-                BodyData.Position = 0;
-            }
-            DeflateStream ds = new DeflateStream(BodyData, CompressionMode.Decompress, true);
-            MemoryStream outbuf = new MemoryStream();
-            byte[] block = new byte[1024];
-            try
-            {
-                while (true)
-                {
-                    int bytesRead = ds.Read(block, 0, block.Length);
-                    if (bytesRead <= 0)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        outbuf.Write(block, 0, bytesRead);
-                    }
-                }
-            }
-            catch
-            {
-                throw;
-
-            }
-            finally
-            {
-                outbuf.Close();
-                ds.Close();
-
-            }
-            return outbuf.ToArray();
-
-        }
+        public byte[] UnDeflate() => DecodeBody(() => new DeflateStream(BodyData, CompressionMode.Decompress, true));
 
         /// <summary>Brotli解压（.NET内置BrotliStream，无需第三方依赖）</summary>
-        public byte[] UnBrotli()
+        public byte[] UnBrotli() => DecodeBody(() => new BrotliStream(BodyData, CompressionMode.Decompress, true));
+
+        private byte[] DecodeBody(Func<Stream> streamFactory)
         {
-            //BodyData写入后Position在末尾，解压前必须归位，否则读到0字节（gzip/deflate同理）
             if (BodyData.CanSeek)
             {
                 BodyData.Position = 0;
             }
-            using BrotliStream bs = new BrotliStream(BodyData, CompressionMode.Decompress, true);
-            using MemoryStream outbuf = new MemoryStream();
-            bs.CopyTo(outbuf);
-            return outbuf.ToArray();
+            int limit = Math.Max(1, AppConfig.MaxDecompressedBodyBytes);
+            using Stream decoder = streamFactory();
+            using MemoryStream output = new MemoryStream();
+            byte[] buffer = new byte[81920];
+            int read;
+            while ((read = decoder.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                if (output.Length > limit - (long)read)
+                {
+                    throw new HttpResponseLimitException($"解压后响应体超过上限 {limit} 字节");
+                }
+                output.Write(buffer, 0, read);
+            }
+            return output.ToArray();
         }
 
         private void ParseHeaderEncoding (){

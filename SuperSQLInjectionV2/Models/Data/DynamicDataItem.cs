@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Threading;
@@ -13,83 +13,104 @@ using System.Threading.Tasks;
 namespace SuperSQLInjectionV2.Models.Data
 {
 
-    // 动态数据项类，实现INotifyPropertyChanged接口 
-    public class DynamicDataItem : ObservableObject
-    { 
-        // 存储动态属性的字典 
-        private readonly Dictionary<string, string> _properties = new();
+    public enum DataValueState
+    {
+        Normal,
+        Null,
+        Empty,
+        Failed,
+        Truncated
+    }
 
-        // 索引器，用于访问动态属性
+    /// <summary>动态表格行；原始值与读取状态分开保存，避免NULL、空串和失败都显示为空。</summary>
+    public class DynamicDataItem : ObservableObject
+    {
+        private readonly Dictionary<string, string> _properties = new();
+        private readonly Dictionary<string, DataValueState> _states = new();
+
+        /// <summary>表格/复制/CSV使用的显示值；原始值通过GetRawValue读取。</summary>
         public string this[string propertyName]
         {
-            get
-            {
-                if (_properties.TryGetValue(propertyName, out var value))
-                {
-                    return value;
-                }
-                return string.Empty;
-            }
-            set
-            {
-                if (_properties.TryGetValue(propertyName, out var oldValue) && oldValue == value)
-                {
-                    return;
-                }
-
-                _properties[propertyName] = value;
-                OnPropertyChanged("Item");
-                OnPropertyChanged($"Item[{propertyName}]");
-            }
+            get => GetDisplayValue(propertyName);
+            set => Set(propertyName, value, InferState(value));
         }
 
-        // 添加动态属性
-        public void Add(string propertyName, string value)
+        public string GetRawValue(string propertyName)
         {
+            return _properties.TryGetValue(propertyName, out string? value) ? value : string.Empty;
+        }
+
+        public DataValueState GetState(string propertyName)
+        {
+            return _states.TryGetValue(propertyName, out DataValueState state) ? state : DataValueState.Empty;
+        }
+
+        public string GetDisplayValue(string propertyName)
+        {
+            string value = GetRawValue(propertyName);
+            return GetState(propertyName) switch
+            {
+                DataValueState.Null => "[NULL]",
+                DataValueState.Failed => "[读取失败]",
+                DataValueState.Truncated => "[截断] " + value,
+                _ => value
+            };
+        }
+
+        public void Add(string propertyName, string value) => Set(propertyName, value, InferState(value));
+
+        public void Add(string propertyName, string? value, DataValueState state)
+        {
+            Set(propertyName, value ?? string.Empty, state);
+        }
+
+        public void Update(string propertyName, string value)
+        {
+            if (_properties.ContainsKey(propertyName)) Set(propertyName, value, InferState(value));
+        }
+
+        public void Update(string propertyName, string? value, DataValueState state)
+        {
+            if (_properties.ContainsKey(propertyName)) Set(propertyName, value ?? string.Empty, state);
+        }
+
+        public void SetState(string propertyName, DataValueState state)
+        {
+            if (_properties.ContainsKey(propertyName)) Set(propertyName, GetRawValue(propertyName), state);
+        }
+
+        private void Set(string propertyName, string value, DataValueState state)
+        {
+            if (_properties.TryGetValue(propertyName, out string? oldValue)
+                && oldValue == value && GetState(propertyName) == state) return;
             _properties[propertyName] = value;
+            _states[propertyName] = state;
             OnPropertyChanged("Item");
             OnPropertyChanged($"Item[{propertyName}]");
         }
 
-        // 更新动态属性
-        public void Update(string propertyName, string value)
+        private static DataValueState InferState(string? value)
         {
-            if (_properties.TryGetValue(propertyName, out var oldValue) && oldValue == value)
-            {
-                return;
-            }
-
-            if (_properties.ContainsKey(propertyName))
-            {
-                _properties[propertyName] = value;
-                OnPropertyChanged("Item");
-                OnPropertyChanged($"Item[{propertyName}]");
-            }
+            return value == null ? DataValueState.Failed : value.Length == 0 ? DataValueState.Empty : DataValueState.Normal;
         }
 
-        // 移除动态属性
         public void Remove(string propertyName)
         {
-            if (_properties.ContainsKey(propertyName))
+            if (_properties.Remove(propertyName))
             {
-                _properties.Remove(propertyName);
+                _states.Remove(propertyName);
                 OnPropertyChanged("Item");
                 OnPropertyChanged($"Item[{propertyName}]");
             }
         }
 
-        // 清空所有属性
         public void Clear()
         {
-            var propertiesToClear = _properties.Keys.ToList();
+            var properties = _properties.Keys.ToList();
             _properties.Clear();
-
-            // 通知所有属性已更改
+            _states.Clear();
             OnPropertyChanged("Item");
-            foreach (var propertyName in propertiesToClear)
-            {
-                OnPropertyChanged($"Item[{propertyName}]");
-            }
+            foreach (string propertyName in properties) OnPropertyChanged($"Item[{propertyName}]");
         }
     }
 

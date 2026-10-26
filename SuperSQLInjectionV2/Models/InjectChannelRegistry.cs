@@ -15,18 +15,12 @@ namespace SuperSQLInjectionV2.Models
         private static readonly ConcurrentDictionary<string, List<InjectRecord>> _map
             = new ConcurrentDictionary<string, List<InjectRecord>>();
 
-        private static string Key(string? host, int port, string? pname)
+        public static void Register(InjectRecord record, bool isSsl = false)
         {
-            return (host ?? "") + ":" + port + "|" + (pname ?? "");
-        }
-
-        public static void Register(string? host, int port, InjectRecord record)
-        {
-            if (record == null || string.IsNullOrEmpty(record.PName))
-            {
-                return;
-            }
-            var list = _map.GetOrAdd(Key(host, port, record.PName), _ => new List<InjectRecord>());
+            if (record == null || string.IsNullOrEmpty(record.PName)) return;
+            if (isSsl) record.IsSSL = true;
+            string key = TargetFingerprint.ForRecord(record);
+            var list = _map.GetOrAdd(key, _ => new List<InjectRecord>());
             lock (list)
             {
                 list.RemoveAll(r => r.InjectType == record.InjectType && r.BoolInjectType == record.BoolInjectType);
@@ -34,13 +28,10 @@ namespace SuperSQLInjectionV2.Models
             }
         }
 
-        /// <summary>查同目标同参数的更快通道记录（Union优先，Error次之；排除excludeType）</summary>
-        public static InjectRecord? FindFasterChannel(string host, int port, string pname, params InjectType[] excludeTypes)
+        /// <summary>查同请求会话、同参数的更快通道记录（Union优先，Error次之）。</summary>
+        public static InjectRecord? FindFasterChannel(AppConfig config, string pname, params InjectType[] excludeTypes)
         {
-            if (!_map.TryGetValue(Key(host, port, pname), out List<InjectRecord>? list))
-            {
-                return null;
-            }
+            if (!_map.TryGetValue(TargetFingerprint.ForConfig(config, pname), out List<InjectRecord>? list)) return null;
             lock (list)
             {
                 return list.Where(r => !excludeTypes.Contains(r.InjectType))
@@ -49,17 +40,20 @@ namespace SuperSQLInjectionV2.Models
             }
         }
 
-        /// <summary>查同目标同参数指定类型的通道记录（如Stacked：文件/命令操作需堆叠时自动切换用）</summary>
-        public static InjectRecord? FindByType(string? host, int port, string? pname, InjectType type)
+        /// <summary>查同请求会话、同参数指定类型的通道记录。</summary>
+        public static InjectRecord? FindByType(AppConfig config, string? pname, InjectType type)
         {
-            if (!_map.TryGetValue(Key(host, port, pname), out List<InjectRecord>? list))
-            {
-                return null;
-            }
+            if (!_map.TryGetValue(TargetFingerprint.ForConfig(config, pname), out List<InjectRecord>? list)) return null;
             lock (list)
             {
                 return list.FirstOrDefault(r => r.InjectType == type);
             }
+        }
+
+        /// <summary>目标报文或会话变化后显式清理对应通道缓存。</summary>
+        public static void Clear(AppConfig config, string? parameter = null)
+        {
+            _map.TryRemove(TargetFingerprint.ForConfig(config, parameter), out _);
         }
     }
 }

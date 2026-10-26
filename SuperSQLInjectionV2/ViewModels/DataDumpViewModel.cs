@@ -180,6 +180,9 @@ namespace SuperSQLInjectionV2.ViewModels
         /// <summary>dump行数据自定义WHERE过滤（无需where关键字；同步作用于总数统计与行数据取数SQL）</summary>
         [ObservableProperty] private string _dumpWhere = "";
 
+        /// <summary>可选稳定分页键：须为已选择的唯一列；支持模板时首行后自动改Keyset，避免动态表OFFSET重复/漏行。</summary>
+        [ObservableProperty] private string _stablePagingKey = "";
+
         /// <summary>dump取数no-cast开关（取数列不做cast/convert类型转换包装）</summary>
         [ObservableProperty] private bool _dumpNoCast = false;
 
@@ -259,18 +262,8 @@ namespace SuperSQLInjectionV2.ViewModels
         /// </summary>
         public Func<Task<string?>>? SaveFilePicker { get; set; }
 
-        /// <summary>
-        /// CSV字段转义
-        /// </summary>
-        private static string EscapeCsv(string? value)
-        {
-            value ??= "";
-            if (value.Contains(',', StringComparison.Ordinal) || value.Contains('"', StringComparison.Ordinal) || value.Contains('\n', StringComparison.Ordinal) || value.Contains('\r', StringComparison.Ordinal))
-            {
-                return "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
-            }
-            return value;
-        }
+        /// <summary>CSV统一转义，默认防止外部数据触发Excel公式。</summary>
+        private string EscapeCsv(string? value) => CsvExport.Cell(value, !AppConfig.RawCsvExport);
 
         /// <summary>
         /// 导出数据到CSV文件

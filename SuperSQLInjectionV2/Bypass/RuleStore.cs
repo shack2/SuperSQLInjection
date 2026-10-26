@@ -616,7 +616,7 @@ namespace SuperSQLInjectionV2.Bypass
             {
                 chain.Add(new ScriptEntry { Script = list[i].scriptFile, Enable = list[i].m.Enable, Order = i });
             }
-            File.WriteAllText(Path.Combine(dir, "chain.json"), JsonSerializer.Serialize(chain, JsonCtx.IndentedInfo<List<ScriptEntry>>()));
+            AtomicFile.WriteAllText(Path.Combine(dir, "chain.json"), JsonSerializer.Serialize(chain, JsonCtx.IndentedInfo<List<ScriptEntry>>()));
         }
 
         private static void LoadTokenScripts(AppConfig config, string rulesDir, Dictionary<string, string> renames)
@@ -894,7 +894,7 @@ namespace SuperSQLInjectionV2.Bypass
                 sb.Append("//@").Append(kv.Key).Append(": ").Append(kv.Value).Append('\n');
             }
             sb.Append(code ?? "");
-            File.WriteAllText(file, sb.ToString());
+            AtomicFile.WriteAllText(file, sb.ToString());
         }
 
         /// <summary>
@@ -952,7 +952,7 @@ namespace SuperSQLInjectionV2.Bypass
             {
                 chain.Add(new ScriptEntry { Script = fileOf[m], Enable = m.Enable, Order = order++ });
             }
-            File.WriteAllText(Path.Combine(tampersDir, "chain.json"), JsonSerializer.Serialize(chain, JsonCtx.IndentedInfo<List<ScriptEntry>>()));
+            AtomicFile.WriteAllText(Path.Combine(tampersDir, "chain.json"), JsonSerializer.Serialize(chain, JsonCtx.IndentedInfo<List<ScriptEntry>>()));
 
             //3) 动态值脚本引用链（顺序=回退选择优先级）
             var tokenChain = new List<ChainEntry>();
@@ -960,7 +960,7 @@ namespace SuperSQLInjectionV2.Bypass
             {
                 tokenChain.Add(new ChainEntry { Script = fileOf[m], Enable = m.Enable });
             }
-            File.WriteAllText(Path.Combine(tokenDir, "chain.json"), JsonSerializer.Serialize(tokenChain, JsonCtx.IndentedInfo<List<ChainEntry>>()));
+            AtomicFile.WriteAllText(Path.Combine(tokenDir, "chain.json"), JsonSerializer.Serialize(tokenChain, JsonCtx.IndentedInfo<List<ChainEntry>>()));
 
             //4) 清理 scripts/ 下无引用文件（已删除脚本的遗留）
             foreach (string f in Directory.GetFiles(scriptsDir, "*.js"))
@@ -997,13 +997,13 @@ namespace SuperSQLInjectionV2.Bypass
                 SourceMode = r.SourceMode, Url = r.Url, Method = r.Method, RequestTxt = r.RequestTxt,
                 UseScript = r.UseScript, SubStart = r.SubStart, SubEnd = r.SubEnd, ScriptName = r.ScriptName
             }).ToList();
-            File.WriteAllText(file, JsonSerializer.Serialize(dtos, JsonCtx.IndentedInfo<List<DynamicRuleDto>>()));
+            AtomicFile.WriteAllText(file, JsonSerializer.Serialize(dtos, JsonCtx.IndentedInfo<List<DynamicRuleDto>>()));
         }
 
         private static void SaveReplaceRules(AppConfig config, string file)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-            File.WriteAllText(file, JsonSerializer.Serialize(config.ByPassConfig.ReplaceItems.ToList(), JsonCtx.IndentedInfo<List<ReplaceModel>>()));
+            AtomicFile.WriteAllText(file, JsonSerializer.Serialize(config.ByPassConfig.ReplaceItems.ToList(), JsonCtx.IndentedInfo<List<ReplaceModel>>()));
         }
 
         private static void SaveProxies(AppConfig config, string file)
@@ -1013,7 +1013,7 @@ namespace SuperSQLInjectionV2.Bypass
             {
                 Host = p.Host, Port = p.Port, Type = p.proxyType, Username = p.username, Password = p.password
             }).ToList();
-            File.WriteAllText(file, JsonSerializer.Serialize(dtos, JsonCtx.IndentedInfo<List<ProxyDto>>()));
+            AtomicFile.WriteAllText(file, JsonSerializer.Serialize(dtos, JsonCtx.IndentedInfo<List<ProxyDto>>()));
         }
 
         private static void SaveHashApis(AppConfig config, string file)
@@ -1024,7 +1024,7 @@ namespace SuperSQLInjectionV2.Bypass
                 Name = a.Name, Url = a.Url, Method = a.Method, PostData = a.PostData,
                 PostContentType = a.PostContentType, TokenRegex = a.TokenRegex, Regex = a.Regex, Enable = a.Enable
             }).ToList();
-            File.WriteAllText(file, JsonSerializer.Serialize(dtos, JsonCtx.IndentedInfo<List<HashApiDto>>()));
+            AtomicFile.WriteAllText(file, JsonSerializer.Serialize(dtos, JsonCtx.IndentedInfo<List<HashApiDto>>()));
         }
     }
 }

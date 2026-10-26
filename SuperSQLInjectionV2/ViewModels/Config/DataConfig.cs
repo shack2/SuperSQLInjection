@@ -12,6 +12,25 @@ namespace SuperSQLInjectionV2.Models
 {
     public partial class DataConfig : ViewModelBase
     {
+        /// <summary>拥有本配置的会话；仅用于定位独立Payload上下文，不参与序列化。</summary>
+        [JsonIgnore]
+        internal AppConfig? Owner { get; set; }
+
+        private BasePayload CurrentPayload => Owner?.Payload.Base ?? PayloadFactory.BasePayload;
+
+        private void InitPayload(DBType dbType)
+        {
+            if (Owner == null)
+            {
+                PayloadFactory.ForkName = SelectedForkName ?? "";
+                PayloadFactory.Init(dbType);
+            }
+            else
+            {
+                Owner.Payload.Init(dbType, SelectedForkName ?? "");
+            }
+        }
+
         /// <summary>
         /// 启动初始化：未切换过数据库类型（如恢复配置为UnKnow）时，也保证取数模板与报错方式下拉就绪
         /// </summary>
@@ -85,7 +104,7 @@ namespace SuperSQLInjectionV2.Models
                 }
             }
             //实时切换报错取数触发函数（无对应变体时恢复默认ErrorData）
-            PayloadFactory.BasePayload?.SetErrorMethod(value);
+            CurrentPayload?.SetErrorMethod(value);
             //报错方式回显容量不同（updatexml≈32/extractvalue≈64），切换后清空实测值强制重新探测
             MeasuredErrorChunkLen = 0;
         }
@@ -174,10 +193,9 @@ namespace SuperSQLInjectionV2.Models
         /// <summary>fork切换后重建模板/方言/词表/报错方式（与切库同链路，fork overlay差异即时生效）</summary>
         partial void OnSelectedForkNameChanged(string value)
         {
-            PayloadFactory.ForkName = value ?? "";
             lock (_dbTypeChangeLock)
             {
-                PayloadFactory.Init(SelectedDBType);
+                InitPayload(SelectedDBType);
             }
             RefreshInjectTypes(SelectedDBType);
             MeasuredErrorChunkLen = 0;
@@ -203,11 +221,10 @@ namespace SuperSQLInjectionV2.Models
             {
                 SelectedForkName = "";
             }
-            PayloadFactory.ForkName = SelectedForkName ?? "";
-            //Payload模板加载是纯文件读取，与UI线程无关，直接同步完成（保证后续取数模板就绪）
+            //Payload模板加载是纯文件读取，与UI线程无关，直接同步完成；每个AppConfig只更新自己的会话。
             lock (_dbTypeChangeLock)
             {
-                PayloadFactory.Init(value);
+                InitPayload(value);
             }
             //按库能力过滤注入类型选项（无报错通道的库隐藏"报错注入"）
             RefreshInjectTypes(value);
@@ -223,9 +240,9 @@ namespace SuperSQLInjectionV2.Models
             {
                 ErrorMethods.Clear();
                 ErrorMethods.Add(BasePayload.DefaultErrorMethodName);
-                if (PayloadFactory.BasePayload != null)
+                if (CurrentPayload != null)
                 {
-                    foreach (string name in PayloadFactory.BasePayload.ErrorDataVariants.Keys)
+                    foreach (string name in CurrentPayload.ErrorDataVariants.Keys)
                     {
                         ErrorMethods.Add(name);
                     }

@@ -75,6 +75,22 @@ namespace SuperSQLInjectionV2.Tools.Http
                     {
                         continue;
                     }
+                    if (!server.IsBodyComplete || server.IsTruncated)
+                    {
+                        Log.SysLog("HTTP响应不完整，禁止参与检测或取数，准备重试：" + (server.IntegrityError ?? "Body读取未完成"));
+                        continue;
+                    }
+                    if (server.StatusCode is 429 or 503)
+                    {
+                        int retryDelay = GetRetryDelayMs(server, i);
+                        request.AppConfig.AdaptiveDelayMs = Math.Max(request.AppConfig.AdaptiveDelayMs, retryDelay);
+                        if (i < request.AppConfig.RetryCount)
+                        {
+                            Log.SysLog($"目标返回{server.StatusCode}，自适应限速 {retryDelay}ms 后重试");
+                            await Task.Delay(retryDelay, request.AppConfig.RunCts.Token).ConfigureAwait(false);
+                            continue;
+                        }
+                    }
                     //后置伴随请求（二次注入）：请求回显页面并以其响应替代主响应取数。
                     //报文含<Sencond:标记名>指令时按标记名关联规则，否则取第一条启用且已配置的后置规则
                     Models.CompanionRequestConfig? afterRule = null;
@@ -104,7 +120,7 @@ namespace SuperSQLInjectionV2.Tools.Http
                         if (sencondRequest != null)
                         {
                             HttpResponse sencondResponse = await SendRequestRetryAsync(sencondRequest, true).ConfigureAwait(false);
-                            if (sencondResponse.StatusCode == 0)
+                            if (sencondResponse.StatusCode == 0 || !sencondResponse.IsBodyComplete || sencondResponse.IsTruncated)
                             {
                                 continue;
                             }
@@ -117,6 +133,12 @@ namespace SuperSQLInjectionV2.Tools.Http
                         Log.SysLog("HTTP响应中发现重发关键词，重新发送数据包！");
                         continue;
                     }
+                    if (server.StatusCode is not 429 and not 503 && request.AppConfig.AdaptiveDelayMs > 0)
+                    {
+                        //成功响应后缓慢恢复，避免一次限流导致会话永久保持高延时。
+                        request.AppConfig.AdaptiveDelayMs = Math.Max(0, request.AppConfig.AdaptiveDelayMs - 1000);
+                    }
+                    return server;
                 }
                 catch (OperationCanceledException)
                 {
@@ -138,9 +160,39 @@ namespace SuperSQLInjectionV2.Tools.Http
                     continue;
                 }
             }
+            if (server.StatusCode > 0 && (!server.IsBodyComplete || server.IsTruncated))
+            {
+                //重试耗尽仍不完整时只保留诊断状态，状态码归零以阻止所有旧调用方误用半截Body。
+                Log.SysLog("HTTP响应重试后仍不完整，本次响应已作废：" + (server.IntegrityError ?? "Body读取未完成"));
+                server.StatusCode = 0;
+                server.Body = null;
+            }
             return server;
         }
 
+
+        /// <summary>429/503重试间隔：优先遵守Retry-After（秒数或HTTP日期），否则指数退避。</summary>
+        internal static int GetRetryDelayMs(HttpResponse response, int attempt)
+        {
+            double delayMs = 1000d * Math.Pow(2, Math.Max(0, attempt - 1));
+            if (response.Headers.TryGetValue("Retry-After", out string? retryAfter)
+                && !string.IsNullOrWhiteSpace(retryAfter))
+            {
+                retryAfter = retryAfter.Trim();
+                if (double.TryParse(retryAfter, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double seconds))
+                {
+                    delayMs = Math.Max(0, seconds * 1000);
+                }
+                else if (DateTimeOffset.TryParse(retryAfter, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AllowWhiteSpaces | System.Globalization.DateTimeStyles.AssumeUniversal,
+                    out DateTimeOffset retryAt))
+                {
+                    delayMs = Math.Max(0, (retryAt - DateTimeOffset.UtcNow).TotalMilliseconds);
+                }
+            }
+            return (int)Math.Clamp(delayMs, 250, 60_000);
+        }
 
 
         private static Proxy? GetProxy(AppConfig config)
@@ -155,8 +207,21 @@ namespace SuperSQLInjectionV2.Tools.Http
             {
                 return list.First();
             }
-            //随机模式
-            return list[Random.Shared.Next(list.Count)];
+            DateTime now = DateTime.UtcNow;
+            List<Proxy> healthy = list.Where(p => p.CooldownUntil <= now).ToList();
+            if (healthy.Count == 0)
+            {
+                healthy = list.OrderBy(p => p.CooldownUntil).Take(1).ToList();
+            }
+            //健康度优先，延迟仅作为轻量权重修正；连续失败的代理进入冷却，避免反复选中坏节点。
+            double total = healthy.Sum(p => p.SelectionWeight);
+            double roll = Random.Shared.NextDouble() * total;
+            foreach (Proxy proxy in healthy)
+            {
+                roll -= proxy.SelectionWeight;
+                if (roll <= 0) return proxy;
+            }
+            return healthy[^1];
         }
 
         /// <summary>
@@ -241,20 +306,20 @@ namespace SuperSQLInjectionV2.Tools.Http
             return await SendWithRedirectAsync(config, request, ct).ConfigureAwait(false);
         }
 
-        /// <summary>
-        /// 302/301跳转的发送（递归改迭代，限次数，防跳转链栈溢出）
-        /// </summary>
+        /// <summary>跟随标准HTTP重定向，最多5次；303转GET，307/308保留方法和Body。</summary>
         private static async Task<HttpResponse> SendWithRedirectAsync(AppConfig config, HttpRequest request, CancellationToken ct)
         {
             for (int redirectCount = 0; ; redirectCount++)
             {
+                HttpCookieTool.Apply(config, request);
                 HttpResponse response = await SendOnceAsync(config, request, ct).ConfigureAwait(false);
-                if ((response.StatusCode == 302 || response.StatusCode == 301) && config.FollowRedirect
-                    && redirectCount < 5
+                HttpCookieTool.Store(config, request, response);
+                bool isRedirect = response.StatusCode is 301 or 302 or 303 or 307 or 308;
+                if (isRedirect && config.FollowRedirect && redirectCount < 5
                     && response.Headers.TryGetValue("location", out string? location)
-                    && !string.IsNullOrEmpty(location))
+                    && !string.IsNullOrWhiteSpace(location))
                 {
-                    if (ApplyRedirect(request, location))
+                    if (ApplyRedirect(request, location, response.StatusCode))
                     {
                         Log.SysLog("跟随跳转到：" + location);
                         continue;
@@ -264,53 +329,77 @@ namespace SuperSQLInjectionV2.Tools.Http
             }
         }
 
-        /// <summary>
-        /// 应用跳转：改写请求地址，跨域时更新Host/Port/SSL与Host头，POST转GET并丢弃body
-        /// </summary>
-        private static bool ApplyRedirect(HttpRequest request, string location)
+        /// <summary>应用跳转并维护目标、Host、方法、Body及跨源敏感头边界。</summary>
+        internal static bool ApplyRedirect(HttpRequest request, string location, int statusCode)
         {
             try
             {
-                string hab = request.HeaderAndBody;
-                string newPath;
-                if (location.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                string scheme = request.IsSSL ? "https" : "http";
+                string currentPath = string.IsNullOrWhiteSpace(request.PathAndQuery) ? "/" : request.PathAndQuery;
+                Uri baseUri = new Uri($"{scheme}://{request.Host}:{request.Port}{currentPath}");
+                Uri next = new Uri(baseUri, location);
+                if (!next.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+                    && !next.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
                 {
-                    Uri u = new Uri(location);
-                    newPath = string.IsNullOrEmpty(u.PathAndQuery) ? "/" : u.PathAndQuery;
-                    request.Host = u.Host;
-                    request.Port = u.Port;
-                    request.IsSSL = u.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase);
-                    //先改Host头（长度变化），再算请求行位置
-                    hab = Regex.Replace(hab, "(?im)^Host:[^\r\n]*", "Host: " + u.Host + (u.IsDefaultPort ? "" : ":" + u.Port));
+                    return false;
+                }
+                bool crossOrigin = !string.Equals(baseUri.Scheme, next.Scheme, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(baseUri.Host, next.Host, StringComparison.OrdinalIgnoreCase)
+                    || baseUri.Port != next.Port;
+
+                string hab = request.HeaderAndBody;
+                int methodEnd = hab.IndexOf(' ', StringComparison.Ordinal);
+                int urlEnd = hab.IndexOf(" HTTP", StringComparison.Ordinal);
+                if (methodEnd <= 0 || urlEnd <= methodEnd) return false;
+                string newPath = next.PathAndQuery.Replace(" ", "%20", StringComparison.Ordinal);
+                StringBuilder builder = new StringBuilder(hab);
+                builder.Remove(methodEnd + 1, urlEnd - methodEnd - 1);
+                builder.Insert(methodEnd + 1, newPath);
+                string newReq = builder.ToString();
+                string hostHeader = next.Host + (next.IsDefaultPort ? "" : ":" + next.Port);
+                if (Regex.IsMatch(newReq, "(?im)^Host:[^\r\n]*"))
+                {
+                    newReq = Regex.Replace(newReq, "(?im)^Host:[^\r\n]*", "Host: " + hostHeader);
                 }
                 else
                 {
-                    int qs = hab.IndexOf(' ', StringComparison.Ordinal);
-                    int qe = hab.IndexOf(" HTTP", StringComparison.Ordinal);
-                    string oldPath = (qs > 0 && qe > qs) ? hab.Substring(qs + 1, qe - qs - 1) : "/";
-                    newPath = location.StartsWith('/') ? location : RequestRewriter.GetCurrentPath(oldPath) + location;
+                    int headEnd = newReq.IndexOf(HttpConst.CTRL, StringComparison.Ordinal);
+                    if (headEnd > 0) newReq = newReq.Insert(headEnd, "\r\nHost: " + hostHeader);
                 }
-                newPath = newPath.Replace(" ", "%20", StringComparison.Ordinal);
 
-                int urlStart = hab.IndexOf(' ', StringComparison.Ordinal) + 1;
-                int urlEnd = hab.IndexOf(" HTTP", StringComparison.Ordinal);
-                if (urlStart <= 0 || urlEnd <= urlStart) return false;
-                StringBuilder rsb = new StringBuilder(hab);
-                rsb.Remove(urlStart, urlEnd - urlStart);
-                rsb.Insert(urlStart, newPath);
-                string newReq = rsb.ToString();
-                if (newReq.StartsWith("POST", StringComparison.Ordinal))
+                bool toGet = statusCode == 303
+                    ? request.Method != HttpMethod.HEAD
+                    : statusCode is 301 or 302 && request.Method == HttpMethod.POST;
+                if (toGet)
                 {
-                    newReq = string.Concat("GET", newReq.AsSpan(4));
-                    newReq = Regex.Replace(newReq, "(?im)^Content-Length:.*\r\n", "");
-                    newReq = Regex.Replace(newReq, "(?im)^Content-Type:.*\r\n", "");
-                    int bsep = newReq.IndexOf(HttpConst.CTRL, StringComparison.Ordinal);
-                    if (bsep > 0)
-                    {
-                        newReq = newReq.Substring(0, bsep + HttpConst.CTRL.Length);
-                    }
+                    newReq = "GET" + newReq[methodEnd..];
+                    newReq = Regex.Replace(newReq, "(?im)^(Content-Length|Content-Type|Transfer-Encoding):[^\r\n]*(?:\r\n|$)", "");
+                    int bodySeparator = newReq.IndexOf(HttpConst.CTRL, StringComparison.Ordinal);
+                    if (bodySeparator >= 0) newReq = newReq[..(bodySeparator + HttpConst.CTRL.Length)];
+                    request.Method = HttpMethod.GET;
+                    request.Body = null;
                 }
+                if (crossOrigin)
+                {
+                    newReq = Regex.Replace(newReq, "(?im)^(Cookie|Authorization|Proxy-Authorization):[^\r\n]*(?:\r\n|$)", "");
+                    foreach (string key in request.Headers.Keys.Where(k => k.Equals("Cookie", StringComparison.OrdinalIgnoreCase)
+                        || k.Equals("Authorization", StringComparison.OrdinalIgnoreCase)
+                        || k.Equals("Proxy-Authorization", StringComparison.OrdinalIgnoreCase)).ToList())
+                    {
+                        request.Headers.Remove(key);
+                    }
+                    request.CookieParams.Clear();
+                }
+
+                request.Host = next.Host;
+                request.Port = next.Port;
+                request.IsSSL = next.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+                request.PathAndQuery = newPath;
+                int queryIndex = newPath.IndexOf('?', StringComparison.Ordinal);
+                request.Path = queryIndex >= 0 ? newPath[..queryIndex] : newPath;
+                request.Query = queryIndex >= 0 ? newPath[(queryIndex + 1)..] : "";
                 request.HeaderAndBody = newReq;
+                request.ResetPoolKey();
                 return true;
             }
             catch (Exception e)
@@ -611,6 +700,7 @@ namespace SuperSQLInjectionV2.Tools.Http
             long startTs = Stopwatch.GetTimestamp();
             int timeOutMs = config.TimeOut * 1000;
             PooledConnection? conn = null;
+            Proxy? cproxy = null;
             bool reusable = false;
             //本请求实际使用的代理（ip:port），空=直连；写入请求日志与控制台HTTP日志
             string proxyInfo = "";
@@ -628,7 +718,6 @@ namespace SuperSQLInjectionV2.Tools.Http
                     return response;
                 }
                 //代理选择
-                Proxy? cproxy = null;
                 if (config.ProxyConfig.ProxyEnable)
                 {
                     cproxy = GetProxy(config);
@@ -711,7 +800,7 @@ namespace SuperSQLInjectionV2.Tools.Http
                     byte[] headBytes;
                     try
                     {
-                        headBytes = await reader.ReadUntilAsync(HeaderTerminator, rct).ConfigureAwait(false);
+                        headBytes = await reader.ReadUntilAsync(HeaderTerminator, rct, Math.Max(1024, config.MaxResponseHeaderBytes)).ConfigureAwait(false);
                         if (dbgHttp)
                         {
                             long rh = (long)Stopwatch.GetElapsedTime(tsWrote).TotalMilliseconds;
@@ -733,6 +822,7 @@ namespace SuperSQLInjectionV2.Tools.Http
                         throw new IOException("对端关闭连接或未返回有效HTTP响应头");
                     }
                     response.HeaderTxt = Encoding.ASCII.GetString(headBytes);
+                    cproxy?.MarkSuccess();
                     if (response.StatusCode > 501 && response.StatusCode < 505)
                     {
                         throw new Exception("http访问异常-code:" + response.StatusCode + "！");
@@ -758,35 +848,47 @@ namespace SuperSQLInjectionV2.Tools.Http
                 //（长度类/状态码/时间判断只看响应头），body字节不消费（JudgeLength取Content-Length头比对）；
                 //连接残留body不可复用，直接丢弃。不做全局开关：检测阶段相似度比对必须读全文
                 bool nullConn = request.NullBodyHint && hasContentLength;
+                int bodyLimit = Math.Max(1, config.MaxResponseBodyBytes);
+                response.IsBodyComplete = false;
                 try
                 {
                     if (nullConn)
                     {
+                        //调用方明确只消费响应头，属于有意跳过而非半截响应。
+                        response.IsBodyComplete = true;
                         reusable = false;
                     }
                     else if (hasContentLength)
                     {
-                        long got = await reader.ReadExactAsync(bodyData, response.ContentLength, rct).ConfigureAwait(false);
-                        reusable = got >= response.ContentLength && !responseClose;
+                        long got = await reader.ReadExactAsync(bodyData, response.ContentLength, rct, bodyLimit).ConfigureAwait(false);
+                        response.IsBodyComplete = got == response.ContentLength;
+                        if (!response.IsBodyComplete) response.IntegrityError = $"Content-Length声明{response.ContentLength}字节，实际仅读取{got}字节";
+                        reusable = response.IsBodyComplete && !responseClose;
                     }
                     else if (response.Headers.ContainsKey(HttpConst.Transfer_Encoding))
                     {
-                        reusable = await ReadChunkedAsync(reader, bodyData, rct).ConfigureAwait(false) && !responseClose;
+                        response.IsBodyComplete = await ReadChunkedAsync(reader, bodyData, rct, bodyLimit).ConfigureAwait(false);
+                        if (!response.IsBodyComplete) response.IntegrityError = "chunked响应未读取到完整结束块";
+                        reusable = response.IsBodyComplete && !responseClose;
                     }
                     else if (zeroLength || response.StatusCode == 204 || response.StatusCode == 304)
                     {
-                        reusable = !responseClose; //无body
+                        response.IsBodyComplete = true;
+                        reusable = !responseClose;
                     }
                     else
                     {
-                        //connection close模式：读到EOF，连接不可复用
-                        await reader.ReadToEndAsync(bodyData, rct).ConfigureAwait(false);
+                        //connection close模式：正常EOF即完整；超时由catch明确标记。
+                        await reader.ReadToEndAsync(bodyData, rct, bodyLimit).ConfigureAwait(false);
+                        response.IsBodyComplete = true;
                         reusable = false;
                     }
                 }
                 catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                 {
-                    //读body超时：返回已读部分，连接不可复用
+                    response.IsBodyComplete = false;
+                    response.IsTimedOut = true;
+                    response.IntegrityError = "读取响应Body超时";
                     reusable = false;
                 }
                 response.BodyData = bodyData;
@@ -797,10 +899,12 @@ namespace SuperSQLInjectionV2.Tools.Http
             }
             catch (TargetUnreachableException)
             {
+                cproxy?.MarkFailure();
                 throw; //目标不可达：不包装成普通发包错误，保留类型供上层快速终止
             }
             catch (Exception e)
             {
+                cproxy?.MarkFailure();
                 throw new Exception("HTTP发包错误！错误消息：" + e.Message + "----发包编号：" + index);
             }
             finally
@@ -875,36 +979,31 @@ namespace SuperSQLInjectionV2.Tools.Http
         /// <summary>
         /// 读取chunked编码body（缓冲读取替代逐字节），完整读到块结束返回true（连接可复用）
         /// </summary>
-        private static async Task<bool> ReadChunkedAsync(HttpStreamReader reader, MemoryStream dst, CancellationToken ct)
+        internal static async Task<bool> ReadChunkedAsync(HttpStreamReader reader, MemoryStream dst, CancellationToken ct, long maxBytes)
         {
             while (true)
             {
-                string? sizeLine = await reader.ReadLineAsync(ct).ConfigureAwait(false);
+                string? sizeLine = await reader.ReadLineAsync(ct, 8192).ConfigureAwait(false);
                 if (sizeLine == null) return false;
-                if (sizeLine.Length == 0) continue; //容忍多余空行?
+                if (sizeLine.Length == 0) continue;
                 int semi = sizeLine.IndexOf(';', StringComparison.Ordinal);
-                if (semi >= 0)
-                {
-                    sizeLine = sizeLine.Substring(0, semi); //剥离chunk扩展
-                }
+                if (semi >= 0) sizeLine = sizeLine[..semi];
                 if (!int.TryParse(sizeLine, System.Globalization.NumberStyles.HexNumber, null, out int chunkSize))
                 {
                     return false;
                 }
                 if (chunkSize == 0)
                 {
-                    //读掉trailer直到空行
                     while (true)
                     {
-                        string? trailer = await reader.ReadLineAsync(ct).ConfigureAwait(false);
+                        string? trailer = await reader.ReadLineAsync(ct, 8192).ConfigureAwait(false);
                         if (string.IsNullOrEmpty(trailer)) break;
                     }
                     return true;
                 }
-                long got = await reader.ReadExactAsync(dst, chunkSize, ct).ConfigureAwait(false);
+                long got = await reader.ReadExactAsync(dst, chunkSize, ct, maxBytes).ConfigureAwait(false);
                 if (got < chunkSize) return false;
-                //读掉块尾\r\n
-                string? end = await reader.ReadLineAsync(ct).ConfigureAwait(false);
+                string? end = await reader.ReadLineAsync(ct, 16).ConfigureAwait(false);
                 if (end == null) return false;
             }
         }

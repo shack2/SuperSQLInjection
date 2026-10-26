@@ -217,7 +217,7 @@ namespace SuperSQLInjectionV2.Bypass
         /// </summary>
         private static async Task ApplyFreqAsync(AppConfig config, BypassPlan plan)
         {
-            int delay = Math.Max(0, plan.DelayMs);
+            int delay = Math.Max(Math.Max(0, plan.DelayMs), Volatile.Read(ref config.AdaptiveDelayMs));
             int minInterval = plan.SafeFreq > 0 ? 1000 / plan.SafeFreq : 0;
             if (delay <= 0 && minInterval <= 0)
             {

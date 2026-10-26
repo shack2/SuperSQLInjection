@@ -148,6 +148,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         /// <summary>Union/报错回显通道读取（内部按配置的注入类型分支；items为空时默认环境变量集合，Hash读取选项卡传HashItems）</summary>
         public static void GetVersByEcho(AppConfig config, IEnumerable<VersModel>? items = null)
         {
+            using var payloadScope = PayloadFactory.Activate(config);
             if (config.DataConfig.SelectedDBType.Equals(DBType.Access)) {
                 Log.Show("Access数据库不支持获取环境信息！");
                 return;
@@ -163,6 +164,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
         /// <summary>Bool盲注通道读取；maxLen按场景收窄（环境变量1024，Hash类值有明确上界传256省长度探测请求）</summary>
         public static async Task GetVersByBool(AppConfig config, IEnumerable<VersModel>? items = null, int maxLen = 1024)
         {
+            using var payloadScope = PayloadFactory.Activate(config);
             if (config.DataConfig.SelectedDBType.Equals(DBType.Access))
             {
                 Log.Show("Access数据库不支持获取环境信息！");

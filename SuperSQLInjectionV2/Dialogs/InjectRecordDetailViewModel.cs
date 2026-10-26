@@ -51,6 +51,9 @@ public partial class InjectRecordDetailViewModel : ObservableObject, IDialogCont
         Line("假值状态码", r.FalseCode == 0 ? "-" : r.FalseCode.ToString());
         Line("报错净容量", r.ErrorChunkLen > 0 ? r.ErrorChunkLen + " 字符（实测）" : "-");
         Line("回显标记", string.IsNullOrEmpty(r.StartMark) ? "-" : r.StartMark + " … " + r.EndMark + "（分隔 " + r.SplitMark + "）");
+        Line("检出证据", r.EvidenceSummary);
+        Line("最近复核时间", r.LastReviewTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "-");
+        Line("最近复核结果", r.LastReviewResult);
         sb.AppendLine();
         sb.AppendLine("── 注入标记报文 ──");
         sb.AppendLine(string.IsNullOrEmpty(r.RequestTxt) ? "-" : r.RequestTxt);

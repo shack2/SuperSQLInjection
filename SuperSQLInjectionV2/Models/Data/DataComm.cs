@@ -100,7 +100,7 @@ namespace SuperSQLInjectionV2.Models.Data
         }
 
         /// <summary>断点键加目标维度：同一payload SQL在不同目标间切换时，避免续取到别的目标的脏前缀</summary>
-        private static string ScopeKey(AppConfig config, string key) => config.Host + ":" + config.Port + "|" + key;
+        private static string ScopeKey(AppConfig config, string key) => TargetFingerprint.ForConfig(config) + "|" + key;
 
         /// <summary>取断点前缀（无断点返回空串）</summary>
         public static string GetBlindProgressPrefix(string dataPayload)
@@ -291,7 +291,7 @@ namespace SuperSQLInjectionV2.Models.Data
             {
                 return 0;
             }
-            string key = config.Host + ":" + config.Port + "|" + config.DataConfig.InjectParamName + "|" + db
+            string key = TargetFingerprint.ForConfig(config) + "|" + config.DataConfig.InjectParamName + "|" + db
                 + "|" + (config.DataConfig.SelectedErrorMethod ?? "");
             if (_errorChunkLenCache.TryGetValue(key, out int cached) && cached > 0)
             {
@@ -465,7 +465,7 @@ namespace SuperSQLInjectionV2.Models.Data
                 if (t > 0 && t < 30)
                 {
                     config.SleepInjectMaxTime = t + 1;
-                    RaiseTimeSleepFloor(t + 1);
+                    RaiseTimeSleepFloor(config, t + 1);
                     Log.Warning("时间盲注字符复核未通过（读到值与库中不符），延时自动+1秒（当前" + config.SleepInjectMaxTime + "s）重读该字符……");
                 }
             }
@@ -580,90 +580,64 @@ namespace SuperSQLInjectionV2.Models.Data
         }
 
         //---------------- 时间盲注延时自适应下调（滚动窗口RTT分离度评估） ----------------
-        //与ValidateCharByBool复核失败+1s构成双向自适应：滚动窗口内真/假探测RTT分离余量充足时
-        //延时-1s（下限1s，且不低于本会话复核失败抬升的floor），快稳目标（如局域网/低抖动）取数耗时近似减半；
-        //误判由逐字符复核/MD5整串校验兜底并自动+1s回升（回升值抬升floor，防下调→误判→回升震荡）。
-        private static readonly object _timeStatLock = new();
-        private static readonly List<(long rtt, bool delayed)> _timeWindow = new();
-        private static AppConfig? _timeWindowCfg;
-        private static double _timeSleepFloor = 0.5;
+        //统计状态按AppConfig隔离，多个目标交替运行时不会互相清空窗口或抬升对方floor。
+        private sealed class TimeProbeState
+        {
+            public readonly object Sync = new();
+            public readonly List<(long rtt, bool delayed)> Window = new();
+            public double SleepFloor = 0.5;
+        }
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<AppConfig, TimeProbeState> _timeStates = new();
 
-        /// <summary>
-        /// 记录时间通道探测RTT并按窗口评估延时下调。统计口径=物理延时（响应是否超过判定阈值），
-        /// 与Reverse反取无关（反取只翻转逻辑真假，不翻转SQL层sleep条件）
-        /// </summary>
+        /// <summary>记录时间通道探测RTT并按窗口评估延时下调；统计口径为物理延时，与Reverse无关。</summary>
         private static void RecordTimeProbe(AppConfig config, HttpResponse response)
         {
-            if (response == null || response.RunTime <= 0)
-            {
-                return;
-            }
+            if (response == null || response.RunTime <= 0) return;
+            TimeProbeState state = _timeStates.GetOrCreateValue(config);
             double cur = config.SleepInjectMaxTime;
-            if (cur <= _timeSleepFloor || cur <= 0.5)
+            if (cur <= state.SleepFloor || cur <= 0.5) return;
+            lock (state.Sync)
             {
-                return;
-            }
-            lock (_timeStatLock)
-            {
-                if (!ReferenceEquals(_timeWindowCfg, config))
-                {
-                    //换目标/换配置：清空窗口与floor重新评估
-                    _timeWindowCfg = config;
-                    _timeWindow.Clear();
-                    _timeSleepFloor = 0.5;
-                }
                 cur = config.SleepInjectMaxTime;
-                if (cur <= _timeSleepFloor || cur <= 0.5)
-                {
-                    return;
-                }
-                double threshold = cur * (1000 - MyTools.deviation); //与TruthOracle时间判定同公式
-                _timeWindow.Add((response.RunTime, response.RunTime > threshold));
-                if (_timeWindow.Count < 10)
-                {
-                    return;
-                }
-                var falses = _timeWindow.Where(x => !x.delayed).Select(x => x.rtt).ToList();
-                var trues = _timeWindow.Where(x => x.delayed).Select(x => x.rtt).ToList();
+                if (cur <= state.SleepFloor || cur <= 0.5) return;
+                double threshold = cur * (1000 - MyTools.deviation);
+                state.Window.Add((response.RunTime, response.RunTime > threshold));
+                if (state.Window.Count < 10) return;
+                var falses = state.Window.Where(x => !x.delayed).Select(x => x.rtt).ToList();
+                var trues = state.Window.Where(x => x.delayed).Select(x => x.rtt).ToList();
                 if (falses.Count < 3 || trues.Count < 3)
                 {
-                    //真假样本不足无法评估分离度：滑出最旧样本继续观察
-                    _timeWindow.RemoveAt(0);
+                    state.Window.RemoveAt(0);
                     return;
                 }
                 long fMax = falses.Max();
                 long tMin = trues.Min();
                 double next = Math.Max(0.5, cur - 1);
                 double thresholdNext = next * (1000 - MyTools.deviation);
-                double shrinkMs = (cur - next) * 1000; //缩减秒数对应真侧RTT同步回落量
-                //假侧防误真：假RTT须低于新阈值一半（新阈值本身已含2%容差，余量充足）；
-                //真侧防误假：真RTT回落后仍须高于新阈值（余量≥20ms且≥假侧RTT，
-                //与现行2%容差设计同比例安全；边界误判由逐字符复核/MD5校验兜底并自动+1s回升）
+                double shrinkMs = (cur - next) * 1000;
                 bool falseOk = fMax <= thresholdNext / 2;
                 bool trueOk = tMin - shrinkMs >= thresholdNext + Math.Max(20, fMax);
                 if (falseOk && trueOk)
                 {
                     config.SleepInjectMaxTime = next;
-                    _timeWindow.Clear();
+                    state.Window.Clear();
                     Log.SysLog("时间盲注响应分离余量充足（非延时≤" + fMax + "ms，延时≥" + tMin + "ms），延时自适应下调 " + Tools.Inject.PayloadPlaceholder.FormatSeconds(cur) + "s → " + Tools.Inject.PayloadPlaceholder.FormatSeconds(next) + "s（复核失败会自动回升）");
                 }
                 else
                 {
-                    _timeWindow.RemoveAt(0);
+                    state.Window.RemoveAt(0);
                 }
             }
         }
 
-        /// <summary>时间通道复核失败抬升延时下限（ValidateCharByBool +1s 时调用），防自适应下调震荡</summary>
-        private static void RaiseTimeSleepFloor(double sec)
+        /// <summary>时间通道复核失败抬升当前会话的延时下限，防止自适应震荡。</summary>
+        private static void RaiseTimeSleepFloor(AppConfig config, double sec)
         {
-            lock (_timeStatLock)
+            TimeProbeState state = _timeStates.GetOrCreateValue(config);
+            lock (state.Sync)
             {
-                if (sec > _timeSleepFloor)
-                {
-                    _timeSleepFloor = sec;
-                }
-                _timeWindow.Clear();
+                if (sec > state.SleepFloor) state.SleepFloor = sec;
+                state.Window.Clear();
             }
         }
 
@@ -718,7 +692,7 @@ namespace SuperSQLInjectionV2.Models.Data
         public static async Task<int> GetLengthAdaptive(AppConfig config, string lenPayload, int maxLen)
         {
             //键含目标地址：同表达式切换到新目标时长度可能不同，避免读到旧目标缓存
-            string lenKey = config.Host + ":" + config.Port + "|" + lenPayload;
+            string lenKey = TargetFingerprint.ForConfig(config) + "|" + lenPayload;
             if (_lenCache.TryGetValue(lenKey, out int cached))
             {
                 return cached;
@@ -1366,14 +1340,14 @@ namespace SuperSQLInjectionV2.Models.Data
         /// </summary>
         private static async Task<string?> TryUpgradeChannel(AppConfig config, string dataPayload, int maxLen)
         {
-            string key = config.Host + ":" + config.Port + "|" + config.DataConfig.InjectParamName;
+            string key = TargetFingerprint.ForConfig(config) + "|" + config.DataConfig.InjectParamName;
             if (_upgradeCache.TryGetValue(key, out InjectRecord? rec) && ReferenceEquals(rec, _noFastChannel))
             {
                 return null;   //本注入点已探过且无快通道
             }
             if (rec == null)
             {
-                rec = InjectChannelRegistry.FindFasterChannel(config.Host, config.Port,
+                rec = InjectChannelRegistry.FindFasterChannel(config,
                     config.DataConfig.InjectParamName, config.DataConfig.SelectedInjectType);
                 if (rec == null)
                 {
@@ -1391,66 +1365,47 @@ namespace SuperSQLInjectionV2.Models.Data
                 Log.Success("通道自动升级：检测到同参数存在可用的 " + rec.InjectType + " 通道（"
                     + config.DataConfig.SelectedInjectType + "→" + rec.InjectType + "），本次取数走快通道！");
             }
-            //用快通道记录完成本次读取（临时切换配置，读完恢复盲注上下文）
-            var dc = config.DataConfig;
-            var oldType = dc.SelectedInjectType; var oldBool = dc.SelectBoolInject;
-            var oldReq = config.RequestTxt; var oldCols = dc.SumColumnCount; var oldShow = dc.ShowColumnIndex;
+            //使用独立上下文完成快通道读取，不与同配置上的其他并行任务共享临时状态。
+            AppConfig fastConfig = CreateFastChannelConfig(config, rec);
             try
             {
-                dc.SelectedInjectType = rec.InjectType;
-                if (!string.IsNullOrEmpty(rec.RequestTxt))
-                {
-                    config.RequestTxt = rec.RequestTxt;
-                }
-                dc.SumColumnCount = rec.SumColumnCount;
-                dc.ShowColumnIndex = rec.ShowColumnIndex;
                 string data = rec.InjectType == InjectType.Union
-                    ? await DataDumpWithNoFrom(config, dataPayload).ConfigureAwait(false)
-                    : await DataDumpWithError(config, dataPayload).ConfigureAwait(false);
+                    ? await DataDumpWithNoFrom(fastConfig, dataPayload).ConfigureAwait(false)
+                    : await DataDumpWithError(fastConfig, dataPayload).ConfigureAwait(false);
                 return data ?? "";
             }
             catch
             {
-                //快通道读取异常：作废升级缓存，回退盲注
                 _upgradeCache.TryRemove(key, out _);
                 return null;
             }
-            finally
-            {
-                dc.SelectedInjectType = oldType; dc.SelectBoolInject = oldBool;
-                config.RequestTxt = oldReq; dc.SumColumnCount = oldCols; dc.ShowColumnIndex = oldShow;
-            }
         }
 
-        /// <summary>探测Union/Error通道可用性：发带随机marker的取值，解析结果含marker即通道可用</summary>
+        private static AppConfig CreateFastChannelConfig(AppConfig config, InjectRecord rec)
+        {
+            AppConfig fastConfig = config.CreateChannelClone();
+            fastConfig.DataConfig.SelectedInjectType = rec.InjectType;
+            if (!string.IsNullOrEmpty(rec.RequestTxt)) fastConfig.RequestTxt = rec.RequestTxt;
+            fastConfig.DataConfig.SumColumnCount = rec.SumColumnCount;
+            fastConfig.DataConfig.ShowColumnIndex = rec.ShowColumnIndex;
+            return fastConfig;
+        }
+
+        /// <summary>探测Union/Error通道可用性：发带随机marker的取值，解析结果含marker即通道可用。</summary>
         private static async Task<bool> ProbeFastChannel(AppConfig config, InjectRecord rec)
         {
-            var dc = config.DataConfig;
-            var oldType = dc.SelectedInjectType;
-            var oldReq = config.RequestTxt; var oldCols = dc.SumColumnCount; var oldShow = dc.ShowColumnIndex;
             try
             {
-                dc.SelectedInjectType = rec.InjectType;
-                if (!string.IsNullOrEmpty(rec.RequestTxt))
-                {
-                    config.RequestTxt = rec.RequestTxt;
-                }
-                dc.SumColumnCount = rec.SumColumnCount;
-                dc.ShowColumnIndex = rec.ShowColumnIndex;
+                AppConfig fastConfig = CreateFastChannelConfig(config, rec);
                 string marker = "qz" + MyTools.RandStr(6).ToLower();
                 string data = rec.InjectType == InjectType.Union
-                    ? await DataDumpWithNoFrom(config, "'" + marker + "'").ConfigureAwait(false)
-                    : await DataDumpWithError(config, "'" + marker + "'").ConfigureAwait(false);
+                    ? await DataDumpWithNoFrom(fastConfig, "'" + marker + "'").ConfigureAwait(false)
+                    : await DataDumpWithError(fastConfig, "'" + marker + "'").ConfigureAwait(false);
                 return data != null && data.Contains(marker, StringComparison.Ordinal);
             }
             catch
             {
                 return false;
-            }
-            finally
-            {
-                dc.SelectedInjectType = oldType;
-                config.RequestTxt = oldReq; dc.SumColumnCount = oldCols; dc.ShowColumnIndex = oldShow;
             }
         }
 
@@ -1503,7 +1458,7 @@ namespace SuperSQLInjectionV2.Models.Data
 
         private static string ValueCacheKey(AppConfig config, string dataPayload)
         {
-            string raw = config.Host + ":" + config.Port + "|" + config.DataConfig.SelectedDBType + "|" + dataPayload;
+            string raw = TargetFingerprint.ForConfig(config) + "|" + config.DataConfig.SelectedDBType + "|" + dataPayload;
             return Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(Encoding.UTF8.GetBytes(raw)));
         }
 
@@ -1605,7 +1560,7 @@ namespace SuperSQLInjectionV2.Models.Data
         /// <summary>目标是否支持MD5整串校验（能力探测缓存到 目标+库；不支持/探测失败=false）</summary>
         private static async Task<bool> HashVerifyCapable(AppConfig config)
         {
-            string key = config.Host + ":" + config.Port + "|" + config.DataConfig.SelectedDBType;
+            string key = TargetFingerprint.ForConfig(config) + "|" + config.DataConfig.SelectedDBType;
             if (_hashCapable.TryGetValue(key, out bool cap))
             {
                 return cap;
@@ -1628,7 +1583,7 @@ namespace SuperSQLInjectionV2.Models.Data
         /// <summary>时间通道逐字符复核是否可省略：MD5整串校验可用时，逐字符复核降级为整串1次校验（每值省N-1次探测）</summary>
         public static bool HashVerifyAvailableCached(AppConfig config)
         {
-            string key = config.Host + ":" + config.Port + "|" + config.DataConfig.SelectedDBType;
+            string key = TargetFingerprint.ForConfig(config) + "|" + config.DataConfig.SelectedDBType;
             return _hashCapable.TryGetValue(key, out bool cap) && cap;
         }
 
@@ -1654,7 +1609,7 @@ namespace SuperSQLInjectionV2.Models.Data
             }
             Log.Warning("MD5整串校验未通过（读到值与库中不符），清除缓存重读该值……");
             //作废该值的长度/断点/预测缓存后重读一次
-            string lenKey = config.Host + ":" + config.Port + "|" + PayloadFactory.BPTool.DataLen(casted);
+            string lenKey = TargetFingerprint.ForConfig(config) + "|" + PayloadFactory.BPTool.DataLen(casted);
             _lenCache.TryRemove(lenKey, out _);
             _blindProgress.TryRemove(ScopeKey(config, dataPayload ?? ""), out _);
             string? reread = await GetStringByBoolInner(config, dataPayload ?? "", maxLen).ConfigureAwait(false);
@@ -1799,7 +1754,7 @@ namespace SuperSQLInjectionV2.Models.Data
             {
                 return null;
             }
-            string missKey = config.Host + ":" + config.Port + "|" + dataPayload + "|" + len;
+            string missKey = TargetFingerprint.ForConfig(config) + "|" + dataPayload + "|" + len;
             if (_predictMiss.ContainsKey(missKey))
             {
                 return null;
@@ -2873,6 +2828,7 @@ namespace SuperSQLInjectionV2.Models.Data
         /// </summary>
         public static async Task<string> RunUserSql(AppConfig config, string userSql)
         {
+            using var payloadScope = PayloadFactory.Activate(config);
             if (string.IsNullOrWhiteSpace(userSql))
             {
                 return "";

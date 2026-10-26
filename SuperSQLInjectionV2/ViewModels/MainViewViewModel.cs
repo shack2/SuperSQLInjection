@@ -168,15 +168,8 @@ public partial class MainViewViewModel : ViewModelBase
         }
     }
 
-    /// <summary>CSV单元格：引号包裹+内部引号双写（报文含逗号/换行/引号，必须转义）</summary>
-    private static string CsvCell(string? v)
-    {
-        if (string.IsNullOrEmpty(v))
-        {
-            return "";
-        }
-        return "\"" + v.Replace("\"", "\"\"") + "\"";
-    }
+    /// <summary>CSV统一转义，默认防止外部报文触发Excel公式。</summary>
+    private string CsvCell(string? v) => CsvExport.Cell(v, !AppConfig.RawCsvExport);
 
     /// <summary>Excel单元格上限32767字符，超长报文截断防导入失败</summary>
     private static string TruncCell(string? v)
@@ -1174,7 +1167,7 @@ public partial class MainViewViewModel : ViewModelBase
         string path = GetTemplateFileFullPath(SelectedTemplateDb);
         try
         {
-            File.WriteAllText(path, content);
+            AtomicFile.WriteAllText(path, content);
             //尽力同步源码目录副本，避免下次构建被旧模板覆盖
             TrySyncSourceTemplate(content);
         }
@@ -1226,14 +1219,14 @@ public partial class MainViewViewModel : ViewModelBase
                 string candidate = Path.Combine(dir.FullName, "SuperSQLInjectionV2", "config", "payload", fileName);
                 if (File.Exists(candidate))
                 {
-                    File.WriteAllText(candidate, content);
+                    AtomicFile.WriteAllText(candidate, content);
                     return;
                 }
                 //也兼容当前目录本身就是主项目目录的情况
                 string candidate2 = Path.Combine(dir.FullName, "config", "payload", fileName);
                 if (File.Exists(candidate2) && File.Exists(Path.Combine(dir.FullName, "SuperSQLInjectionV2.csproj")))
                 {
-                    File.WriteAllText(candidate2, content);
+                    AtomicFile.WriteAllText(candidate2, content);
                     return;
                 }
                 dir = dir.Parent;
@@ -2388,7 +2381,7 @@ public partial class MainViewViewModel : ViewModelBase
         {
             r.DBType = refined;
             r.ForkName = forkName;
-            InjectChannelRegistry.Register(AppConfig.Host, AppConfig.Port, r);
+            InjectChannelRegistry.Register(r, AppConfig.IsSSL);
             changed = true;
         }
         if (changed)
@@ -2678,7 +2671,10 @@ public partial class MainViewViewModel : ViewModelBase
     {
         InjectRecord record = BuildInjectRecord(inp, AppConfig.Host, AppConfig.Port);
         //每注入点生成随机回显标记（防固定短串与页面内容冲突），随记录持久化并立即生效
-        Payload.EchoMarkers.Use(record, Payload.PayloadFactory.BasePayload);
+        using (Payload.PayloadFactory.Activate(AppConfig))
+        {
+            Payload.EchoMarkers.Use(record, Payload.PayloadFactory.BasePayload);
+        }
         UpsertInjectRecord(record, AppConfig.Host, AppConfig.Port, true);
     }
 
@@ -2728,7 +2724,11 @@ public partial class MainViewViewModel : ViewModelBase
             Prefix = inp.Prefix ?? "",
             Suffix = inp.Suffix ?? "",
             UriIndex = inp.UriIndex,
-            Clause = inp.Clause ?? ""
+            Clause = inp.Clause ?? "",
+            TrueRequestTxt = inp.TrueRequestTxt ?? "",
+            FalseRequestTxt = inp.FalseRequestTxt ?? "",
+            EvidenceExpected = inp.EvidenceExpected ?? "",
+            EvidenceSummary = inp.EvidenceSummary ?? ""
         };
         //每注入点生成随机回显标记（防固定短串与页面内容冲突），随记录持久化；
         //报错vector复用的命中已在烘焙前预生成标记（vector分隔符按该标记组合烘焙），此处优先复用保持一致
@@ -2762,7 +2762,7 @@ public partial class MainViewViewModel : ViewModelBase
         }
         SaveInjectRecords();
         //登记通道注册表：取数自动通道升级用（盲注/时间取数前探测同参数Union/Error）
-        InjectChannelRegistry.Register(host, port, record);
+        InjectChannelRegistry.Register(record, AppConfig.IsSSL);
         Log.Success("已记录注入点到注入记录列表：" + record.PName + "（" + record.InjectTypeDesc + "，" + record.DBType + "）");
 
         if (!updateContext)
@@ -2848,7 +2848,10 @@ public partial class MainViewViewModel : ViewModelBase
         //URL/请求方式由SyncUrlFromRecord显式回写，无需联动回路参与
         //回显标记随记录恢复（记录无标记的旧数据回退模板默认值）——必须先于RebakeRecordRequest：
         //报错vector重烘焙的分隔符对齐当前EchoMarkers组合（Start+Split/Split+End），顺序颠倒会用上一个记录的标记烘焙
-        Payload.EchoMarkers.Use(record, Payload.PayloadFactory.BasePayload);
+        using (Payload.PayloadFactory.Activate(AppConfig))
+        {
+            Payload.EchoMarkers.Use(record, Payload.PayloadFactory.BasePayload);
+        }
         _requestSyncGuard = true;
         try
         {
@@ -3082,6 +3085,46 @@ public partial class MainViewViewModel : ViewModelBase
             new InjectRecordDetailViewModel(record), options: options);
     }
 
+    /// <summary>一键复核：重放检出时保存的真/假证据，结果随记录持久化。</summary>
+    [RelayCommand]
+    private async Task ReviewInjectRecord(InjectRecord? record)
+    {
+        record ??= SelectedInjectRecord;
+        if (record == null)
+        {
+            Log.Warning("请先选择要复核的注入记录！");
+            return;
+        }
+        if (AppConfig.IsRuning)
+        {
+            Log.Warning("当前已有任务运行，请停止或等待完成后再复核！");
+            return;
+        }
+        AppConfig.ResetStop();
+        AppConfig.IsRuning = true;
+        Log.Show("开始复核注入记录：" + record.Target + " · " + record.PName + " · " + record.InjectTypeDesc);
+        try
+        {
+            var result = await InjectRecordVerifier.VerifyAsync(AppConfig, record);
+            record.LastReviewTime = DateTime.Now;
+            record.LastReviewResult = (result.Passed ? "通过：" : "未通过：") + result.Detail;
+            SaveInjectRecords();
+            if (result.Passed) Log.Success("注入记录复核通过：" + result.Detail);
+            else Log.Warning("注入记录复核未通过：" + result.Detail);
+        }
+        catch (Exception ex)
+        {
+            record.LastReviewTime = DateTime.Now;
+            record.LastReviewResult = "异常：" + ex.Message;
+            SaveInjectRecords();
+            Log.Error("注入记录复核异常：" + ex.Message);
+        }
+        finally
+        {
+            AppConfig.IsRuning = false;
+        }
+    }
+
     /// <summary>操作列"删除"：弹窗确认后删除该条注入记录</summary>
     [RelayCommand]
     private async Task DeleteInjectRecord(InjectRecord record)
@@ -3173,8 +3216,7 @@ public partial class MainViewViewModel : ViewModelBase
                     {
                         InjectRecords.Add(record);
                         //登记通道注册表：供取数自动通道升级查询同参数Union/Error记录
-                        InjectChannelRegistry.Register(record.Target?.Split(':')[0],
-                            int.TryParse(record.Target?.Split(':').Skip(1).FirstOrDefault(), out int p) ? p : 0, record);
+                        InjectChannelRegistry.Register(record);
                     }
                 }
             }
@@ -3195,7 +3237,7 @@ public partial class MainViewViewModel : ViewModelBase
             {
                 Directory.CreateDirectory(dir);
             }
-            File.WriteAllText(InjectRecordPath, JsonSerializer.Serialize(InjectRecords.ToList(), Source.JsonCtx.CompactInfo<List<InjectRecord>>()));
+            AtomicFile.WriteAllText(InjectRecordPath, JsonSerializer.Serialize(InjectRecords.ToList(), Source.JsonCtx.CompactInfo<List<InjectRecord>>()));
             RefreshInjectRecordFilters();
         }
         catch (Exception e)
@@ -3872,7 +3914,7 @@ public partial class MainViewViewModel : ViewModelBase
 
             string result = JsonSerializer.Serialize(AppConfig, Source.JsonCtx.CompactInfo<AppConfig>());
 
-            File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory+"/config/lastconfig.json", result);
+            AtomicFile.WriteAllText(AppDomain.CurrentDomain.BaseDirectory+"/config/lastconfig.json", result);
             //五类规则独立落 config/rules/（RuleStore），便于人工编辑与 CLI 共用
             Bypass.RuleStore.SaveAll(AppConfig);
 

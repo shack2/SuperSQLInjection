@@ -12,12 +12,40 @@ permissions:
   contents: write
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: 运行发布前单元测试
+        run: dotnet test SuperSQLInjectionV2.Tests/SuperSQLInjectionV2.Tests.csproj -c Release
+      - name: 校验Tag与程序版本一致
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VER="${TAG_NAME#v}"
+          APP_VER=$(python3 -c "import re;print(re.search(r'AppVersion\s*=\s*\"([^\"]+)\"',open('SuperSQLInjectionV2/Models/ConstData.cs').read()).group(1))")
+          test "$VER" = "$APP_VER" || { echo "::error::Tag $VER 与 ConstData.AppVersion $APP_VER 不一致"; exit 1; }
+          python3 - "$VER" <<'PY'
+          import pathlib,re,sys
+          ver=sys.argv[1]
+          for name in ['SuperSQLInjectionV2/SuperSQLInjectionV2.csproj','SuperSQLInjectionV2.Desktop/SuperSQLInjectionV2.Desktop.csproj','SuperSQLInjectionV2.Cmd/SuperSQLInjectionV2.Cmd.csproj']:
+              text=pathlib.Path(name).read_text()
+              actual=re.search(r'<Version>([^<]+)</Version>',text).group(1)
+              assert actual == ver, f'{name}: {actual} != {ver}'
+          PY
+
   # 桌面端三平台（复用 desktop-aot.yml）
   desktop:
+    needs: validate
     uses: ./.github/workflows/desktop-aot.yml
 
   # 命令行三平台（复用 cli-aot.yml）
   cli:
+    needs: validate
     uses: ./.github/workflows/cli-aot.yml
 
   # 汇总产物并创建 Release
@@ -53,8 +81,8 @@ jobs:
         run: |
           set -e
           if [ -z "$UPDATE_SERVER" ] || [ -z "$UPDATE_KEY" ]; then
-            echo "::warning::未配置 UPDATE_SERVER_URL / UPDATE_API_KEY Secrets，跳过更新通道同步"
-            exit 0
+            echo "::error::必须配置 UPDATE_SERVER_URL / UPDATE_API_KEY Secrets，禁止发布流程静默跳过更新通道"
+            exit 1
           fi
           VER="${TAG_NAME#v}"
           ZIP=$(ls dist/*desktop-win-x64.zip)
@@ -68,4 +96,6 @@ jobs:
           echo "$RESP"
           ID=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['id'])")
           curl -sf -X POST "$UPDATE_SERVER/api/admin/releases/$ID/publish" -H "X-Api-Key: $UPDATE_KEY"
-          echo "更新通道已发布 $VER"
+          curl -sf "$UPDATE_SERVER/api/admin/releases?appId=supersqlinjection" -H "X-Api-Key: $UPDATE_KEY" \
+            | ID="$ID" VER="$VER" python3 -c 'import json,sys,os; data=json.load(sys.stdin); rows=data if isinstance(data,list) else data.get("items",data.get("data",[])); rid=int(os.environ["ID"]); ver=os.environ["VER"]; assert any(str(r.get("id"))==str(rid) and r.get("version")==ver and (r.get("published") or r.get("isPublished") or r.get("publishedAtUtc") or r.get("status")=="published") for r in rows), "更新通道复核失败：未找到已发布版本或发布状态不正确"'
+          echo "更新通道已发布并复核通过：$VER"

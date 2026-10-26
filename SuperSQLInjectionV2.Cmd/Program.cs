@@ -13,6 +13,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 
 namespace SuperSQLInjectionV2.Cmd;
 
@@ -86,6 +87,19 @@ public static class Program
         {
             Console.WriteLine(CliOptions.HelpText);
             return args.Length == 0 && !opt.ShowHelp ? 2 : 0;
+        }
+        if (!string.IsNullOrWhiteSpace(opt.SupportMatrix))
+        {
+            string file = Path.GetFullPath(opt.SupportMatrix);
+            List<SupportMatrixEntry> matrix = SupportMatrixGenerator.Generate();
+            AtomicFile.WriteAllText(file, JsonSerializer.Serialize(matrix, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+            Console.WriteLine($"支持矩阵已导出：{file}（{matrix.Count} 个数据库/Fork组合）");
+            return 0;
+        }
+        if (opt.OsShell != null)
+        {
+            Console.Error.WriteLine("参数错误: 当前CMD版本不支持交互式 --os-shell；请使用 --os-cmd 执行单条命令。");
+            return 2;
         }
         if (string.IsNullOrWhiteSpace(opt.Url) && string.IsNullOrWhiteSpace(opt.RequestFile) && string.IsNullOrWhiteSpace(opt.BatchFile))
         {
@@ -162,6 +176,7 @@ public static class Program
             return 0;
         }
         AppConfig config = tr.Config;
+        using var payloadScope = PayloadFactory.Activate(config);
         List<InjectPoint> allHits = tr.Hits;
 
         // ---------- 选择注入点并应用 ----------
@@ -169,7 +184,7 @@ public static class Program
         Log.Highlight($"采用注入点: {best.PName}（{TypeName(best)}，{best.DBType}{ForkSuffix(best)}）");
         foreach (var h in allHits)
         {
-            InjectChannelRegistry.Register(config.Host, config.Port, new InjectRecord
+            InjectChannelRegistry.Register(new InjectRecord
             {
                 Target = config.Host + ":" + config.Port,
                 PName = h.PName ?? "",
@@ -185,7 +200,7 @@ public static class Program
                 SumColumnCount = h.SumColumnCount,
                 ShowColumnIndex = h.ShowColumnIndex,
                 RequestTxt = h.RequestTxt ?? ""
-            });
+            }, config.IsSSL);
         }
         ApplyHit(config, best);
         //fork化归一：检测命中的变体库型（金仓/openGauss/达梦）归一到族宿主+Fork名，取数=族模板+fork overlay
@@ -235,7 +250,7 @@ public static class Program
                 PayloadFactory.Init(dbType);
                 Log.Show($"Fork库识别: {dbType}({result.ForkName})");
                 //fork识别后重新登记通道注册表，取数自动通道升级带上Fork名
-                InjectChannelRegistry.Register(config.Host, config.Port, new InjectRecord
+                InjectChannelRegistry.Register(new InjectRecord
                 {
                     Target = config.Host + ":" + config.Port,
                     PName = best.PName ?? "",
@@ -252,7 +267,7 @@ public static class Program
                     SumColumnCount = best.SumColumnCount,
                     ShowColumnIndex = best.ShowColumnIndex,
                     RequestTxt = best.RequestTxt ?? ""
-                });
+                }, config.IsSSL);
             }
         }
 
@@ -389,7 +404,64 @@ public static class Program
             }
         }
         Log.Show($"合计 {urls.Count} 个目标，{hitTargets} 个检出注入，总耗时 {swAll.Elapsed.TotalSeconds:F1}s；各目标会话已分别落盘 output/<host>_<port>/");
+        if (!WriteBatchOutput(opt, urls, results!)) return 2;
         return hitTargets > 0 ? 0 : 1;
+    }
+
+    /// <summary>批量结果按扩展名输出JSON或CSV；包含失败目标，便于CI和后续自动化消费。</summary>
+    private static bool WriteBatchOutput(CliOptions opt, List<string> urls, TargetResult[] results)
+    {
+        if (string.IsNullOrWhiteSpace(opt.BatchOutput)) return true;
+        try
+        {
+            string file = Path.GetFullPath(opt.BatchOutput);
+            string? dir = Path.GetDirectoryName(file);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            string ext = Path.GetExtension(file);
+            var rows = results.Select((r, i) => new
+            {
+                url = urls[i],
+                status = r.Error != null ? "error" : r.Hits.Count > 0 ? "vulnerable" : "clean",
+                elapsedMs = (long)r.Elapsed.TotalMilliseconds,
+                resumed = r.Resumed,
+                error = r.Error ?? "",
+                hits = r.Hits.Select(h => new
+                {
+                    parameter = h.PName,
+                    technique = h.InjectType.ToString(),
+                    dbms = h.DBType.ToString(),
+                    fork = h.ForkName,
+                    payload = h.TestPayload
+                }).ToArray()
+            }).ToArray();
+            if (ext.Equals(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                AtomicFile.WriteAllText(file, JsonSerializer.Serialize(rows, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+            }
+            else if (ext.Equals(".csv", StringComparison.OrdinalIgnoreCase))
+            {
+                var sb = new StringBuilder("url,status,elapsedMs,resumed,error,hitCount,details\r\n");
+                foreach (var row in rows)
+                {
+                    string details = string.Join(" | ", row.hits.Select(h => $"{h.parameter}:{h.technique}:{h.dbms}:{h.fork}"));
+                    sb.AppendJoin(',', CsvExport.Cell(row.url, !opt.RawCsv), CsvExport.Cell(row.status), row.elapsedMs,
+                        row.resumed, CsvExport.Cell(row.error, !opt.RawCsv), row.hits.Length, CsvExport.Cell(details, !opt.RawCsv)).AppendLine();
+                }
+                AtomicFile.WriteAllText(file, sb.ToString(), new UTF8Encoding(true));
+            }
+            else
+            {
+                Log.Error("--batch-output 仅支持 .json 或 .csv 扩展名");
+                return false;
+            }
+            Log.Success("批量结果已保存：" + file);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("批量结果保存失败：" + ex.Message);
+            return false;
+        }
     }
 
     /// <summary>单目标检测结果（批量汇总/单目标流程共用）</summary>
@@ -497,8 +569,22 @@ public static class Program
             TimeOut = opt.Timeout,
             RetryCount = opt.Retries,
             ThreadSize = Math.Clamp(opt.Threads, 1, 20),
-            FollowRedirect = opt.FollowRedirects
+            FollowRedirect = opt.FollowRedirects,
+            CookieJarEnabled = opt.CookieJar,
+            AuthType = opt.AuthType ?? "",
+            AuthDomain = opt.AuthDomain ?? ""
         };
+        if (!string.IsNullOrWhiteSpace(config.AuthType)
+            && !new[] { "Basic", "Digest", "NTLM" }.Contains(config.AuthType, StringComparer.OrdinalIgnoreCase))
+        {
+            return new TargetResult { Error = "--auth-type 仅支持 Basic、Digest、NTLM", Elapsed = swDetect.Elapsed };
+        }
+        if (!string.IsNullOrEmpty(opt.AuthCred))
+        {
+            int separator = opt.AuthCred.IndexOf(':', StringComparison.Ordinal);
+            config.AuthUser = separator >= 0 ? opt.AuthCred[..separator] : opt.AuthCred;
+            config.AuthPass = separator >= 0 ? opt.AuthCred[(separator + 1)..] : "";
+        }
         config.ByPassConfig.DelayMs = opt.DelayMs;
         config.ByPassConfig.RandomUa = opt.RandomAgent;
         //规则库自动加载（config/rules/：自定义tamper/动态值脚本/动态规则/字符替换/代理池，与GUI共用同一套文件）
@@ -1050,6 +1136,7 @@ public static class Program
 
     private static void ApplyHit(AppConfig config, InjectPoint best)
     {
+        using var payloadScope = PayloadFactory.Activate(config);
         config.DataConfig.SelectedInjectType = best.InjectType;
         config.DataConfig.InjectParamName = best.PName ?? "";
         //数据库类型同步回填：否则检测命中（非--dbms指定）时EnsureDataOpReady仍报"未识别数据库类型"，取数/文件/命令动作全部不可用
@@ -1327,9 +1414,9 @@ public static class Program
             string dir = OutputRoot(opt, config);
             string file = Path.Combine(dir, $"dump_{db}_{table}_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
             var sb = new StringBuilder();
-            sb.AppendLine(string.Join(",", cols.Select(CsvEscape)));
-            foreach (var r in rows) sb.AppendLine(string.Join(",", cols.Select(c => CsvEscape(r[c]))));
-            File.WriteAllText(file, sb.ToString(), Encoding.UTF8);
+            sb.AppendLine(string.Join(",", cols.Select(c => CsvExport.Cell(c, !opt.RawCsv))));
+            foreach (var r in rows) sb.AppendLine(string.Join(",", cols.Select(c => CsvExport.Cell(r[c], !opt.RawCsv))));
+            AtomicFile.WriteAllText(file, sb.ToString(), new UTF8Encoding(true));
             Log.Success($"dump 已保存: {file}");
         }
         catch (Exception e)

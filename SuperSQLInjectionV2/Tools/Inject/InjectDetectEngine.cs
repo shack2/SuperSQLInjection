@@ -745,8 +745,9 @@ namespace SuperSQLInjectionV2.Tools.Inject
             string truePayload = Rep(ctx, ph, test.RequestPayload) + comment;
             string falsePayload = Rep(ctx, ph, test.ResponseComparison) + comment;
             string reqTxt = BuildRequest(ctx, MarkedValue(ctx, BaseValue(ctx, where, truePayload), prefix, suffix));
+            string falseReqTxt = BuildRequest(ctx, MarkedValue(ctx, BaseValue(ctx, where, falsePayload), prefix, suffix));
 
-            HttpResponse falseResp = await Send(ctx, reqTxt, falsePayload).ConfigureAwait(false);
+            HttpResponse falseResp = await Send(ctx, falseReqTxt, falsePayload).ConfigureAwait(false);
             string falseTxt = Clear(ctx, falseResp.BodyTxt, ReflectionValue(prefix, falsePayload, suffix));
             double rFalse = RatioVsTemplate(ctx, falseTxt);
             HttpResponse trueResp = await Send(ctx, reqTxt, truePayload).ConfigureAwait(false);
@@ -909,6 +910,9 @@ namespace SuperSQLInjectionV2.Tools.Inject
             //防脏数据校验基线：记录真/假页状态码，取数探测出现意外码时作废重发+触发逐字符NOT复核
             inp.TrueCode = trueResp.StatusCode;
             inp.FalseCode = falseResp.StatusCode;
+            inp.TrueRequestTxt = reqTxt;
+            inp.FalseRequestTxt = falseReqTxt;
+            inp.EvidenceSummary = $"布尔双组交叉验证：false={rFalse:F4}, true={rTrue:F4}, true2={rTrue2:F4}, false2={rFalse2:F4}";
             //全量反证（sqlmap checkFalsePositives同款）：randInt等式系列——等式必须真、不等式必须假、
             //非法语句（N M）必须假；按level迭代多轮，任一轮失真即判定误报
             if (!await PassFalsePositiveCheck(ctx, inp).ConfigureAwait(false))
@@ -1329,6 +1333,9 @@ namespace SuperSQLInjectionV2.Tools.Inject
             //确认入库后再计数（被忽略/反证否决的命中不计）
             InjectPayloadManager.RecordHit(test);
             inp.TestPayload = payload;
+            inp.TrueRequestTxt = reqTxt;
+            inp.EvidenceExpected = match.Value.Length <= 1000 ? match.Value : match.Value[..1000];
+            inp.EvidenceSummary = "报错精确回显：" + (resultGroup.Success ? resultGroup.Value : match.Value);
             inp.Where = where;
             inp.VectorTemplate = HasVectorSlot(test.Vector) ? test.Vector : "";
             inp.OrigValue = ctx.PValue ?? "";
@@ -1537,6 +1544,9 @@ namespace SuperSQLInjectionV2.Tools.Inject
             inp.TestPayload = " UNION ALL SELECT "
                 + string.Join(",", Enumerable.Repeat(unionFillExpr, foundCount))
                 + showFrom + comment;
+            inp.TrueRequestTxt = BuildRequest(ctx, MarkedValue(ctx, BaseValue(ctx, where, inp.TestPayload), prefix, suffix));
+            inp.EvidenceExpected = charExpr?.Trim('\'') ?? "";
+            inp.EvidenceSummary = $"Union列数={foundCount}，显示位={showCol}，填充={unionFillExpr}";
             inp.Where = where;
             inp.VectorTemplate = HasVectorSlot(test.Vector) ? test.Vector : "";
             inp.OrigValue = ctx.PValue ?? "";
@@ -1826,6 +1836,10 @@ namespace SuperSQLInjectionV2.Tools.Inject
             inp.CheckValue = PayloadPlaceholder.FormatSeconds(time);
             inp.DBType = ResolveDb(test, ctx);
             inp.TestPayload = payload;
+            inp.TrueRequestTxt = reqTxt;
+            inp.FalseRequestTxt = ctx.BaseReq.HeaderAndBody;
+            inp.EvidenceExpected = PayloadPlaceholder.FormatSeconds(time);
+            inp.EvidenceSummary = $"时间复核：延时响应={resp.RunTime}ms，阈值={PayloadPlaceholder.FormatSeconds(time)}秒" + (resp0 == null ? "" : $"，零延时对照={resp0.RunTime}ms");
             inp.Where = where;
             //堆叠记录不启用vector模式：写操作/命令执行的堆叠直发与取数回退时间盲注均依赖and胶水标记
             inp.VectorTemplate = !stacked && HasVectorSlot(test.Vector) ? test.Vector : "";
@@ -1947,6 +1961,9 @@ namespace SuperSQLInjectionV2.Tools.Inject
             inp.CheckValue = "";
             inp.DBType = ResolveDb(hit.test, ctx);
             inp.TestPayload = hit.payload;
+            inp.TrueRequestTxt = BuildRequest(ctx, MarkedValue(ctx, BaseValue(ctx, hit.where, hit.payload), hit.prefix, hit.suffix));
+            inp.EvidenceExpected = hit.token;
+            inp.EvidenceSummary = "DNSLog已回收唯一token：" + hit.token;
             inp.Where = hit.where;
             inp.VectorTemplate = HasVectorSlot(hit.test.Vector) ? hit.test.Vector : "";
             inp.OrigValue = ctx.PValue ?? "";

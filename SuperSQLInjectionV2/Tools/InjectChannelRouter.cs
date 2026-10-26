@@ -26,6 +26,7 @@ namespace SuperSQLInjectionV2.Tools
         /// <param name="byError">报错回显通道（null=与Union共用同一入口）</param>
         public static async Task DispatchAsync(AppConfig config, string scene, Func<Task> byBool, Func<Task> byUnion, Func<Task>? byError = null)
         {
+            using var payloadScope = Payload.PayloadFactory.Activate(config);
             switch (config.DataConfig.SelectedInjectType)
             {
                 case InjectType.Time:

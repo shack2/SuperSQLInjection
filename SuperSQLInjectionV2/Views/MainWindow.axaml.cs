@@ -18,7 +18,17 @@ public partial class MainWindow : UrsaWindow
 
     protected override async Task<bool> CanClose()
     {
-        var result = await OverlayMessageBox.ShowAsync("Are you sure you want to exit?\n您确定要退出吗？", "Exit", button: MessageBoxButton.YesNo);
+        string prompt = "Are you sure you want to exit?\n您确定要退出吗？";
+        if (DataContext is ViewModels.MainViewViewModel vm)
+        {
+            string pending = vm.AppConfig.UdfSession.PendingSummary();
+            if (!string.IsNullOrEmpty(pending))
+            {
+                prompt += "\n\n警告：本次会话安装过UDF，退出不会自动清理，目标可能仍残留函数和库文件：\n" + pending
+                    + "\n如不再需要，请先取消退出并执行UDF痕迹清理。";
+            }
+        }
+        var result = await OverlayMessageBox.ShowAsync(prompt, "Exit", button: MessageBoxButton.YesNo);
         if (result == MessageBoxResult.Yes)
         {
             //dump断点节流写盘的兜底落盘（退出不丢最后1s内的进度）

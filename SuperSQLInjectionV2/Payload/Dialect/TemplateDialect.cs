@@ -188,12 +188,36 @@ namespace SuperSQLInjectionV2.Payload
         public string DataValue(DumpDataParam dp)
         {
             string data = string.Join(",", dp.Columns);
-            return TemplateRenderer.Render(BasePayloadTool.WithoutDbQualifier(bp.DataValue, dp.DBName),
-                ("cols", data), ("db", dp.DBName), ("table", dp.TableName),
-                ("rowIndex", dp.DataIndex + opt.DataIndexOffset), ("where", BasePayloadTool.WhereSql(dp.Where, false)));
+            string template = bp.DataValue;
+            string where = BasePayloadTool.WhereSql(dp.Where, false);
+            if (StablePaging && !string.IsNullOrWhiteSpace(dp.StableKey))
+            {
+                if (dp.LastKeyValue != null && bp.PayLoadSQL.TryGetValue("DataValueKeyset", out string? keyset))
+                {
+                    template = keyset;
+                    where = StableWhere(dp);
+                }
+                else if (bp.PayLoadSQL.TryGetValue("DataValueOrdered", out string? ordered))
+                {
+                    template = ordered;
+                }
+            }
+            return TemplateRenderer.Render(BasePayloadTool.WithoutDbQualifier(template, dp.DBName),
+                ("cols", data), ("db", dp.DBName), ("table", dp.TableName), ("stableKey", dp.StableKey),
+                ("rowIndex", dp.DataIndex + opt.DataIndexOffset), ("where", where));
+        }
+
+        private static string StableWhere(DumpDataParam dp)
+        {
+            string condition = dp.StableKey + ">'" + (dp.LastKeyValue ?? "").Replace("'", "''", StringComparison.Ordinal) + "'";
+            string custom = (dp.Where ?? "").Trim();
+            if (custom.StartsWith("where ", StringComparison.OrdinalIgnoreCase)) custom = custom[6..].Trim();
+            if (custom.StartsWith("and ", StringComparison.OrdinalIgnoreCase)) custom = custom[4..].Trim();
+            return " where " + (custom.Length > 0 ? "(" + custom + ") and " : "") + condition;
         }
 
         public bool MinValueChainPaging => opt.MinValueChain;
+        public bool StablePaging => bp.PayLoadSQL.ContainsKey("DataValueOrdered") && bp.PayLoadSQL.ContainsKey("DataValueKeyset");
 
         /// <summary>
         /// MIN 值链取数（Access）：(select min(col) from t [where 用户条件] [and cvar(col)>'last'])。
@@ -234,9 +258,23 @@ namespace SuperSQLInjectionV2.Payload
             //填充优先级：人工/记录值（dp.UnionFill）> 模板UnionFillStr（对齐sqlmap uChar语义）
             string fill = string.IsNullOrWhiteSpace(dp.UnionFill) ? bp.UnionFillStr : dp.UnionFill;
             string newData = BasePayloadTool.InsertUnionDataToShowIndex(data, dp.SumCount, dp.ShowIndex, fill);
-            return TemplateRenderer.Render(BasePayloadTool.WithoutDbQualifier(bp.UnionData, dp.DBName),
-                ("cols", newData), ("db", dp.DBName), ("table", dp.TableName),
-                ("rowIndex", dp.DataIndex + opt.DataIndexOffset), ("where", BasePayloadTool.WhereSql(dp.Where, false)));
+            string template = bp.UnionData;
+            string where = BasePayloadTool.WhereSql(dp.Where, false);
+            if (StablePaging && !string.IsNullOrWhiteSpace(dp.StableKey))
+            {
+                if (dp.LastKeyValue != null && bp.PayLoadSQL.TryGetValue("UnionDataKeyset", out string? keyset))
+                {
+                    template = keyset;
+                    where = StableWhere(dp);
+                }
+                else if (bp.PayLoadSQL.TryGetValue("UnionDataOrdered", out string? ordered))
+                {
+                    template = ordered;
+                }
+            }
+            return TemplateRenderer.Render(BasePayloadTool.WithoutDbQualifier(template, dp.DBName),
+                ("cols", newData), ("db", dp.DBName), ("table", dp.TableName), ("stableKey", dp.StableKey),
+                ("rowIndex", dp.DataIndex + opt.DataIndexOffset), ("where", where));
         }
 
         public string UnionAll(string paylaod, int sumCount, int showIndex, string unionFill = "")

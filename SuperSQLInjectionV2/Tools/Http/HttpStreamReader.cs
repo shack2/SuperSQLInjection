@@ -42,7 +42,7 @@ namespace SuperSQLInjectionV2.Tools.Http
         /// <summary>
         /// 读取直到delimiter（含delimiter在内返回）。对端关闭仍未找到时返回已累计内容。
         /// </summary>
-        public async Task<byte[]> ReadUntilAsync(byte[] delimiter, CancellationToken ct)
+        public async Task<byte[]> ReadUntilAsync(byte[] delimiter, CancellationToken ct, long maxBytes = long.MaxValue)
         {
             using MemoryStream ms = new MemoryStream();
             int keep = delimiter.Length - 1;
@@ -54,6 +54,7 @@ namespace SuperSQLInjectionV2.Tools.Http
                     if (idx >= 0)
                     {
                         int take = idx + delimiter.Length - _pos;
+                        EnsureCapacity(ms.Length, take, maxBytes, "响应头");
                         ms.Write(_buf, _pos, take);
                         _pos += take;
                         return ms.ToArray();
@@ -62,6 +63,7 @@ namespace SuperSQLInjectionV2.Tools.Http
                     int writable = _len - _pos - keep;
                     if (writable > 0)
                     {
+                        EnsureCapacity(ms.Length, writable, maxBytes, "响应头");
                         ms.Write(_buf, _pos, writable);
                         _pos += writable;
                     }
@@ -72,7 +74,7 @@ namespace SuperSQLInjectionV2.Tools.Http
         }
 
         /// <summary>读一行（以\n结尾），返回不含\r\n的ASCII字符串；EOF且无数据返回null</summary>
-        public async Task<string?> ReadLineAsync(CancellationToken ct)
+        public async Task<string?> ReadLineAsync(CancellationToken ct, long maxBytes = long.MaxValue)
         {
             using MemoryStream ms = new MemoryStream();
             while (true)
@@ -82,11 +84,15 @@ namespace SuperSQLInjectionV2.Tools.Http
                     int idx = Array.IndexOf(_buf, (byte)'\n', _pos, _len - _pos);
                     if (idx >= 0)
                     {
-                        ms.Write(_buf, _pos, idx - _pos + 1);
+                        int take = idx - _pos + 1;
+                        EnsureCapacity(ms.Length, take, maxBytes, "响应行");
+                        ms.Write(_buf, _pos, take);
                         _pos = idx + 1;
                         return Encoding.ASCII.GetString(ms.ToArray()).TrimEnd('\r', '\n');
                     }
-                    ms.Write(_buf, _pos, _len - _pos);
+                    int available = _len - _pos;
+                    EnsureCapacity(ms.Length, available, maxBytes, "响应行");
+                    ms.Write(_buf, _pos, available);
                     _pos = _len;
                 }
                 int n = await FillMoreAsync(ct).ConfigureAwait(false);
@@ -98,8 +104,9 @@ namespace SuperSQLInjectionV2.Tools.Http
         }
 
         /// <summary>精确读取count字节到dst，返回实际读取数（EOF提前返回不足count）</summary>
-        public async Task<long> ReadExactAsync(MemoryStream dst, long count, CancellationToken ct)
+        public async Task<long> ReadExactAsync(MemoryStream dst, long count, CancellationToken ct, long maxBytes = long.MaxValue)
         {
+            EnsureCapacity(dst.Length, count, maxBytes, "响应体");
             long read = 0;
             while (read < count)
             {
@@ -117,17 +124,27 @@ namespace SuperSQLInjectionV2.Tools.Http
         }
 
         /// <summary>读到对端关闭（connection: close语义），EOF结束</summary>
-        public async Task ReadToEndAsync(MemoryStream dst, CancellationToken ct)
+        public async Task ReadToEndAsync(MemoryStream dst, CancellationToken ct, long maxBytes = long.MaxValue)
         {
             while (true)
             {
                 if (_len - _pos > 0)
                 {
-                    dst.Write(_buf, _pos, _len - _pos);
+                    int available = _len - _pos;
+                    EnsureCapacity(dst.Length, available, maxBytes, "响应体");
+                    dst.Write(_buf, _pos, available);
                     _pos = _len;
                 }
                 int n = await FillMoreAsync(ct).ConfigureAwait(false);
                 if (n <= 0) break;
+            }
+        }
+
+        private static void EnsureCapacity(long current, long incoming, long maxBytes, string section)
+        {
+            if (maxBytes < 0 || current > maxBytes - incoming)
+            {
+                throw new HttpResponseLimitException($"{section}超过上限 {maxBytes} 字节");
             }
         }
 

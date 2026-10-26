@@ -55,15 +55,40 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             return (start, key);
         }
 
+        /// <summary>验证稳定分页配置；无效时只警告一次并回退原有OFFSET/Access值链。</summary>
+        private string? GetStablePagingKey(AppConfig config)
+        {
+            string key = (config.DataDump.StablePagingKey ?? "").Trim();
+            if (key.Length == 0)
+            {
+                return null;
+            }
+            string? selected = Columns.FirstOrDefault(c => string.Equals(c, key, StringComparison.Ordinal));
+            if (selected == null)
+            {
+                Log.Warning($"稳定分页键 {key} 不在本次选择的列中，已回退普通分页；请选择唯一列作为分页键。");
+                return null;
+            }
+            if (!PayloadFactory.BPTool.StablePaging)
+            {
+                Log.Warning($"当前数据库方言不支持稳定Keyset分页，已忽略分页键 {selected}。");
+                return null;
+            }
+            return selected;
+        }
+
         public async Task GetDataByBool(AppConfig config)
         {
-            //MIN 值链分页（Access）：Jet 标量子查询 TOP+ORDER BY 并列语义导致行索引分页不可用，走 sqlmap 风格值链
+            using var payloadScope = PayloadFactory.Activate(config);
+            //Access的值链分页有独立语义，稳定键配置不能覆盖它。
             if (PayloadFactory.BPTool.MinValueChainPaging)
             {
                 await GetDataByBoolValueChain(config).ConfigureAwait(false);
                 return;
             }
 
+            string? stableKey = GetStablePagingKey(config);
+            string? lastKeyValue = null;
             string countPaylaod = PayloadFactory.BPTool.GetDataCount(DBName, TableName, config.DataDump.DumpWhere);
             int count= await DataComm.GetValueLen(config, countPaylaod, 0, 65556).ConfigureAwait(false);
 
@@ -101,6 +126,8 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                     DumpDataParam dp = new DumpDataParam(list, DBName, TableName,i);
                     dp.Where = config.DataDump.DumpWhere;
                     dp.NoCast = config.DataDump.DumpNoCast;
+                    dp.StableKey = stableKey ?? "";
+                    dp.LastKeyValue = lastKeyValue;
 
                     string payload = PayloadFactory.BPTool.DataValue(dp);
 
@@ -110,10 +137,19 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                     //设置临时数据，后续动态更新
                     row.Add(colName, "");
 
-                    //多字节安全的盲注取值（hex/unicode/ascw），内部通过stp并行取字符
-                    string val = (await DataComm.GetStringByBool(config, payload, 4096).ConfigureAwait(false)) ?? "";
-
-                    UiNotifier.Post(()=> row.Update(colName, val));
+                    //多字节安全的盲注取值；null表示读取失败，不能再与数据库空字符串混为一谈。
+                    string? val = await DataComm.GetStringByBool(config, payload, 4096).ConfigureAwait(false);
+                    DataValueState state = val == null ? DataValueState.Failed
+                        : val.Length == 0 ? DataValueState.Empty : DataValueState.Normal;
+                    UiNotifier.Post(() => row.Update(colName, val, state));
+                    if (stableKey != null && string.Equals(item, stableKey, StringComparison.Ordinal))
+                    {
+                        lastKeyValue = val;
+                    }
+                }
+                if (stableKey != null && lastKeyValue == null)
+                {
+                    Log.Warning($"第 {i + 1} 行未取到稳定分页键 {stableKey}，下一行回退有序OFFSET分页。");
                 }
                 //行完成，推进断点
                 DumpProgress.Save(boolKey, i + 1);
@@ -197,6 +233,9 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
 
         public async Task GetDataUnion(AppConfig config)
         {
+            using var payloadScope = PayloadFactory.Activate(config);
+            string? stableKey = GetStablePagingKey(config);
+            int stableKeyIndex = stableKey == null ? -1 : Columns.IndexOf(stableKey);
             string countPaylaod = PayloadFactory.BPTool.GetDataCount(DBName, TableName, config.DataDump.DumpWhere);
 
             //中文识别（--hex）：逐字段hex包装，防中文等多字节数据经Union回显乱码
@@ -204,6 +243,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
 			DumpDataParam dp = new DumpDataParam(cols, DBName, TableName, (int)config.DataConfig.SumColumnCount,(int)config.DataConfig.ShowColumnIndex);
             dp.Where = config.DataDump.DumpWhere;
             dp.NoCast = config.DataDump.DumpNoCast;
+            dp.StableKey = stableKey ?? "";
             //Union非显示列填充：人工/记录值优先，空=方言层回退模板UnionFillStr
             dp.UnionFill = config.DataConfig.EffectiveUnionFill;
 
@@ -230,13 +270,13 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             var (unionStart, unionKey) = await ResolveDumpStart(config, "Union", start, dumpCount, cols).ConfigureAwait(false);
             start = unionStart;
 
-            //行数据块→表格行（多列按DataSplitStr拆分，hex模式逐字段解码还原）
-            void EmitRow(string datas)
+            //行数据块→表格行；返回分页键原值供下一行构造Keyset条件。
+            string? EmitRow(string datas)
             {
-                string[] values = datas.Split(EchoMarkers.Split, StringSplitOptions.RemoveEmptyEntries);
-                if (values == null || values.Length == 0)
+                string[] values = datas.Split(EchoMarkers.Split, StringSplitOptions.None);
+                if (values.Length == 0)
                 {
-                    return;
+                    return null;
                 }
                 var row = new DynamicDataItem();
                 for (int c = 0; c < Columns.Count; c++)
@@ -252,15 +292,17 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 }
                 AddRowDataMsg msg = new AddRowDataMsg { Data = row };
                 WeakReferenceMessenger.Default.Send(msg);
+                return stableKeyIndex >= 0 && stableKeyIndex < values.Length
+                    ? DataComm.HexUnwrapIfNeeded(config, values[stableKeyIndex]) : null;
             }
 
-            //Union批量取数（Q3）：聚合函数多行拼单行一次回显，k行1次请求；模板缺失/取空/截断自动回退逐行
+            //稳定键需要逐行携带上一行键值，不能与聚合批量模板混用。
             int batch = config.DataConfig.UnionBatchRows;
             if (batch < 1)
             {
                 batch = 1;
             }
-            bool batchSupport = batch > 1 && !string.IsNullOrWhiteSpace(PayloadFactory.BasePayload.UnionDataRows);
+            bool batchSupport = stableKey == null && batch > 1 && !string.IsNullOrWhiteSpace(PayloadFactory.BasePayload.UnionDataRows);
 
             int i = start;
             while (i < end)
@@ -297,7 +339,15 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 dp.DataIndex = i;
                 string dataPaylaod = PayloadFactory.BPTool.UnionData(dp);
 				string datas = await DataComm.DataDump(config, dataPaylaod).ConfigureAwait(false);
-                EmitRow(datas);
+                string? rowKey = EmitRow(datas);
+                if (stableKey != null)
+                {
+                    dp.LastKeyValue = rowKey;
+                    if (rowKey == null)
+                    {
+                        Log.Warning($"第 {i + 1} 行未取到稳定分页键 {stableKey}，下一行回退有序OFFSET分页。");
+                    }
+                }
                 i++;
                 DumpProgress.Save(unionKey, i);
 			}
@@ -306,6 +356,9 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
 
         public async Task GetDataError(AppConfig config)
         {
+            using var payloadScope = PayloadFactory.Activate(config);
+            string? stableKey = GetStablePagingKey(config);
+            int stableKeyIndex = stableKey == null ? -1 : Columns.IndexOf(stableKey);
             string countPaylaod = PayloadFactory.BPTool.GetDataCount(DBName, TableName, config.DataDump.DumpWhere);
 
             //中文识别（--hex）：逐字段hex包装，防中文等多字节数据经报错回显乱码
@@ -313,6 +366,7 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
             DumpDataParam dp = new DumpDataParam(cols, DBName, TableName, (int)config.DataConfig.SumColumnCount, (int)config.DataConfig.ShowColumnIndex);
             dp.Where = config.DataDump.DumpWhere;
             dp.NoCast = config.DataDump.DumpNoCast;
+            dp.StableKey = stableKey ?? "";
 
             string data = await DataComm.DataDumpWithError(config, countPaylaod).ConfigureAwait(false);
 
@@ -374,9 +428,9 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                 {
                     datas = datas.Substring(0, datas.Length - EchoMarkers.End.Length);
                 }
-                string[] values = datas.Split(EchoMarkers.Split, StringSplitOptions.RemoveEmptyEntries);
+                string[] values = datas.Split(EchoMarkers.Split, StringSplitOptions.None);
 
-                if (values != null && values.Length > 0)
+                if (values.Length > 0)
                 {
                     var row = new DynamicDataItem();
                     for (int c = 0; c < Columns.Count; c++)
@@ -392,6 +446,15 @@ namespace SuperSQLInjectionV2.ViewModels.Tools
                     }
                     AddRowDataMsg msg = new AddRowDataMsg { Data = row };
                     WeakReferenceMessenger.Default.Send(msg);
+                }
+                if (stableKey != null)
+                {
+                    dp.LastKeyValue = stableKeyIndex >= 0 && stableKeyIndex < values.Length
+                        ? DataComm.HexUnwrapIfNeeded(config, values[stableKeyIndex]) : null;
+                    if (dp.LastKeyValue == null)
+                    {
+                        Log.Warning($"第 {i + 1} 行未取到稳定分页键 {stableKey}，下一行回退有序OFFSET分页。");
+                    }
                 }
                 //行完成，推进断点
                 DumpProgress.Save(errorKey, i + 1);

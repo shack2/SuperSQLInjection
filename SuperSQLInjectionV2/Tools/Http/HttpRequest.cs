@@ -28,6 +28,9 @@ namespace SuperSQLInjectionV2.Tools.Http
         /// <summary>连接池键后缀（host:port:ssl），首次访问时计算并缓存，盲注高频发包免每请求字符串插值</summary>
         internal string PoolKeySuffix => _poolKeySuffix ??= Host + ":" + Port + ":" + IsSSL;
 
+        /// <summary>重定向改变目标后使连接池键缓存失效，避免复用到旧主机。</summary>
+        internal void ResetPoolKey() => _poolKeySuffix = null;
+
         /// <summary>
         /// 请求方法 (如 GET, POST)
         /// </summary>

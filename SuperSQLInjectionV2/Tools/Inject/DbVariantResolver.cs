@@ -68,6 +68,7 @@ namespace SuperSQLInjectionV2.Tools.Inject
         /// </summary>
         public static async Task<VariantResult> ResolveAsync(AppConfig config, InjectPoint hit)
         {
+            using var payloadScope = PayloadFactory.Activate(config);
             DBType family = hit.DBType;
             var probes = DbProfile.ForkProbes.Where(p => p.Family == family).ToList();
             bool hasForks = DbProfile.Get(family).Forks.Length > 0;

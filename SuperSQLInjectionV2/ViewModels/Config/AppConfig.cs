@@ -13,6 +13,8 @@ namespace SuperSQLInjectionV2.Models
 {
     public partial class AppConfig: ViewModelBase
     {
+        /// <summary>持久化配置结构版本，后续迁移按版本显式处理。</summary>
+        public int SchemaVersion { get; set; } = 1;
 
         [ObservableProperty]
         public partial bool IsRuning { get; set; } = false;
@@ -73,6 +75,26 @@ namespace SuperSQLInjectionV2.Models
 
         [ObservableProperty]
         public partial bool FollowRedirect { get; set; } = false;
+
+        /// <summary>单个响应头最大字节数，防止异常目标无限返回响应头。</summary>
+        [ObservableProperty]
+        public partial int MaxResponseHeaderBytes { get; set; } = 64 * 1024;
+
+        /// <summary>单个响应压缩/原始Body最大字节数，默认16 MiB。</summary>
+        [ObservableProperty]
+        public partial int MaxResponseBodyBytes { get; set; } = 16 * 1024 * 1024;
+
+        /// <summary>单个响应解压后最大字节数，默认64 MiB，限制压缩炸弹。</summary>
+        [ObservableProperty]
+        public partial int MaxDecompressedBodyBytes { get; set; } = 64 * 1024 * 1024;
+
+        /// <summary>按目标维护服务端Set-Cookie会话；默认关闭以保持原始报文行为。</summary>
+        [ObservableProperty]
+        public partial bool CookieJarEnabled { get; set; } = false;
+
+        /// <summary>CSV原始导出：默认关闭并防止Excel公式注入；仅在明确需要原始文本时开启。</summary>
+        [ObservableProperty]
+        public partial bool RawCsvExport { get; set; } = false;
 
         /// <summary>HTTP连接池每主机最大连接数（1-10，默认5；Keep-Alive复用省TCP+TLS握手，多线程盲注场景每线程一条连接）</summary>
         [ObservableProperty]
@@ -165,14 +187,31 @@ namespace SuperSQLInjectionV2.Models
 
         public ByPassConfig ByPassConfig { get; set; } = new ByPassConfig();
 
-        public DataConfig DataConfig { get; set; } = new DataConfig();
+        private DataConfig _dataConfig = new DataConfig();
+        public DataConfig DataConfig
+        {
+            get => _dataConfig;
+            set
+            {
+                _dataConfig = value;
+                _dataConfig.Owner = this;
+                Payload.Init(_dataConfig.SelectedDBType, _dataConfig.SelectedForkName);
+            }
+        }
 
+        /// <summary>当前目标独立的模板、方言与回显标记，禁止跨目标共享。</summary>
+        [JsonIgnore]
+        public Payload.PayloadSession Payload { get; } = new Payload.PayloadSession();
 
         [JsonIgnore]
         public DataDumpViewModel DataDump { get; set; }
 
         [JsonIgnore]
         public FileCmdViewModel FileCmd { get; set; }
+
+        /// <summary>当前配置会话的UDF安装状态；每个目标配置独立，且不写入持久化配置。</summary>
+        [JsonIgnore]
+        public UdfSessionState UdfSession { get; } = new UdfSessionState();
 
 
         [ObservableProperty] public partial int ThreadSize { get; set; } = 4;
@@ -191,6 +230,18 @@ namespace SuperSQLInjectionV2.Models
         public TextDocument TxtRequest { get; set; } = new TextDocument();
 
         public string RequestTxt { get; set; } = "";
+
+        /// <summary>
+        /// 为快速通道探测创建轻量独立上下文。保留取消令牌和网络配置引用，深拷贝DataConfig，
+        /// 避免Union/Error升级时临时改写共享RequestTxt或通道配置。
+        /// </summary>
+        internal AppConfig CreateChannelClone()
+        {
+            AppConfig clone = (AppConfig)MemberwiseClone();
+            string json = System.Text.Json.JsonSerializer.Serialize(DataConfig, Source.JsonCtx.CompactInfo<DataConfig>());
+            clone.DataConfig = System.Text.Json.JsonSerializer.Deserialize(json, Source.JsonCtx.CompactInfo<DataConfig>())!;
+            return clone;
+        }
 
         /// <summary>注入检测页请求报文文档（与取数页TxtRequest相互独立：检测页永不写入利用标记，取数页随注入记录恢复载入标记报文）</summary>
         [JsonIgnore]
@@ -246,6 +297,17 @@ namespace SuperSQLInjectionV2.Models
         /// <summary>限速信号量（BypassPipeline Stage4）：预约时间槽串行化，等待在锁外Task.Delay</summary>
         [JsonIgnore]
         internal SemaphoreSlim ThrottleSem { get; } = new SemaphoreSlim(1, 1);
+
+        /// <summary>429/503自适应增加的请求间隔（毫秒），与人工固定延时取较大值。</summary>
+        [JsonIgnore]
+        internal int AdaptiveDelayMs;
+
+        /// <summary>当前配置的Cookie会话容器；只读运行时状态，不持久化认证会话。</summary>
+        [JsonIgnore]
+        internal System.Net.CookieContainer CookieJar { get; } = new System.Net.CookieContainer();
+
+        [JsonIgnore]
+        internal object CookieJarSync { get; } = new object();
 
         //---- 伴随请求规则集合（随机值抓取与二次注入统一为前置/后置伴随请求规则，TableView管理）----
 
@@ -371,6 +433,8 @@ namespace SuperSQLInjectionV2.Models
 
         public AppConfig (){
 
+            DataConfig.Owner = this;
+            Payload.Init(DataConfig.SelectedDBType, DataConfig.SelectedForkName);
             DataDump = new DataDumpViewModel { AppConfig = this };
             FileCmd = new FileCmdViewModel(this);
             TxtRequest.TextChanged += TxtRequest_TextChanged;

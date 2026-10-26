@@ -738,7 +738,7 @@
                                         <TableViewColumn Header="列数" Binding="{Binding SumColumnCountText}" HorizontalContentAlignment="Center" Width="60" x:DataType="models:InjectRecord"  />
                                         <TableViewColumn Header="显示位" Binding="{Binding ShowColumnIndexText}" HorizontalContentAlignment="Center" Width="80" x:DataType="models:InjectRecord"/>
                                         <TableViewColumn Header="测试Payload" Binding="{Binding TestPayload}" Width="2*" x:DataType="models:InjectRecord" />
-                                        <TableViewColumn Width="110" Header="操作" HorizontalContentAlignment="Center">
+                                        <TableViewColumn Width="145" Header="操作" HorizontalContentAlignment="Center">
                                             <TableViewColumn.CellTemplate>
                                                 <DataTemplate x:DataType="models:InjectRecord">
                                                     <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -746,6 +746,11 @@
                                                                 Tag="{Binding}" Click="ViewInjectRecordRow"
                                                                 ToolTip.Tip="查看该注入记录详情">
                                                             <PathIcon Foreground="#4C8DFF" Classes="luc" Data="{StaticResource LgEye}" />
+                                                        </Button>
+                                                        <Button Classes="opico view"
+                                                                Command="{Binding $parent[TableView].DataContext.ReviewInjectRecordCommand}" CommandParameter="{Binding}"
+                                                                ToolTip.Tip="重放检出证据，一键复核该注入记录">
+                                                            <PathIcon Foreground="#19ABCE" Classes="luc" Data="{StaticResource LgCircleCheck}" />
                                                         </Button>
                                                         <Button Classes="opico view"
                                                                 Tag="{Binding}" Click="EnterDataOpRow"
@@ -983,7 +988,7 @@
                                                                 </GroupBox>
                                                                 <!--  判断值操作（卡片底部统一入口，服务于Bool盲注等判断通道；设置项与操作按钮分隔线分组）  -->
                                                                 <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                                                                    <CheckBox Content="跟随302" IsChecked="{Binding AppConfig.FollowRedirect}" VerticalAlignment="Center" MinHeight="28" />
+                                                                    <CheckBox Content="跟随跳转" IsChecked="{Binding AppConfig.FollowRedirect}" VerticalAlignment="Center" MinHeight="28" />
                                                                     <Border Width="1" Height="16" VerticalAlignment="Center" Background="{DynamicResource DsgBorder}" />
                                                                     <Button Classes="minibtn" Height="28" Command="{Binding AutoFindKeyCommand}">
                                                                         <StackPanel Orientation="Horizontal" Spacing="5">
@@ -1716,8 +1721,11 @@
                                                             <TextBlock Text="{Binding DumpRowsText}" />
                                                         </Border>
                                                         <TextBlock Classes="kvkey" Text="Where过滤：" VerticalAlignment="Center" />
-                                                        <TextBox Width="500" Height="26" VerticalAlignment="Center" VerticalContentAlignment="Center" Text="{Binding AppConfig.DataDump.DumpWhere}"
+                                                        <TextBox Width="300" Height="26" VerticalAlignment="Center" VerticalContentAlignment="Center" Text="{Binding AppConfig.DataDump.DumpWhere}"
                                                                  PlaceholderText="行过滤，如 id>100" ToolTip.Tip="自定义WHERE行过滤（无需写where关键字），同步作用于总数统计与行数据取数SQL" />
+                                                        <TextBlock Classes="kvkey" Text="稳定分页键：" VerticalAlignment="Center" />
+                                                        <TextBox Width="130" Height="26" VerticalAlignment="Center" VerticalContentAlignment="Center" Text="{Binding AppConfig.DataDump.StablePagingKey}"
+                                                                 PlaceholderText="可选，如 id" ToolTip.Tip="必须是本次已选择的唯一列。首行使用有序OFFSET，后续使用Keyset分页；留空保持原分页方式。" />
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Center">
                                                         <Button Classes="minibtn" Height="22" Click="CopyDumpRowsC">复制行</Button>
@@ -1840,7 +1848,11 @@
                                                             <ComboBoxItem>3</ComboBoxItem>
                                                         </ComboBox>
                                                     </StackPanel>
-                                                    <CheckBox Content="跟踪302" IsChecked="{Binding AppConfig.FollowRedirect}" VerticalAlignment="Center" />
+                                                    <CheckBox Content="跟随跳转" IsChecked="{Binding AppConfig.FollowRedirect}" VerticalAlignment="Center" />
+                                                    <CheckBox Content="Cookie会话" IsChecked="{Binding AppConfig.CookieJarEnabled}" VerticalAlignment="Center"
+                                                              ToolTip.Tip="按目标保存并回带服务端Set-Cookie；显式Cookie头中的同名项优先" />
+                                                    <CheckBox Content="CSV原始导出" IsChecked="{Binding AppConfig.RawCsvExport}" VerticalAlignment="Center"
+                                                              ToolTip.Tip="默认关闭：以=、+、-、@开头的外部数据会加前导单引号，防止Excel公式注入；仅在明确需要原始文本时开启" />
                                                     <CheckBox Content="随机源IP" IsChecked="{Binding AppConfig.ByPassConfig.RandomIpEnabled}" VerticalAlignment="Center"
                                                               ToolTip.Tip="每请求生成随机IPv4写入X-Forwarded-For / X-Real-IP / Client-IP头，绕过基于源IP的访问控制与频率限制" />
                                                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">

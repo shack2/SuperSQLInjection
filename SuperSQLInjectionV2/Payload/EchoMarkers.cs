@@ -11,23 +11,20 @@ namespace SuperSQLInjectionV2.Payload
     /// </summary>
     public static class EchoMarkers
     {
-        /// <summary>数据起始标记</summary>
-        public static string Start { get; private set; } = "data_";
-        /// <summary>数据结束标记</summary>
-        public static string End { get; private set; } = "_data";
-        /// <summary>多列分隔标记</summary>
-        public static string Split { get; private set; } = "_s_p_";
+        /// <summary>数据起始标记（当前Payload会话）</summary>
+        public static string Start => PayloadFactory.Current.Markers.Start;
+        /// <summary>数据结束标记（当前Payload会话）</summary>
+        public static string End => PayloadFactory.Current.Markers.End;
+        /// <summary>多列分隔标记（当前Payload会话）</summary>
+        public static string Split => PayloadFactory.Current.Markers.Split;
 
         /// <summary>按模板默认值初始化（数据库类型切换/无记录的人工标记场景）</summary>
         public static void Init(BasePayload bp)
         {
-            if (bp == null)
+            if (bp != null)
             {
-                return;
+                PayloadFactory.Current.Markers.Init(bp);
             }
-            Start = bp.DataStartStr;
-            End = bp.DataEndStr;
-            Split = bp.DataSplitStr;
         }
 
         /// <summary>应用注入记录携带的标记；记录无标记（旧记录）时回退模板默认值</summary>
@@ -44,14 +41,7 @@ namespace SuperSQLInjectionV2.Payload
         /// <summary>应用注入点携带的标记（CMD检测命中后直接取数场景，无InjectRecord中转）；无标记回退模板默认值</summary>
         public static void Use(string? start, string? end, string? split, BasePayload bp)
         {
-            if (!string.IsNullOrEmpty(start) && !string.IsNullOrEmpty(end) && !string.IsNullOrEmpty(split))
-            {
-                Start = start;
-                End = end;
-                Split = split;
-                return;
-            }
-            Init(bp);
+            PayloadFactory.Current.Markers.Use(start, end, split, bp);
         }
 
         /// <summary>生成一组随机标记（字母数字下划线，正则/SQL字面量安全，三段互不相同）</summary>

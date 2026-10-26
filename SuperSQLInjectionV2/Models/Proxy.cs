@@ -48,6 +48,39 @@ namespace SuperSQLInjectionV2.Models
         [ObservableProperty]
         public partial bool IsEnabled { get; set; } = false;//是否启用
 
+        /// <summary>以下均为运行时健康状态，不持久化，也不让高频更新刷新UI。</summary>
+        [JsonIgnore] public long SuccessCount;
+        [JsonIgnore] public long FailureCount;
+        [JsonIgnore] public int ConsecutiveFailures;
+        [JsonIgnore] public DateTime CooldownUntil { get; set; } = DateTime.MinValue;
 
+        [JsonIgnore]
+        public double SelectionWeight
+        {
+            get
+            {
+                double health = 1d + Math.Min(10, SuccessCount) * 0.1d;
+                health /= 1d + ConsecutiveFailures * 2d;
+                if (UseTime > 0) health *= Math.Clamp(1000d / UseTime, 0.25d, 2d);
+                return Math.Max(0.01d, health);
+            }
+        }
+
+        public void MarkSuccess()
+        {
+            Interlocked.Increment(ref SuccessCount);
+            Interlocked.Exchange(ref ConsecutiveFailures, 0);
+            CooldownUntil = DateTime.MinValue;
+        }
+
+        public void MarkFailure()
+        {
+            Interlocked.Increment(ref FailureCount);
+            int failures = Interlocked.Increment(ref ConsecutiveFailures);
+            if (failures >= 2)
+            {
+                CooldownUntil = DateTime.UtcNow.AddSeconds(Math.Min(300, Math.Pow(2, Math.Min(8, failures))));
+            }
+        }
     }
 }

