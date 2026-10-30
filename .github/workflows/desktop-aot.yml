@@ -31,7 +31,7 @@ jobs:
 
       - name: 安装 Linux Native AOT 编译依赖
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev zip
 
       # macOS 默认 Xcode 太旧会缺 swift_Builtin_float 等新版 Swift 运行时库，
       # 导致 Native AOT 链接报 Undefined symbols __swift_FORCE_LOAD_$_swift_*，这里切到 runner 上最新 Xcode
@@ -71,18 +71,24 @@ jobs:
           # 随包附带文档（使用手册/更新说明/界面截图）与README
           Copy-Item -Recurse doc "$pub/doc"
           Copy-Item README.md "$pub/README.md"
-          Compress-Archive -Path "$pub/*" -DestinationPath "dist/SuperSQLInjectionV2-$($env:APP_VERSION -replace '^v','')-desktop-${{ matrix.rid }}.zip" -Force
+          $package = "SuperSQLInjectionV2-$($env:APP_VERSION -replace '^v','')-desktop-${{ matrix.rid }}.zip"
+          Compress-Archive -Path "$pub/*" -DestinationPath "dist/$package" -Force
+          # 更新服务器统一使用 zip，与 GitHub Release 正式产物分目录上传。
+          New-Item -ItemType Directory -Force update | Out-Null
+          Copy-Item "dist/$package" "update/$package" -Force
 
       - name: 打包 tar.gz（Linux）
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          mkdir -p dist
+          mkdir -p dist update
           PUBDIR="SuperSQLInjectionV2.Desktop/bin/Release/net10.0/${{ matrix.rid }}/publish"
           # 随包附带文档（使用手册/更新说明/界面截图）与README
           cp -R doc "$PUBDIR/doc"
           cp README.md "$PUBDIR/README.md"
           tar -czf "dist/SuperSQLInjectionV2-${APP_VERSION#v}-desktop-${{ matrix.rid }}.tar.gz" -C "$PUBDIR" .
+          # 更新包使用 zip 以兼容现有客户端；-r 递归、-y 保留符号链接。
+          (cd "$PUBDIR" && zip -qry "$GITHUB_WORKSPACE/update/SuperSQLInjectionV2-${APP_VERSION#v}-desktop-${{ matrix.rid }}.zip" .)
 
       # macOS 桌面端按平台惯例打 .app Bundle 再封装 .dmg：
       # publish 产物整体进 Contents/MacOS/，Info.plist 声明可执行名/版本/最低系统，
@@ -154,6 +160,9 @@ jobs:
           cp -R doc "$STAGE/doc"
           cp README.md "$STAGE/README.md"
           hdiutil create -volname "SuperSQLInjectionV2" -srcfolder "$STAGE" -ov -format UDZO "dist/SuperSQLInjectionV2-${APP_VERSION#v}-desktop-${{ matrix.rid }}.dmg"
+          # 更新服务器使用 zip 兼容现有客户端；-y 保留 .app 内的符号链接与签名结构。
+          mkdir -p update
+          (cd "$STAGE" && zip -qry "$GITHUB_WORKSPACE/update/SuperSQLInjectionV2-${APP_VERSION#v}-desktop-${{ matrix.rid }}.zip" .)
           rm -rf "$STAGE" "$ICONSET"
           ls -la dist/
 
@@ -163,3 +172,11 @@ jobs:
           name: desktop-${{ matrix.rid }}
           path: dist/
           retention-days: 30
+
+      - name: 上传 SoftUpdate 专用 zip 更新包
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-desktop-${{ matrix.rid }}
+          path: update/
+          retention-days: 30
+          if-no-files-found: error

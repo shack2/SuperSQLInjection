@@ -61,6 +61,13 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: 下载桌面端三平台更新包
+        uses: actions/download-artifact@v4
+        with:
+          pattern: 'update-desktop-*'
+          path: update
+          merge-multiple: true
+
       - name: 下载命令行构建产物
         uses: actions/download-artifact@v4
         with:
@@ -84,33 +91,40 @@ jobs:
           files: dist/*
           generate_release_notes: true
 
-      # 同步到 SoftUpdate 更新通道（soft.shack2.cn）：注册草稿 → 发布上线。
-      # 目前只同步 windows-x64 桌面包（客户端更新检测只按客户端平台匹配，历史版本同）。
+      # 同步桌面端三平台到 SoftUpdate 更新通道（soft.shack2.cn）：逐平台注册草稿 → 发布上线 → 复核。
+      # 更新记录通过 os + arch 区分；CMD 暂无更新客户端，不与桌面端共用 appId。
       # 需要在仓库 Secrets 配置：UPDATE_SERVER_URL（如 http://soft.shack2.cn）、UPDATE_API_KEY（服务端 data/admin-apikey.txt）
-      - name: 同步到 SoftUpdate 更新通道（windows-x64 桌面包）
+      - name: 同步桌面端三平台到 SoftUpdate 更新通道
         env:
           UPDATE_SERVER: ${{ secrets.UPDATE_SERVER_URL }}
           UPDATE_KEY: ${{ secrets.UPDATE_API_KEY }}
           TAG_NAME: ${{ github.ref_name }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          set -e
+          set -euo pipefail
           if [ -z "$UPDATE_SERVER" ] || [ -z "$UPDATE_KEY" ]; then
             echo "::error::必须配置 UPDATE_SERVER_URL / UPDATE_API_KEY Secrets，禁止发布流程静默跳过更新通道"
             exit 1
           fi
           VER="${TAG_NAME#v}"
-          ZIP=$(ls dist/*desktop-win-x64.zip)
-          echo "同步 $VER -> $UPDATE_SERVER （包：$ZIP）"
-          RESP=$(curl -sf -X POST "$UPDATE_SERVER/api/admin/releases" \
-            -H "X-Api-Key: $UPDATE_KEY" \
-            -F appId=supersqlinjection -F "version=$VER" -F channel=stable \
-            -F os=windows -F arch=x64 -F mandatory=false \
-            -F "notes=$COMMIT_MSG" \
-            -F "files=@$ZIP")
-          echo "$RESP"
-          ID=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['id'])")
-          curl -sf -X POST "$UPDATE_SERVER/api/admin/releases/$ID/publish" -H "X-Api-Key: $UPDATE_KEY"
-          curl -sf "$UPDATE_SERVER/api/admin/releases?appId=supersqlinjection" -H "X-Api-Key: $UPDATE_KEY" \
-            | ID="$ID" VER="$VER" python3 -c 'import json,sys,os; data=json.load(sys.stdin); rows=data if isinstance(data,list) else data.get("items",data.get("data",[])); rid=int(os.environ["ID"]); ver=os.environ["VER"]; assert any(str(r.get("id"))==str(rid) and r.get("version")==ver and (r.get("published") or r.get("isPublished") or r.get("publishedAtUtc") or r.get("status")=="published") for r in rows), "更新通道复核失败：未找到已发布版本或发布状态不正确"'
-          echo "更新通道已发布并复核通过：$VER"
+          for SPEC in "windows x64 win-x64" "linux x64 linux-x64" "osx arm64 osx-arm64"; do
+            read -r OS ARCH RID <<< "$SPEC"
+            PACKAGE="update/SuperSQLInjectionV2-$VER-desktop-$RID.zip"
+            if [ ! -f "$PACKAGE" ]; then
+              echo "::error::缺少 $OS-$ARCH 更新包：$PACKAGE"
+              exit 1
+            fi
+            echo "同步 $VER ($OS-$ARCH) -> $UPDATE_SERVER （包：$PACKAGE）"
+            RESP=$(curl -sf -X POST "$UPDATE_SERVER/api/admin/releases" \
+              -H "X-Api-Key: $UPDATE_KEY" \
+              -F appId=supersqlinjection -F "version=$VER" -F channel=stable \
+              -F "os=$OS" -F "arch=$ARCH" -F mandatory=false \
+              -F "notes=$COMMIT_MSG" \
+              -F "files=@$PACKAGE")
+            echo "$RESP"
+            ID=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['id'])")
+            curl -sf -X POST "$UPDATE_SERVER/api/admin/releases/$ID/publish" -H "X-Api-Key: $UPDATE_KEY"
+            curl -sf "$UPDATE_SERVER/api/admin/releases?appId=supersqlinjection" -H "X-Api-Key: $UPDATE_KEY" \
+              | ID="$ID" VER="$VER" OS="$OS" ARCH="$ARCH" python3 -c 'import json,sys,os; data=json.load(sys.stdin); rows=data if isinstance(data,list) else data.get("items",data.get("data",[])); rid=int(os.environ["ID"]); ver=os.environ["VER"]; platform=os.environ["OS"]; arch=os.environ["ARCH"]; assert any(str(r.get("id"))==str(rid) and r.get("version")==ver and r.get("os")==platform and r.get("arch")==arch and (r.get("published") or r.get("isPublished") or r.get("publishedAtUtc") or str(r.get("status","")).lower()=="published") for r in rows), "更新通道复核失败：未找到对应平台的已发布版本或发布状态不正确"'
+            echo "更新通道已发布并复核通过：$VER ($OS-$ARCH)"
+          done
