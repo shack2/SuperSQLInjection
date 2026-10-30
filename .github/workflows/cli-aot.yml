@@ -1,5 +1,5 @@
 # SuperSQLInjectionV2.Cmd 命令行三平台 Native AOT 编译打包
-# 手动触发：Actions → cli-aot → Run workflow；产物在 Artifacts
+# 手动触发：Actions → cli-aot → Run workflow；CMD/主库/Skill 相关 main 推送也自动触发
 # 也被 release.yml 以 workflow_call 复用（打 tag 发布时自动构建）
 # 注：Native AOT 不支持跨 OS 交叉编译，三平台分别用对应 runner 本机编译；
 #     清理规则与本地 publish-cli-aot.cmd / publish-cli-aot-linux.sh / publish-cli-aot-osx.sh 一致
@@ -8,6 +8,15 @@ name: cli-aot
 on:
   workflow_dispatch:
   workflow_call:
+  push:
+    branches: [main]
+    paths:
+      - 'SuperSQLInjectionV2.Cmd/**'
+      - 'SuperSQLInjectionV2/**'
+      - 'SuperSQLInjectionV2.Desktop/SuperSQLInjectionV2.Desktop.csproj'
+      - 'skills/supersqlinjectionv2-cmd/**'
+      - '.github/scripts/package-skill-cli.py'
+      - '.github/workflows/cli-aot.yml'
 
 env:
   # 发版时由 tag 名自动取版本（refs/tags/v2.0.3 → v2.0.3）；手动触发时为 0.0.0-dev
