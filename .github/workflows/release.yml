@@ -114,17 +114,30 @@ jobs:
               echo "::error::缺少 $OS-$ARCH 更新包：$PACKAGE"
               exit 1
             fi
-            echo "同步 $VER ($OS-$ARCH) -> $UPDATE_SERVER （包：$PACKAGE）"
-            RESP=$(curl -sf -X POST "$UPDATE_SERVER/api/admin/releases" \
-              -H "X-Api-Key: $UPDATE_KEY" \
-              -F appId=supersqlinjection -F "version=$VER" -F channel=stable \
-              -F "os=$OS" -F "arch=$ARCH" -F mandatory=false \
-              -F "notes=$COMMIT_MSG" \
-              -F "files=@$PACKAGE")
-            echo "$RESP"
-            ID=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['id'])")
-            curl -sf -X POST "$UPDATE_SERVER/api/admin/releases/$ID/publish" -H "X-Api-Key: $UPDATE_KEY"
-            curl -sf "$UPDATE_SERVER/api/admin/releases?appId=supersqlinjection" -H "X-Api-Key: $UPDATE_KEY" \
+
+            # 同一版本重复发布时保持幂等：已发布则复核跳过，草稿则续发，缺失才创建。
+            EXISTING=$(curl -sS --fail-with-body "$UPDATE_SERVER/api/admin/releases?appId=supersqlinjection" -H "X-Api-Key: $UPDATE_KEY" \
+              | VER="$VER" OS="$OS" ARCH="$ARCH" python3 -c 'import json,sys,os; data=json.load(sys.stdin); rows=data if isinstance(data,list) else data.get("items",data.get("data",[])); matches=[r for r in rows if r.get("version")==os.environ["VER"] and r.get("os")==os.environ["OS"] and r.get("arch")==os.environ["ARCH"]]; r=max(matches,key=lambda x:int(x.get("id",0))) if matches else None; published=bool(r and (r.get("published") or r.get("isPublished") or r.get("publishedAtUtc") or str(r.get("status","")).lower()=="published")); print("{} {}".format(r["id"], str(published).lower())) if r else None')
+            ID=""
+            ALREADY_PUBLISHED=false
+            if [ -n "$EXISTING" ]; then
+              read -r ID ALREADY_PUBLISHED <<< "$EXISTING"
+              echo "发现 $VER ($OS-$ARCH) 已有记录 ID=$ID，发布状态=$ALREADY_PUBLISHED"
+            else
+              echo "创建 $VER ($OS-$ARCH) 更新记录（包：$PACKAGE）"
+              RESP=$(curl -sS --fail-with-body -X POST "$UPDATE_SERVER/api/admin/releases" \
+                -H "X-Api-Key: $UPDATE_KEY" \
+                -F appId=supersqlinjection -F "version=$VER" -F channel=stable \
+                -F "os=$OS" -F "arch=$ARCH" -F mandatory=false \
+                -F "notes=$COMMIT_MSG" \
+                -F "files=@$PACKAGE")
+              echo "$RESP"
+              ID=$(echo "$RESP" | python3 -c "import json,sys;print(json.load(sys.stdin)['id'])")
+            fi
+            if [ "$ALREADY_PUBLISHED" != "true" ]; then
+              curl -sS --fail-with-body -X POST "$UPDATE_SERVER/api/admin/releases/$ID/publish" -H "X-Api-Key: $UPDATE_KEY"
+            fi
+            curl -sS --fail-with-body "$UPDATE_SERVER/api/admin/releases?appId=supersqlinjection" -H "X-Api-Key: $UPDATE_KEY" \
               | ID="$ID" VER="$VER" OS="$OS" ARCH="$ARCH" python3 -c 'import json,sys,os; data=json.load(sys.stdin); rows=data if isinstance(data,list) else data.get("items",data.get("data",[])); rid=int(os.environ["ID"]); ver=os.environ["VER"]; platform=os.environ["OS"]; arch=os.environ["ARCH"]; assert any(str(r.get("id"))==str(rid) and r.get("version")==ver and r.get("os")==platform and r.get("arch")==arch and (r.get("published") or r.get("isPublished") or r.get("publishedAtUtc") or str(r.get("status","")).lower()=="published") for r in rows), "更新通道复核失败：未找到对应平台的已发布版本或发布状态不正确"'
             echo "更新通道已发布并复核通过：$VER ($OS-$ARCH)"
           done
