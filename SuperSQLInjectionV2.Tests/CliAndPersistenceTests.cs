@@ -27,6 +27,38 @@ public sealed class CliAndPersistenceTests
     }
 
     [Fact]
+    public void Cli_ParsesForceSsl()
+    {
+        CliOptions opt = CliOptions.Parse(["-r", "request.txt", "--force-ssl"]);
+        Assert.True(opt.ForceSsl);
+    }
+
+    [Fact]
+    public void RawRequest_AppliesHttpsAndIpv6TargetSettings()
+    {
+        var absolute = new AppConfig();
+        Program.ApplyHostFromRequest(absolute, "GET https://example.test/login?id=1 HTTP/1.1\r\nHost: example.test\r\n\r\n");
+        Assert.True(absolute.IsSSL);
+        Assert.Equal(443, absolute.Port);
+        Assert.Equal("example.test", absolute.Host);
+
+        var forced = new AppConfig();
+        Program.ApplyHostFromRequest(forced, "GET /?id=1 HTTP/1.1\r\nHost: [::1]:8443\r\n\r\n", forceSsl: true);
+        Assert.True(forced.IsSSL);
+        Assert.Equal(8443, forced.Port);
+        Assert.Equal("::1", forced.Host);
+    }
+
+    [Fact]
+    public void DumpRange_ConvertsInclusiveRowsToOffsetAndCount()
+    {
+        Assert.Equal((4, 6), Program.GetDumpRange(new CliOptions { Start = 5, Stop = 10 }));
+        Assert.Equal((2, 0), Program.GetDumpRange(new CliOptions { Start = 3 }));
+        Assert.Throws<ArgumentException>(() => Program.GetDumpRange(new CliOptions { Start = 10, Stop = 5 }));
+        Assert.Throws<ArgumentException>(() => Program.GetDumpRange(new CliOptions { Start = 0 }));
+    }
+
+    [Fact]
     public void SessionFingerprint_ChangesWithRequestAndDetectionSettings()
     {
         var config = new AppConfig();

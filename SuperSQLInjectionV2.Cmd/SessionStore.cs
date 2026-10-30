@@ -1,4 +1,5 @@
 using SuperSQLInjectionV2.Models;
+using SuperSQLInjectionV2.Payload;
 using SuperSQLInjectionV2.Tools;
 using System.Security.Cryptography;
 using System.Text;
@@ -114,9 +115,11 @@ public static class SessionStore
     }
 }
 
-/// <summary>AOT源生成JSON上下文（会话文件序列化，禁反射）</summary>
+/// <summary>AOT源生成JSON上下文（会话与机器可读输出，禁反射/动态代码）</summary>
 [JsonSourceGenerationOptions(WriteIndented = true)]
 [JsonSerializable(typeof(SessionStore.SessionFile))]
+[JsonSerializable(typeof(List<SupportMatrixEntry>))]
+[JsonSerializable(typeof(BatchResultJson[]))]
 internal partial class CmdJsonCtx : JsonSerializerContext
 {
 }

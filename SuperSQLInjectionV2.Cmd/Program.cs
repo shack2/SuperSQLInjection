@@ -50,7 +50,7 @@ public static class Program
         {
             opt = CliOptions.Parse(args);
         }
-        catch (ArgumentException e)
+        catch (Exception e) when (e is ArgumentException or FormatException or OverflowException)
         {
             Console.Error.WriteLine("参数错误: " + e.Message);
             Console.Error.WriteLine("用 -h 查看帮助");
@@ -92,7 +92,7 @@ public static class Program
         {
             string file = Path.GetFullPath(opt.SupportMatrix);
             List<SupportMatrixEntry> matrix = SupportMatrixGenerator.Generate();
-            AtomicFile.WriteAllText(file, JsonSerializer.Serialize(matrix, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+            AtomicFile.WriteAllText(file, JsonSerializer.Serialize(matrix, CmdJsonCtx.Default.ListSupportMatrixEntry), new UTF8Encoding(false));
             Console.WriteLine($"支持矩阵已导出：{file}（{matrix.Count} 个数据库/Fork组合）");
             return 0;
         }
@@ -124,6 +124,12 @@ public static class Program
         try
         {
             return await Run(opt);
+        }
+        catch (ArgumentException e)
+        {
+            //运行期输入校验（缺 -D/-T、非法报文、dump 范围等）同样归类为参数错误。
+            Log.Error("参数错误: " + e.Message);
+            return 2;
         }
         catch (SuperSQLInjectionV2.Tools.Http.TargetUnreachableException e)
         {
@@ -272,8 +278,7 @@ public static class Program
         }
 
         // ---------- 执行动作 ----------
-        await RunActions(opt, config, dbType, best);
-        return 0;
+        return await RunActions(opt, config, dbType, best).ConfigureAwait(false);
     }
 
     // ================== 批量检测（-m/--batch-file） ==================
@@ -418,34 +423,34 @@ public static class Program
             string? dir = Path.GetDirectoryName(file);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
             string ext = Path.GetExtension(file);
-            var rows = results.Select((r, i) => new
+            var rows = results.Select((r, i) => new BatchResultJson
             {
-                url = urls[i],
-                status = r.Error != null ? "error" : r.Hits.Count > 0 ? "vulnerable" : "clean",
-                elapsedMs = (long)r.Elapsed.TotalMilliseconds,
-                resumed = r.Resumed,
-                error = r.Error ?? "",
-                hits = r.Hits.Select(h => new
+                Url = urls[i],
+                Status = r.Error != null ? "error" : r.Hits.Count > 0 ? "vulnerable" : "clean",
+                ElapsedMs = (long)r.Elapsed.TotalMilliseconds,
+                Resumed = r.Resumed,
+                Error = r.Error ?? "",
+                Hits = r.Hits.Select(h => new BatchHitJson
                 {
-                    parameter = h.PName,
-                    technique = h.InjectType.ToString(),
-                    dbms = h.DBType.ToString(),
-                    fork = h.ForkName,
-                    payload = h.TestPayload
+                    Parameter = h.PName,
+                    Technique = h.InjectType.ToString(),
+                    Dbms = h.DBType.ToString(),
+                    Fork = h.ForkName,
+                    Payload = h.TestPayload
                 }).ToArray()
             }).ToArray();
             if (ext.Equals(".json", StringComparison.OrdinalIgnoreCase))
             {
-                AtomicFile.WriteAllText(file, JsonSerializer.Serialize(rows, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+                AtomicFile.WriteAllText(file, JsonSerializer.Serialize(rows, CmdJsonCtx.Default.BatchResultJsonArray), new UTF8Encoding(false));
             }
             else if (ext.Equals(".csv", StringComparison.OrdinalIgnoreCase))
             {
                 var sb = new StringBuilder("url,status,elapsedMs,resumed,error,hitCount,details\r\n");
                 foreach (var row in rows)
                 {
-                    string details = string.Join(" | ", row.hits.Select(h => $"{h.parameter}:{h.technique}:{h.dbms}:{h.fork}"));
-                    sb.AppendJoin(',', CsvExport.Cell(row.url, !opt.RawCsv), CsvExport.Cell(row.status), row.elapsedMs,
-                        row.resumed, CsvExport.Cell(row.error, !opt.RawCsv), row.hits.Length, CsvExport.Cell(details, !opt.RawCsv)).AppendLine();
+                    string details = string.Join(" | ", row.Hits.Select(h => $"{h.Parameter}:{h.Technique}:{h.Dbms}:{h.Fork}"));
+                    sb.AppendJoin(',', CsvExport.Cell(row.Url, !opt.RawCsv), CsvExport.Cell(row.Status), row.ElapsedMs,
+                        row.Resumed, CsvExport.Cell(row.Error, !opt.RawCsv), row.Hits.Length, CsvExport.Cell(details, !opt.RawCsv)).AppendLine();
                 }
                 AtomicFile.WriteAllText(file, sb.ToString(), new UTF8Encoding(true));
             }
@@ -618,7 +623,7 @@ public static class Program
         {
             if (!File.Exists(opt.RequestFile)) { return new TargetResult { Error = "请求报文文件不存在: " + opt.RequestFile, Elapsed = swDetect.Elapsed }; }
             requestTxt = File.ReadAllText(opt.RequestFile).Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\r\n", StringComparison.Ordinal);
-            ApplyHostFromRequest(config, requestTxt);
+            ApplyHostFromRequest(config, requestTxt, opt.ForceSsl);
         }
         else
         {
@@ -631,10 +636,14 @@ public static class Program
         if (!string.IsNullOrWhiteSpace(opt.Proxy)) ApplyProxy(config, opt.Proxy!);
 
         //日志标注检测目标URL（-u 直接用原始URL；-r 报文模式由Host头+请求行重构）
+        string requestTarget = requestTxt.Split("\r\n")[0].Split(' ') is { Length: >= 2 } rl ? rl[1] : "/";
+        bool absoluteTarget = Uri.TryCreate(requestTarget, UriKind.Absolute, out var targetUri)
+            && (targetUri.Scheme == Uri.UriSchemeHttp || targetUri.Scheme == Uri.UriSchemeHttps);
+        string urlHost = config.Host.Contains(':', StringComparison.Ordinal) ? "[" + config.Host + "]" : config.Host;
+        bool defaultPort = config.IsSSL ? config.Port == 443 : config.Port == 80;
         string displayUrl = !string.IsNullOrWhiteSpace(opt.Url) ? opt.Url!
-            : (config.IsSSL ? "https" : "http") + "://" + config.Host
-              + (config.Port is 80 or 443 ? "" : ":" + config.Port)
-              + (requestTxt.Split("\r\n")[0].Split(' ') is { Length: >= 2 } rl ? rl[1] : "/");
+            : absoluteTarget ? targetUri!.ToString()
+            : (config.IsSSL ? "https" : "http") + "://" + urlHost + (defaultPort ? "" : ":" + config.Port) + requestTarget;
         //回写config.Url：取数配置摘要等共享逻辑读取该字段，否则显示持久化配置里的旧目标
         config.Url = displayUrl;
         Log.Highlight($"目标URL: {displayUrl}");
@@ -734,8 +743,16 @@ public static class Program
 
     // ================== 动作执行 ==================
 
-    private static async Task RunActions(CliOptions opt, AppConfig config, DBType dbType, InjectPoint hit)
+    private static async Task<int> RunActions(CliOptions opt, AppConfig config, DBType dbType, InjectPoint hit)
     {
+        //动作失败必须向脚本调用方传播非零退出码，不能仅打印错误后仍返回成功。
+        int exitCode = 0;
+        void Fail(string message, int code = 1)
+        {
+            Log.Error(message);
+            if (exitCode == 0) exitCode = code;
+        }
+
         //取数动作前输出当前生效配置摘要（与GUI EnsureDataOpReady 成功路径同一实现，保持双端日志一致）
         MainViewViewModel.LogDataOpConfig(config, hit.InjectType);
         bool echo = hit.InjectType is InjectType.Union or InjectType.Error;
@@ -872,11 +889,12 @@ public static class Program
                 (): dumpCols ?? [];
             if (cols.Count == 0)
             {
-                Log.Error("dump 需要列：用 -C 指定，或先 --columns 枚举");
-                return;
+                Fail("dump 需要列：用 -C 指定，或先 --columns 枚举", 2);
+                return exitCode;
             }
-            config.DataDump.DataDumpStart = Math.Max(0, opt.Start - 1);
-            config.DataDump.DumpCount = opt.Stop ?? 0; // 0 时由行数检查兜底
+            var (startOffset, dumpCount) = GetDumpRange(opt);
+            config.DataDump.DataDumpStart = startOffset;
+            config.DataDump.DumpCount = dumpCount; // 0 时按总行数计算剩余读取数量
             Console.WriteLine();
             Log.Highlight($"========== 导出数据（{db}.{table}，列: {string.Join(",", cols)}） ==========");
 
@@ -884,12 +902,12 @@ public static class Program
             WeakReferenceMessenger.Default.Register<List<DynamicDataItem>, AddRowDataMsg>(rows, (r, m) => r.Add(m.Data));
 
             var dt = new DataTools(db, table, cols);
-            // DumpCount=0 时先取行数兜底
+            // DumpCount=0 时先取行数兜底；DataTools 需要的是数量而非结束行号。
             if (config.DataDump.DumpCount <= 0)
             {
                 int cnt = await GetCount(PayloadFactory.BPTool.GetDataCount(db, table, config.DataDump.DumpWhere));
-                config.DataDump.DumpCount = cnt;
-                Log.Show($"表 {table} 共 {cnt} 行");
+                config.DataDump.DumpCount = Math.Max(0, cnt - startOffset);
+                Log.Show($"表 {table} 共 {cnt} 行，本次从第 {startOffset + 1} 行读取 {config.DataDump.DumpCount} 行");
             }
             Task dumpTask = hit.InjectType switch
             {
@@ -924,7 +942,11 @@ public static class Program
             string? method = string.IsNullOrWhiteSpace(opt.FileMethod)
                 ? vm.FileMethods.FirstOrDefault(m => m.Contains("读文件", StringComparison.Ordinal))
                 : MatchMethod(vm.FileMethods, opt.FileMethod!);
-            if (method == null) { Log.Error($"当前数据库 {dbType} 不支持文件读取" + (string.IsNullOrWhiteSpace(opt.FileMethod) ? "" : $"（无匹配方式[{opt.FileMethod}]，可用：{string.Join(" / ", vm.FileMethods)}）")); }
+            if (method == null)
+            {
+                Fail($"当前数据库 {dbType} 不支持文件读取" + (string.IsNullOrWhiteSpace(opt.FileMethod) ? "" : $"（无匹配方式[{opt.FileMethod}]，可用：{string.Join(" / ", vm.FileMethods)}）"),
+                    string.IsNullOrWhiteSpace(opt.FileMethod) ? 1 : 2);
+            }
             else
             {
                 vm.SelectedFileMethod = method;
@@ -934,8 +956,8 @@ public static class Program
                 if (method.Contains("二进制下载", StringComparison.Ordinal))
                 {
                     //二进制下载：必须 --file-dest 指定本地保存路径，字节直接落盘
-                    if (string.IsNullOrWhiteSpace(opt.FileDest)) { Log.Error("二进制下载需要 --file-dest 指定本地保存路径"); }
-                    else if (vm.FileBytes == null || vm.FileBytes.Length == 0) { Log.Error("二进制下载结果为空（详见上方日志）"); }
+                    if (string.IsNullOrWhiteSpace(opt.FileDest)) Fail("二进制下载需要 --file-dest 指定本地保存路径", 2);
+                    else if (vm.FileBytes == null || vm.FileBytes.Length == 0) Fail("二进制下载结果为空（详见上方日志）");
                     else
                     {
                         File.WriteAllBytes(opt.FileDest!, vm.FileBytes);
@@ -949,8 +971,8 @@ public static class Program
         // ---- 文件上传 ----
         if (opt.FileWrite != null)
         {
-            if (!File.Exists(opt.FileWrite)) { Log.Error("本地文件不存在: " + opt.FileWrite); return; }
-            if (string.IsNullOrWhiteSpace(opt.FileDest)) { Log.Error("--file-write 需要配合 --file-dest 指定远端路径"); return; }
+            if (!File.Exists(opt.FileWrite)) { Fail("本地文件不存在: " + opt.FileWrite, 2); return exitCode; }
+            if (string.IsNullOrWhiteSpace(opt.FileDest)) { Fail("--file-write 需要配合 --file-dest 指定远端路径", 2); return exitCode; }
             Console.WriteLine();
             Log.Highlight($"========== 上传文件: {opt.FileWrite} → {opt.FileDest} ==========");
             var vm = new FileCmdViewModel(config);
@@ -958,7 +980,11 @@ public static class Program
             string? method = string.IsNullOrWhiteSpace(opt.FileMethod)
                 ? vm.FileMethods.FirstOrDefault(m => m.Contains("写文件", StringComparison.Ordinal) || m.Contains("WebShell", StringComparison.Ordinal))
                 : MatchMethod(vm.FileMethods, opt.FileMethod!);
-            if (method == null) { Log.Error($"当前数据库 {dbType} 不支持文件写入" + (string.IsNullOrWhiteSpace(opt.FileMethod) ? "" : $"（无匹配方式[{opt.FileMethod}]，可用：{string.Join(" / ", vm.FileMethods)}）")); }
+            if (method == null)
+            {
+                Fail($"当前数据库 {dbType} 不支持文件写入" + (string.IsNullOrWhiteSpace(opt.FileMethod) ? "" : $"（无匹配方式[{opt.FileMethod}]，可用：{string.Join(" / ", vm.FileMethods)}）"),
+                    string.IsNullOrWhiteSpace(opt.FileMethod) ? 1 : 2);
+            }
             else
             {
                 vm.SelectedFileMethod = method;
@@ -991,7 +1017,7 @@ public static class Program
             Log.Highlight($"========== 命令执行: {opt.OsCmd} ==========");
             var vm = new FileCmdViewModel(config);
             vm.RefreshFileMethods(dbType);
-            if (vm.CmdMethods.Count == 0) { Log.Error($"当前数据库 {dbType} 不支持命令执行（{vm.CmdMethodHint}）"); }
+            if (vm.CmdMethods.Count == 0) Fail($"当前数据库 {dbType} 不支持命令执行（{vm.CmdMethodHint}）");
             else
             {
                 vm.SelectedCmdMethod = string.IsNullOrWhiteSpace(opt.CmdMethod)
@@ -999,8 +1025,8 @@ public static class Program
                     : MatchMethod(vm.CmdMethods, opt.CmdMethod!) ?? "";
                 if (string.IsNullOrEmpty(vm.SelectedCmdMethod))
                 {
-                    Log.Error($"无匹配命令执行方式[{opt.CmdMethod}]，可用：{string.Join(" / ", vm.CmdMethods)}");
-                    return;
+                    Fail($"无匹配命令执行方式[{opt.CmdMethod}]，可用：{string.Join(" / ", vm.CmdMethods)}", 2);
+                    return exitCode;
                 }
                 vm.CmdText = opt.OsCmd;
                 vm.CmdShowResult = true;
@@ -1010,6 +1036,7 @@ public static class Program
                 if (!string.IsNullOrEmpty(vm.CmdResult)) Console.WriteLine(vm.CmdResult);
             }
         }
+        return exitCode;
     }
 
     /// <summary>方式名匹配：优先精确相等，其次包含匹配（避免"大对象"误命中"大对象读文件"）</summary>
@@ -1253,20 +1280,63 @@ public static class Program
         return sb.ToString();
     }
 
-    private static void ApplyHostFromRequest(AppConfig config, string requestTxt)
+    /// <summary>把 CLI 的闭区间行号转换成 DataTools 使用的零基偏移与读取数量。</summary>
+    internal static (int StartOffset, int Count) GetDumpRange(CliOptions opt)
     {
-        var hostLine = requestTxt.Split("\r\n").FirstOrDefault(l => l.StartsWith("Host:", StringComparison.OrdinalIgnoreCase));
+        if (opt.Start < 1) throw new ArgumentException("--start 必须从 1 开始");
+        if (opt.Stop is < 1) throw new ArgumentException("--stop 必须从 1 开始");
+        if (opt.Stop.HasValue && opt.Stop.Value < opt.Start)
+            throw new ArgumentException("--stop 不能小于 --start");
+        return (opt.Start - 1, opt.Stop.HasValue ? opt.Stop.Value - opt.Start + 1 : 0);
+    }
+
+    internal static void ApplyHostFromRequest(AppConfig config, string requestTxt, bool forceSsl = false)
+    {
+        var lines = requestTxt.Split("\r\n");
+        var hostLine = lines.FirstOrDefault(l => l.StartsWith("Host:", StringComparison.OrdinalIgnoreCase));
         if (hostLine == null) throw new ArgumentException("请求报文缺少 Host 头");
+
+        string[] requestLine = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        bool absoluteHttps = requestLine.Length >= 2
+            && Uri.TryCreate(requestLine[1], UriKind.Absolute, out var absoluteUri)
+            && absoluteUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+        config.IsSSL = forceSsl || absoluteHttps;
+
         string hostPort = hostLine[5..].Trim();
-        if (hostPort.Contains(':', StringComparison.Ordinal))
+        string? portText = null;
+        if (hostPort.StartsWith("[", StringComparison.Ordinal))
         {
-            config.Host = hostPort.Split(':')[0];
-            config.Port = int.Parse(hostPort.Split(':')[1]);
+            //IPv6 字面量：[::1]:8443；裸 IPv6 不带端口时保留完整地址。
+            int close = hostPort.IndexOf(']', StringComparison.Ordinal);
+            if (close < 0) throw new ArgumentException("请求报文 Host 头的 IPv6 地址缺少 ]");
+            config.Host = hostPort[1..close];
+            if (close + 1 < hostPort.Length)
+            {
+                if (hostPort[close + 1] != ':') throw new ArgumentException("请求报文 Host 头格式无效");
+                portText = hostPort[(close + 2)..];
+            }
+        }
+        else if (hostPort.Count(c => c == ':') == 1)
+        {
+            int colon = hostPort.LastIndexOf(':');
+            config.Host = hostPort[..colon];
+            portText = hostPort[(colon + 1)..];
         }
         else
         {
             config.Host = hostPort;
-            config.Port = 80;
+        }
+        if (string.IsNullOrWhiteSpace(config.Host)) throw new ArgumentException("请求报文 Host 头为空");
+        config.Port = 80;
+        if (portText != null)
+        {
+            if (!int.TryParse(portText, out int port) || port is < 1 or > 65535)
+                throw new ArgumentException("请求报文 Host 头端口无效: " + portText);
+            config.Port = port;
+        }
+        else if (config.IsSSL)
+        {
+            config.Port = 443;
         }
     }
 

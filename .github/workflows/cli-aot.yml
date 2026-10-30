@@ -107,3 +107,69 @@ jobs:
           name: cli-${{ matrix.rid }}
           path: dist/
           retention-days: 30
+
+      - name: 上传 Skill 打包用原始产物（仅 Windows/Linux）
+        if: matrix.rid != 'osx-arm64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-input-${{ matrix.rid }}
+          path: SuperSQLInjectionV2.Cmd/bin/Release/net10.0/${{ matrix.rid }}/publish/
+          retention-days: 1
+          if-no-files-found: error
+
+  package-skill:
+    name: 构建双平台 Skill 包
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 下载 Windows Native AOT 原始产物
+        uses: actions/download-artifact@v4
+        with:
+          name: skill-input-win-x64
+          path: SuperSQLInjectionV2.Cmd/bin/Release/net10.0/win-x64/publish
+
+      - name: 下载 Linux Native AOT 原始产物
+        uses: actions/download-artifact@v4
+        with:
+          name: skill-input-linux-x64
+          path: SuperSQLInjectionV2.Cmd/bin/Release/net10.0/linux-x64/publish
+
+      - name: 合并双平台产物并校验三端版本
+        run: |
+          set -euo pipefail
+          chmod +x SuperSQLInjectionV2.Cmd/bin/Release/net10.0/linux-x64/publish/SuperSQLInjectionV2.Cmd
+          # 不传 --reuse-existing：任一平台缺少当前构建产物时直接失败。
+          python3 .github/scripts/package-skill-cli.py
+
+      - name: 独立校验 Skill 包与双平台构建来源
+        run: |
+          python3 - <<'PY'
+          import json
+          from zipfile import ZipFile
+
+          path = 'dist/supersqlinjectionv2-cmd.skill'
+          with ZipFile(path) as archive:
+              assert archive.testzip() is None, 'Skill 包 CRC 校验失败'
+              root = 'supersqlinjectionv2-cmd/'
+              info = json.loads(archive.read(root + 'assets/bin/BUILDINFO.json'))
+              assert all(item['currentBuildVerified'] for item in info['platforms'].values()), '包含旧平台二进制'
+              for rid, executable in [('win-x64', 'SuperSQLInjectionV2.Cmd.exe'), ('linux-x64', 'SuperSQLInjectionV2.Cmd')]:
+                  assert root + f'assets/bin/{rid}/{executable}' in archive.namelist(), f'缺少 {rid} 可执行文件'
+              linux = archive.getinfo(root + 'assets/bin/linux-x64/SuperSQLInjectionV2.Cmd')
+              assert (linux.external_attr >> 16) & 0o111, 'Linux 可执行权限丢失'
+          print('Skill 包校验通过：双平台均为当前 Native AOT 构建')
+          PY
+
+      - name: 上传双平台 Skill 包
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-cli
+          path: dist/supersqlinjectionv2-cmd.skill
+          retention-days: 30
+          if-no-files-found: error

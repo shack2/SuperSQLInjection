@@ -53,10 +53,25 @@ jobs:
     needs: [desktop, cli]
     runs-on: ubuntu-latest
     steps:
-      - name: 下载全部构建产物
+      # 只下载正式产物；skill-input-* 是 cli-aot 内部合并 Skill 用的中间文件，不能混入 Release。
+      - name: 下载桌面端构建产物
         uses: actions/download-artifact@v4
         with:
-          pattern: '*'
+          pattern: 'desktop-*'
+          path: dist
+          merge-multiple: true
+
+      - name: 下载命令行构建产物
+        uses: actions/download-artifact@v4
+        with:
+          pattern: 'cli-*'
+          path: dist
+          merge-multiple: true
+
+      - name: 下载双平台 Skill 包
+        uses: actions/download-artifact@v4
+        with:
+          name: skill-cli
           path: dist
           merge-multiple: true
 

@@ -45,6 +45,7 @@ public sealed class CliOptions
     public string? RulesDir;               // --rules-dir 规则库目录（默认 config/rules/）
     public bool FollowRedirects;           // --follow-redirects
     public bool CookieJar;                 // --cookie-jar 保持目标Cookie会话
+    public bool ForceSsl;                  // --force-ssl 原始报文按HTTPS发送（sqlmap同名参数）
 
     // ---- 取数动作 ----
     public bool Banner;                    // --banner 版本
@@ -154,6 +155,7 @@ public sealed class CliOptions
                     case "--rules-dir": o.RulesDir = Val(); break;
                     case "--follow-redirects": o.FollowRedirects = true; break;
                     case "--cookie-jar": o.CookieJar = true; break;
+                    case "--force-ssl": o.ForceSsl = true; break;
                     case "--banner": o.Banner = true; break;
                     case "--current-user": o.CurrentUser = true; break;
                     case "--current-db": o.CurrentDb = true; break;
@@ -263,6 +265,7 @@ public sealed class CliOptions
           --rules-dir=DIR         规则库目录（默认 config/rules/，与 GUI 共用：自定义tamper/动态规则/字符替换/代理池）
           --follow-redirects      跟随 3xx 重定向
           --cookie-jar            保持目标Cookie会话（默认关闭）
+          --force-ssl             -r 原始报文按 HTTPS 发送（绝对形式 https:// 请求行也会自动识别）
 
         取数动作（检测到注入后执行，可组合）:
           --banner                数据库版本

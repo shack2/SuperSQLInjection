@@ -7,6 +7,8 @@ description: 使用 SuperSQLInjectionV2.Cmd 命令行工具（SuperSQLInjectionV
 
 SuperSQLInjectionV2.Cmd 是 SuperSQLInjectionV2 的命令行版，Native AOT 单文件，无需 .NET 运行时。仅限授权目标使用。
 
+版本：2.0.6（与 SuperSQLInjectionV2 桌面端和 CMD 同步）。
+
 ## 运行二进制
 
 按操作系统选择本 skill 内置的二进制（`<SKILL_DIR>` 为本 SKILL.md 所在目录）：
@@ -31,7 +33,7 @@ SuperSQLInjectionV2.Cmd 是 SuperSQLInjectionV2 的命令行版，Native AOT 单
 
 ## 关键规则
 
-- 报文级目标（复杂头/Cookie/JSON/XML 注入点）：让用户提供原始报文存成文件，用 `-r 文件 [-p 参数]`。
+- 报文级目标（复杂头/Cookie/JSON/XML 注入点）：让用户提供原始报文存成文件，用 `-r 文件 [-p 参数]`；HTTPS 报文加 `--force-ssl`（请求行为绝对形式 `https://...` 时自动识别）。
 - 检测失败再逐步升级：先 `--level 2`，仍无结果加 `--dbms` 收窄 + `--exhaustive`；疑似 WAF 加 `--tamper`（内置编码工具链）或 `--random-agent --delay`。注意：检测参数（level/risk/technique/dbms/tamper 等）变化会使会话指纹失效自动重测，无需手动清理。
 - 重复跑同一目标想强制重测用 `--flush-session`；换动作（先 `--dbs` 后 `--dump`）不会触发重测。
 - 盲注慢时加 `--threads 5`；中文乱码加 `--hex`。
